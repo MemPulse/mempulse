@@ -1,0 +1,22 @@
+{
+    "items": [
+        {
+            "deck": "JavaScript Fundamentals",
+            "reviewedCards": 14,
+            "time": "2h ago",
+            "datetime": "2026-09-09T09:00"
+        },
+        {
+            "deck": "React Patterns",
+            "reviewedCards": 8,
+            "time": "Yesterday",
+            "datetime": "2026-09-08T16:30"
+        },
+        {
+            "deck": "System Design",
+            "reviewedCards": 22,
+            "time": "2 days ago",
+            "datetime": "2026-09-07T11:15"
+        }
+    ]
+}

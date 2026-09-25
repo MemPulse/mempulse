@@ -1,0 +1,37 @@
+{
+    "stats": {
+        "totalDecks": 4,
+        "totalCards": 472,
+        "cardsDue": 42
+    },
+    "decks": [
+        {
+            "id": "javascript-fundamentals",
+            "name": "JavaScript Fundamentals",
+            "new": 18,
+            "learn": 7,
+            "due": 14
+        },
+        {
+            "id": "react-patterns",
+            "name": "React Patterns",
+            "new": 9,
+            "learn": 4,
+            "due": 6
+        },
+        {
+            "id": "system-design",
+            "name": "System Design",
+            "new": 24,
+            "learn": 8,
+            "due": 22
+        },
+        {
+            "id": "data-structures",
+            "name": "Data Structures",
+            "new": 31,
+            "learn": 3,
+            "due": 0
+        }
+    ]
+}
