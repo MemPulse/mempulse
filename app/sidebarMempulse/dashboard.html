@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MemPulse - Dashboard</title>
+    <style>
+        :root {
+            --bg-main: #f8fafd;
+            --bg-sidebar: #f0f4f9;
+            --bg-card: #ffffff;
+            --text-primary: #1f1f1f;
+            --text-secondary: #444746;
+            --accent-color: #0b57d0;
+            --accent-soft: #e8f0fe;
+            --border-color: #e0e2e0;
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --radius-pill: 28px;
+            --sidebar-width: 260px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            display: flex;
+            height: 100vh;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            overflow: hidden;
+        }
+
+        /* --- SIDEBAR --- */
+        aside {
+            width: var(--sidebar-width);
+            background-color: var(--bg-sidebar);
+            padding: 16px 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .brand {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--accent-color);
+            padding: 12px 16px;
+            margin-bottom: 8px;
+        }
+
+        .nav-list {
+            list-style: none;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 16px;
+            margin-bottom: 4px;
+            border-radius: var(--radius-pill);
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        .nav-item:hover {
+            background-color: #e1e7ef;
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background-color: #c2e7ff;
+            color: #001d35;
+            font-weight: 600;
+        }
+
+        .nav-icon {
+            margin-right: 12px;
+            font-size: 1.1rem;
+        }
+
+        .sidebar-section-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            padding: 16px 16px 8px 16px;
+            font-weight: 600;
+        }
+
+        .user-profile {
+            padding: 12px 16px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background-color: var(--accent-color);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.85rem;
+        }
+
+        /* --- MAIN DASHBOARD VIEW --- */
+        main {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .welcome-header h1 {
+            font-size: 1.6rem;
+            font-weight: 500;
+        }
+
+        .quote-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 20px 24px;
+            font-style: italic;
+            color: var(--text-secondary);
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .quote-author {
+            display: block;
+            margin-top: 8px;
+            font-style: normal;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+        }
+
+        /* STATS GRID */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .stat-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-md);
+            background-color: var(--accent-soft);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+        }
+
+        .stat-info h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .stat-info p {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        /* DASHBOARD SECTIONS */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .section-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .section-card h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* LIST ITEMS */
+        .item-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .list-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background-color: var(--bg-main);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+        }
+
+        .list-row-info div {
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .list-row-info span {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .badge-due {
+            background-color: #fce8e6;
+            color: #c5221f;
+            padding: 4px 10px;
+            border-radius: var(--radius-pill);
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-accuracy {
+            background-color: #e6f4ea;
+            color: #137333;
+            padding: 4px 10px;
+            border-radius: var(--radius-pill);
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .btn-study {
+            background-color: var(--accent-color);
+            color: #ffffff;
+            border: none;
+            padding: 6px 14px;
+            border-radius: var(--radius-pill);
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .btn-study:hover {
+            background-color: #0842a0;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- LEFT SIDEBAR -->
+    <aside>
+        <div>
+            <div class="brand">MemPulse</div>
+            <ul class="nav-list">
+                <li><a href="#" class="nav-item active"> <span class="nav-icon">🏠</span> Home </a></li>
+                <li><a href="decks.html" class="nav-item"> <span class="nav-icon">📚</span> Decks </a></li>
+            </ul>
+
+            <div class="sidebar-section-title">Quick Decks</div>
+            <ul class="nav-list">
+                <li><a href="#" class="nav-item"> <span class="nav-icon">🗂️</span> Computer Science </a></li>
+                <li><a href="#" class="nav-item"> <span class="nav-icon">🗂️</span> Spanish Verbs </a></li>
+            </ul>
+
+            <div class="sidebar-section-title">Resources</div>
+            <ul class="nav-list">
+                <li><a href="#" class="nav-item"> <span class="nav-icon">💡</span> Science </a></li>
+                <li><a href="#" class="nav-item"> <span class="nav-icon">⚙️</span> Settings </a></li>
+            </ul>
+        </div>
+
+        <div class="user-profile">
+            <div class="avatar">U</div>
+            <div style="font-size: 0.85rem; color: var(--text-secondary);">User Account</div>
+        </div>
+    </aside>
+
+    <!-- MAIN DASHBOARD CONTENT -->
+    <main>
+        <div class="welcome-header">
+            <h1>Welcome back, Alex</h1>
+        </div>
+
+        <!-- Motivational Quote -->
+        <div class="quote-card">
+            "Repetition is the mother of learning, the father of action, which makes it the architect of accomplishment."
+            <span class="quote-author">— Zig Ziglar</span>
+        </div>
+
+        <!-- Stats Row (Streaks, Cards, Sessions) -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">🔥</div>
+                <div class="stat-info">
+                    <h3>7 Days</h3>
+                    <p>Study Streak</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">🎴</div>
+                <div class="stat-info">
+                    <h3>142</h3>
+                    <p>Total Cards</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">⏱️</div>
+                <div class="stat-info">
+                    <h3>18</h3>
+                    <p>Cards Due Today</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Grid: Due Sessions & Recent Logs -->
+        <div class="dashboard-grid">
+
+            <!-- Due Deck Sessions -->
+            <div class="section-card">
+                <h2>Decks Ready for Review</h2>
+                <ul class="item-list">
+                    <li class="list-row">
+                        <div class="list-row-info">
+                            <div>Computer Science</div>
+                            <span>12 cards ready</span>
+                        </div>
+                        <a href="#" class="btn-study">Start Review</a>
+                    </li>
+
+                    <li class="list-row">
+                        <div class="list-row-info">
+                            <div>Spanish Verbs</div>
+                            <span>6 cards ready</span>
+                        </div>
+                        <a href="#" class="btn-study">Start Review</a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Recent Session Logs -->
+            <div class="section-card">
+                <h2>Recent Activity Logs</h2>
+                <ul class="item-list">
+                    <li class="list-row">
+                        <div class="list-row-info">
+                            <div>Computer Science</div>
+                            <span>Yesterday • 15 cards reviewed</span>
+                        </div>
+                        <span class="badge-accuracy">86.67% Acc.</span>
+                    </li>
+
+                    <li class="list-row">
+                        <div class="list-row-info">
+                            <div>Spanish Verbs</div>
+                            <span>3 days ago • 10 cards reviewed</span>
+                        </div>
+                        <span class="badge-accuracy">90.00% Acc.</span>
+                    </li>
+                </ul>
+            </div>
+
+        </div>
+    </main>
+
+</body>
+
+</html>
