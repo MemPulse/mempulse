@@ -8,7 +8,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password = $_POST['login-password'] ?? '';
 
     if (empty($email) || empty($password)) {
-        header("Location: login-page.html?error=empty_fields");
+        header("Location: login.php?error=empty_fields");
         exit;
     }
 

@@ -71,7 +71,7 @@ if ($selected_deck_id > 0) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MemPulse - Decks & Flashcards</title>
-    <style>
+    <!-- <style>
         /* Gemini-inspired Clean Design Variables */
         :root {
             --bg-main: #f8fafd;
@@ -334,7 +334,8 @@ if ($selected_deck_id > 0) {
             margin-top: 0;
             gap: 16px;
         }
-    </style>
+    </style> -->
+    <link rel="stylesheet" href="./styles/style.css">
 </head>
 
 <body>

@@ -1,16 +1,42 @@
 <?php
 session_start();
-header("Content-Type: application/json");
+header('Content-Type: application/json');
 
-// Locate and include db.php safely
-if (file_exists(__DIR__ . '/../config/db.php')) {
-    require_once __DIR__ . '/../config/db.php';
-} elseif (file_exists(__DIR__ . '/../../config/db.php')) {
-    require_once __DIR__ . '/../../config/db.php';
-} elseif (file_exists(__DIR__ . '/db.php')) {
-    require_once __DIR__ . '/db.php';
-} else {
-    echo json_encode(["status" => "error", "message" => "db.php not found"]);
+if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
+    echo json_encode(['status' => 'error', 'message' => 'Unauthorized']);
+    exit;
+}
+
+$user_id = intval($_SESSION['user_id'] ?? 0);
+$action  = $_GET['action'] ?? '';
+
+// Parse incoming input (handles both standard POST forms and JSON payloads)
+$jsonInput = json_decode(file_get_contents('php://input'), true);
+$input     = is_array($jsonInput) ? $jsonInput : $_POST;
+
+if ($action === 'create_deck') {
+    $title = trim($input['title'] ?? '');
+
+    if (empty($title)) {
+        echo json_encode(['status' => 'error', 'message' => 'Deck title cannot be empty.']);
+        exit;
+    }
+
+    $stmt = $conn->prepare("INSERT INTO decks (user_id, title, created_at) VALUES (?, ?, NOW())");
+    $stmt->bind_param("is", $user_id, $title);
+
+    if ($stmt->execute()) {
+        $new_id = $conn->insert_id;
+        echo json_encode([
+            'status' => 'success',
+            'deck'   => [
+                'id'    => $new_id,
+                'title' => $title
+            ]
+        ]);
+    } else {
+        echo json_encode(['status' => 'error', 'message' => 'Database error: ' . $conn->error]);
+    }
     exit;
 }
 

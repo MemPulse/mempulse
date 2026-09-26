@@ -44,429 +44,7 @@ if ($user_id > 0) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MemPulse - Dashboard</title>
-    <style>
-        :root {
-            --bg-main: #f8fafd;
-            --bg-sidebar: #f0f4f9;
-            --bg-card: #ffffff;
-            --text-primary: #1f1f1f;
-            --text-secondary: #444746;
-            --accent-color: #0b57d0;
-            --accent-soft: #e8f0fe;
-            --border-color: #e0e2e0;
-            --radius-lg: 16px;
-            --radius-md: 12px;
-            --radius-pill: 28px;
-            --sidebar-width: 260px;
-            --danger-color: #c5221f;
-            --success-color: #146c2e;
-            --success-soft: #e6f4ea;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
-
-        body {
-            display: flex;
-            height: 100vh;
-            background-color: var(--bg-main);
-            color: var(--text-primary);
-            overflow: hidden;
-        }
-
-        /* --- SIDEBAR --- */
-        aside {
-            width: var(--sidebar-width);
-            background-color: var(--bg-sidebar);
-            padding: 16px 12px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            border-right: 1px solid var(--border-color);
-        }
-
-        .brand {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--accent-color);
-            padding: 12px 16px;
-            margin-bottom: 8px;
-        }
-
-        .nav-list {
-            list-style: none;
-        }
-
-        .nav-item {
-            display: flex;
-            align-items: center;
-            padding: 10px 16px;
-            margin-bottom: 4px;
-            border-radius: var(--radius-pill);
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            font-weight: 500;
-            cursor: pointer;
-            text-decoration: none;
-            transition: background-color 0.2s, color 0.2s;
-        }
-
-        .nav-item:hover {
-            background-color: #e1e7ef;
-            color: var(--text-primary);
-        }
-
-        .nav-item.active {
-            background-color: #c2e7ff;
-            color: #001d35;
-            font-weight: 600;
-        }
-
-        .nav-icon {
-            margin-right: 12px;
-            font-size: 1.1rem;
-        }
-
-        .sidebar-section-title {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: var(--text-secondary);
-            padding: 16px 16px 8px 16px;
-            font-weight: 600;
-        }
-
-        .user-profile {
-            padding: 12px 16px;
-            border-top: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background-color: var(--accent-color);
-            color: #fff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 0.85rem;
-        }
-
-        /* --- MAIN DASHBOARD VIEW --- */
-        main {
-            flex: 1;
-            padding: 32px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-        }
-
-        .welcome-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .welcome-header h1 {
-            font-size: 1.6rem;
-            font-weight: 500;
-        }
-
-        .btn-create {
-            background-color: var(--accent-color);
-            color: #ffffff;
-            border: none;
-            padding: 10px 20px;
-            border-radius: var(--radius-pill);
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: opacity 0.2s;
-        }
-
-        .btn-create:hover {
-            opacity: 0.9;
-        }
-
-        .quote-card {
-            background-color: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-lg);
-            padding: 20px 24px;
-            font-style: italic;
-            color: var(--text-secondary);
-            border-left: 4px solid var(--accent-color);
-        }
-
-        .quote-author {
-            display: block;
-            margin-top: 8px;
-            font-style: normal;
-            font-weight: 600;
-            font-size: 0.85rem;
-            color: var(--text-primary);
-        }
-
-        /* STATS GRID */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-        }
-
-        .stat-card {
-            background-color: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-lg);
-            padding: 20px;
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .stat-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: var(--radius-md);
-            background-color: var(--accent-soft);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.4rem;
-        }
-
-        .stat-info h3 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .stat-info p {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-        }
-
-        /* DASHBOARD SECTIONS */
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
-        }
-
-        .section-card {
-            background-color: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-lg);
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .section-card h2 {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        /* LIST ITEMS */
-        .item-list {
-            list-style: none;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .list-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 16px;
-            background-color: var(--bg-main);
-            border-radius: var(--radius-md);
-            border: 1px solid var(--border-color);
-        }
-
-        .list-row-info div {
-            font-weight: 500;
-            font-size: 0.9rem;
-        }
-
-        .list-row-info span {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-        }
-
-        .badge-accuracy {
-            background-color: #e6f4ea;
-            color: #137333;
-            padding: 4px 10px;
-            border-radius: var(--radius-pill);
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-
-        .btn-study {
-            background-color: var(--accent-color);
-            color: #ffffff;
-            border: none;
-            padding: 6px 14px;
-            border-radius: var(--radius-pill);
-            font-size: 0.8rem;
-            font-weight: 500;
-            cursor: pointer;
-            text-decoration: none;
-        }
-
-        .btn-study:hover {
-            background-color: #0842a0;
-        }
-
-        /* --- MODAL STYLES --- */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0, 0, 0, 0.4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            animation: fadeIn 0.15s ease-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        .modal-card {
-            background: var(--bg-card);
-            border-radius: var(--radius-lg);
-            width: 100%;
-            max-width: 480px;
-            padding: 24px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .modal-header h2 {
-            font-size: 1.25rem;
-            font-weight: 600;
-        }
-
-        .modal-close-btn {
-            background: transparent;
-            border: none;
-            font-size: 1.25rem;
-            color: var(--text-secondary);
-            cursor: pointer;
-            padding: 4px 8px;
-            border-radius: var(--radius-pill);
-        }
-
-        .modal-close-btn:hover {
-            background-color: var(--bg-sidebar);
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .form-group label {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 10px 12px;
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            font-size: 0.9rem;
-            background-color: var(--bg-main);
-            color: var(--text-primary);
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        .form-control:focus {
-            border-color: var(--accent-color);
-            background-color: #fff;
-        }
-
-        textarea.form-control {
-            resize: vertical;
-            min-height: 70px;
-        }
-
-        .modal-status {
-            padding: 10px 14px;
-            border-radius: var(--radius-md);
-            font-size: 0.85rem;
-            display: none;
-        }
-
-        .modal-status.success {
-            display: block;
-            background-color: var(--success-soft);
-            color: var(--success-color);
-        }
-
-        .modal-status.error {
-            display: block;
-            background-color: #fce8e6;
-            color: var(--danger-color);
-        }
-
-        .modal-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 12px;
-            margin-top: 8px;
-        }
-
-        .btn-secondary {
-            background-color: var(--bg-sidebar);
-            color: var(--text-primary);
-            border: 1px solid var(--border-color);
-            padding: 8px 18px;
-            border-radius: var(--radius-pill);
-            font-size: 0.85rem;
-            font-weight: 600;
-            cursor: pointer;
-        }
-
-        .btn-secondary:hover {
-            background-color: #e1e7ef;
-        }
-    </style>
+    <link rel="stylesheet" href="./styles/style.css">
 </head>
 
 <body>
@@ -480,9 +58,13 @@ if ($user_id > 0) {
                 <li><a href="decks.php" class="nav-item"> <span class="nav-icon">📚</span> Decks </a></li>
             </ul>
 
-            <div class="sidebar-section-title">Quick Decks</div>
+            <!-- Sidebar Quick Decks Header with Shortcut -->
+            <div class="sidebar-section-title" style="display: flex; justify-content: space-between; align-items: center; padding-right: 16px;">
+                <span>Quick Decks</span>
+                <button onclick="openCreateDeckModal()" style="background: none; border: none; cursor: pointer; color: var(--text-secondary); font-size: 0.9rem;" title="Create New Deck">＋</button>
+            </div>
             <ul class="nav-list" id="quickDecksList">
-                <?php foreach ($sidebar_decks as $deck): ?>
+                <?php foreach ($sidebar_decks as$deck): ?>
                 <li>
                     <a href="decks.php?deck_id=<?= $deck['id'] ?>" class="nav-item">
                         <span class="nav-icon">🗂️</span>
@@ -510,19 +92,13 @@ if ($user_id > 0) {
 
     <!-- MAIN DASHBOARD CONTENT -->
     <main>
-       <!-- Header with dual action buttons -->
+        <!-- Header with dual action buttons -->
         <div class="welcome-header">
             <h1 id="welcomeTitle">Welcome back, <?php echo htmlspecialchars($firstName); ?> 👋</h1>
             <div style="display: flex; gap: 10px;">
                 <button class="btn-secondary" style="border-radius: var(--radius-pill); font-weight: 600;" onclick="openCreateDeckModal()">＋ New Deck</button>
                 <button class="btn-create" onclick="openCreateCardModal()">＋ Add Flashcard</button>
             </div>
-        </div>
-
-        <!-- Sidebar Quick Decks section header with shortcut -->
-        <div class="sidebar-section-title" style="display: flex; justify-content: space-between; align-items: center; padding-right: 16px;">
-            <span>Quick Decks</span>
-            <button onclick="openCreateDeckModal()" style="background: none; border: none; cursor: pointer; color: var(--text-secondary); font-size: 0.9rem;" title="Create New Deck">＋</button>
         </div>
 
         <!-- Motivational Quote -->
@@ -582,7 +158,7 @@ if ($user_id > 0) {
         </div>
     </main>
 
-   <!-- 1. CREATE FLASHCARD MODAL -->
+    <!-- 1. CREATE FLASHCARD MODAL -->
     <div id="createCardModal" class="modal-overlay" style="display: none; z-index: 1000;">
         <div class="modal-card">
             <div class="modal-header">
@@ -598,7 +174,7 @@ if ($user_id > 0) {
                     <div style="display: flex; gap: 8px;">
                         <select id="modalDeckSelect" class="form-control" required style="flex: 1;">
                             <?php if (!empty($sidebar_decks)): ?>
-                                <?php foreach ($sidebar_decks as $deck): ?>
+                                <?php foreach ($sidebar_decks as$deck): ?>
                                     <option value="<?= $deck['id'] ?>"><?= htmlspecialchars($deck['title']) ?></option>
                                 <?php endforeach; ?>
                             <?php else: ?>
@@ -627,7 +203,7 @@ if ($user_id > 0) {
         </div>
     </div>
 
-    <!-- 2. CREATE DECK MODAL (SEPARATE FORM AT ROOT LEVEL) -->
+    <!-- 2. CREATE DECK MODAL -->
     <div id="createDeckModal" class="modal-overlay" style="display: none; z-index: 1100;">
         <div class="modal-card" style="max-width: 400px;">
             <div class="modal-header">
@@ -684,7 +260,9 @@ if ($user_id > 0) {
         document.getElementById('createDeckForm').reset();
         
         modal.style.display = 'flex';
-        document.getElementById('deckTitleInput').focus();
+        setTimeout(() => {
+            document.getElementById('deckTitleInput').focus();
+        }, 50);
     }
 
     function closeCreateDeckModal() {
@@ -694,7 +272,7 @@ if ($user_id > 0) {
     }
 
     async function handleCreateDeck(e) {
-        e.preventDefault();
+        if (e) e.preventDefault();
 
         const titleInput = document.getElementById('deckTitleInput');
         const title = titleInput.value.trim();
@@ -723,13 +301,14 @@ if ($user_id > 0) {
 
                 // Refresh target deck select dropdown inside Flashcard Modal
                 const select = document.getElementById('modalDeckSelect');
-                const resDecks = await fetch('api_review.php?action=get_user_decks');
-                const dataDecks = await resDecks.json();
+                if (select) {
+                    const resDecks = await fetch('api_review.php?action=get_user_decks');
+                    const dataDecks = await resDecks.json();
 
-                if (dataDecks.status === 'success' && dataDecks.decks) {
-                    select.innerHTML = dataDecks.decks.map(d => `<option value="${d.id}">${escapeHtml(d.title)}</option>`).join('');
-                    // Auto-select newly created deck
-                    select.value = data.deck.id;
+                    if (dataDecks.status === 'success' && dataDecks.decks) {
+                        select.innerHTML = dataDecks.decks.map(d => `<option value="${d.id}">${escapeHtml(d.title)}</option>`).join('');
+                        select.value = data.deck.id;
+                    }
                 }
 
                 // If triggered from Flashcard Modal, return focus to card input
@@ -860,7 +439,6 @@ if ($user_id > 0) {
         status.style.display = 'none';
         modal.style.display = 'flex';
 
-        // Refresh deck list dynamically in case decks were recently added
         try {
             const res = await fetch('api_review.php?action=get_user_decks');
             const data = await res.json();
@@ -874,7 +452,9 @@ if ($user_id > 0) {
             console.warn('Could not refresh deck options dynamically, using pre-rendered options.', err);
         }
 
-        document.getElementById('modalFront').focus();
+        setTimeout(() => {
+            document.getElementById('modalFront').focus();
+        }, 50);
     }
 
     function closeCreateCardModal() {
@@ -884,53 +464,121 @@ if ($user_id > 0) {
         loadDueDecks();
     }
 
-    async function handleCreateCard(e) {
-        e.preventDefault();
+  async function handleCreateDeck(e) {
+    if (e) e.preventDefault();
 
-        const deckId = document.getElementById('modalDeckSelect').value;
-        const front = document.getElementById('modalFront').value.trim();
-        const back = document.getElementById('modalBack').value.trim();
-        const status = document.getElementById('modalStatus');
-        const saveBtn = document.getElementById('btnSaveCard');
+    const titleInput = document.getElementById('deckTitleInput');
+    const title = titleInput.value.trim();
+    const status = document.getElementById('deckModalStatus');
+    const saveBtn = document.getElementById('btnSaveDeck');
 
-        if (!deckId || !front || !back) {
-            status.className = 'modal-status error';
-            status.innerText = 'Please select a deck and fill in both plaintext fields.';
-            return;
-        }
-
-        saveBtn.disabled = true;
-        saveBtn.innerText = 'Adding...';
-
-        try {
-            const res = await fetch('api_review.php?action=add_card', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ deck_id: deckId, front: front, back: back })
-            });
-
-            const data = await res.json();
-
-            if (data.status === 'success') {
-                status.className = 'modal-status success';
-                status.innerText = '✓ Flashcard added! You can add another below.';
-
-                // Clear input textareas but keep selected deck & modal open
-                document.getElementById('modalFront').value = '';
-                document.getElementById('modalBack').value = '';
-                document.getElementById('modalFront').focus();
-            } else {
-                status.className = 'modal-status error';
-                status.innerText = data.message || 'Error adding card.';
-            }
-        } catch (err) {
-            status.className = 'modal-status error';
-            status.innerText = 'Failed to submit card. Check database/connection.';
-        } finally {
-            saveBtn.disabled = false;
-            saveBtn.innerText = 'Add Flashcard';
-        }
+    if (!title) {
+        status.className = 'modal-status error';
+        status.innerText = 'Please enter a deck title.';
+        return;
     }
+
+    saveBtn.disabled = true;
+    saveBtn.innerText = 'Creating...';
+
+    try {
+        // Send as FormData so standard PHP $_POST reads it seamlessly
+        const formData = new FormData();
+        formData.append('title', title);
+
+        const res = await fetch('api_review.php?action=create_deck', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await res.json();
+
+        if (data.status === 'success') {
+            closeCreateDeckModal();
+            
+            // Refresh dashboard counters & sidebar
+            await loadDashboardStats();
+
+            // Refresh target deck dropdown in Flashcard Modal
+            const select = document.getElementById('modalDeckSelect');
+            if (select) {
+                const resDecks = await fetch('api_review.php?action=get_user_decks');
+                const dataDecks = await resDecks.json();
+
+                if (dataDecks.status === 'success' && dataDecks.decks) {
+                    select.innerHTML = dataDecks.decks.map(d => `<option value="${d.id}">${escapeHtml(d.title)}</option>`).join('');
+                    select.value = data.deck ? data.deck.id : data.deck_id;
+                }
+            }
+
+            if (isCreatingDeckFromCardModal) {
+                document.getElementById('modalFront').focus();
+            }
+        } else {
+            status.className = 'modal-status error';
+            status.innerText = data.message || 'Error creating deck.';
+        }
+    } catch (err) {
+        console.error('Deck creation error:', err);
+        status.className = 'modal-status error';
+        status.innerText = 'Server error. Check console for details.';
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerText = 'Create Deck';
+    }
+}
+
+async function handleCreateCard(e) {
+    if (e) e.preventDefault();
+
+    const deckId = document.getElementById('modalDeckSelect').value;
+    const front = document.getElementById('modalFront').value.trim();
+    const back = document.getElementById('modalBack').value.trim();
+    const status = document.getElementById('modalStatus');
+    const saveBtn = document.getElementById('btnSaveCard');
+
+    if (!deckId || !front || !back) {
+        status.className = 'modal-status error';
+        status.innerText = 'Please select a deck and fill in both plaintext fields.';
+        return;
+    }
+
+    saveBtn.disabled = true;
+    saveBtn.innerText = 'Adding...';
+
+    try {
+        const formData = new FormData();
+        formData.append('deck_id', deckId);
+        formData.append('front', front);
+        formData.append('back', back);
+
+        const res = await fetch('api_review.php?action=add_card', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await res.json();
+
+        if (data.status === 'success') {
+            status.className = 'modal-status success';
+            status.innerText = '✓ Flashcard added! You can add another below.';
+
+            document.getElementById('modalFront').value = '';
+            document.getElementById('modalBack').value = '';
+            document.getElementById('modalFront').focus();
+        } else {
+            status.className = 'modal-status error';
+            status.innerText = data.message || 'Error adding card.';
+        }
+    } catch (err) {
+        console.error('Card creation error:', err);
+        status.className = 'modal-status error';
+        status.innerText = 'Failed to submit card. Check database/connection.';
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerText = 'Add Flashcard';
+    }
+}
 
     document.addEventListener('DOMContentLoaded', () => {
         loadDashboardStats();

@@ -48,7 +48,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (mysqli_stmt_execute($insert_stmt)) {
     mysqli_stmt_close($insert_stmt);
     mysqli_close($conn);
-      // 7. Redirect smoothly to dashboard.html upon success
+      // 7. Redirect smoothly to index.php upon success
         header("Location: ../app/index.php");
         exit;
     } else {

@@ -1,3 +1,78 @@
+ERD
+```mermaid
+erDiagram
+	direction LR
+	USERS {
+		BIGINT id PK ""  
+		VARCHAR email  ""  
+		VARCHAR password_hash  ""  
+		ENUM role  ""  
+		DATETIME created_at  ""  
+		DATETIME updated_at  ""  
+		DATETIME deleted_at  ""  
+	}
+
+	DECKS {
+		BIGINT id PK ""  
+		BIGINT user_id FK ""  
+		VARCHAR title  ""  
+		DATETIME created_at  ""  
+		DATETIME updated_at  ""  
+		DATETIME deleted_at  ""  
+	}
+
+	REVIEW_SESSIONS {
+		BIGINT id PK ""  
+		BIGINT user_id FK ""  
+		BIGINT deck_id FK ""  
+		DATETIME started_at  ""  
+		DATETIME ended_at  ""  
+		INT total_reviewed  ""  
+		INT remembered_count  ""  
+		DECIMAL accuracy_percentage  ""  
+	}
+
+	USER_SETTINGS {
+		BIGINT user_id PK,FK ""  
+		DECIMAL remember_multiplier  ""  
+		DECIMAL forgot_multiplier  ""  
+		INT initial_interval_days  ""  
+		DATETIME updated_at  ""  
+	}
+
+	FLASHCARDS {
+		BIGINT id PK ""  
+		BIGINT deck_id FK ""  
+		TEXT front  ""  
+		TEXT back  ""  
+		INT interval_days  ""  
+		DATETIME next_review_at  ""  
+		INT review_count  ""  
+		INT lapses  ""  
+		DATETIME created_at  ""  
+		DATETIME updated_at  ""  
+		DATETIME deleted_at  ""  
+	}
+
+	REVIEW_LOGS {
+		BIGINT id PK ""  
+		BIGINT session_id FK ""  
+		BIGINT card_id FK ""  
+		ENUM rating  ""  
+		INT previous_interval  ""  
+		INT new_interval  ""  
+		DATETIME reviewed_at  ""  
+	}
+
+	USERS||--o{DECKS:"owns"
+	USERS||--o{REVIEW_SESSIONS:"conducts"
+	USERS||--||USER_SETTINGS:"configures"
+	DECKS||--o{FLASHCARDS:"contains"
+	DECKS||--o{REVIEW_SESSIONS:"reviewed in"
+	REVIEW_SESSIONS||--o{REVIEW_LOGS:"records"
+	FLASHCARDS||--o{REVIEW_LOGS:"tracks"
+
+Schema
 -- Create Database
 	CREATE DATABASE IF NOT EXISTS mempulse_db
 	CHARACTER SET utf8mb4
