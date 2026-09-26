@@ -4,7 +4,7 @@ session_start();
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
     // If they aren't logged in, redirect to the login page
-    header("Location: ../authentication/login-page.html");
+    header("Location: ../authentication/login.php");
     exit;
 }
 

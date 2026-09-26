@@ -1,11 +1,11 @@
 <?php
 session_start();
 
-if (!isset($_SESSION['logged-in']) || $_SESSION['logged_in'] !== true){
-  header("Location: ../authentication/login-page.html");
-  exit;
+// Ensure user is authenticated
+if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
+    header("Location: ../authentication/login.php");
+    exit;
 }
-
 ?>
 
 <!DOCTYPE html>
@@ -340,7 +340,7 @@ if (!isset($_SESSION['logged-in']) || $_SESSION['logged_in'] !== true){
         const response = await fetch(`api_review.php?action=fetch_cards&deck_id=${deckId}`);
         const data = await response.json();
 
-        if (data.cards && data.cards.length > 0) {
+        if (data.status === 'success' && data.cards && data.cards.length > 0) {
           cards = data.cards;
           sessionId = data.session_id;
           currentIndex = 0;
