@@ -4,52 +4,45 @@ require_once '../config/db.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     
-    // 2. Grab inputs matching your exact HTML `name` attributes
-    $email = trim($_POST['login-email']);
-    $password =$_POST['login-password'];
+    $email = trim($_POST['login-email'] ?? '');
+    $password = $_POST['login-password'] ?? '';
 
-    // 3. Validation
-    if (empty($email)|| empty($password)) {
-        die("Please fill out all fields.");
+    if (empty($email) || empty($password)) {
+        header("Location: login-page.html?error=empty_fields");
+        exit;
     }
 
-    // 4. Look up the user by email
-    $sql  = "SELECT id, first_name, last_name, password_hash FROM users WHERE email = ?";
-    $stmt = mysqli_prepare($conn,$sql);
+    $sql  = "SELECT id, first_name, last_name, password_hash FROM users WHERE email = ? AND deleted_at IS NULL";
+    $stmt = mysqli_prepare($conn, $sql);
     
     mysqli_stmt_bind_param($stmt, "s", $email);
     mysqli_stmt_execute($stmt);
+    mysqli_stmt_bind_result($stmt, $user_id, $first_name, $last_name, $hashed_password);
     
-    // Bind the result columns to PHP variables
-    mysqli_stmt_bind_result($stmt, $user_id,$first_name, $last_name,$hashed_password);
-    
-    // Fetch the data
     if (mysqli_stmt_fetch($stmt)) {
-        // 5. Verify if the entered password matches the Bcrypt hash
-        if (password_verify($password,$hashed_password)) {
+        if (password_verify($password, $hashed_password)) {
+            // Prevent Session Fixation
+            session_regenerate_id(true);
             
-            // 6. Save user data into Session variables
-            $_SESSION['user_id']    =$user_id;
-            $_SESSION['first_name'] =$first_name;
-            $_SESSION['last_name']  =$last_name;
+            $_SESSION['user_id']    = $user_id;
+            $_SESSION['first_name'] = $first_name;
+            $_SESSION['last_name']  = $last_name;
             $_SESSION['logged_in']  = true;
 
-            // Close connections before redirecting
             mysqli_stmt_close($stmt);
             mysqli_close($conn);
 
-            // 7. Redirect smoothly to your main page or dashboard
             header("Location: ../app/index.php");
             exit;
-        } else {
-            die("Invalid email or password.");
         }
-    } else {
-        die("Invalid email or password."); 
     }
 
     mysqli_stmt_close($stmt);
     mysqli_close($conn);
+    
+    // Invalid credentials back-route
+    header("Location: login-page.html?error=invalid_credentials");
+    exit;
 }
 ?>
 

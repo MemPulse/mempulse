@@ -1,12 +1,14 @@
 <?php
-// 1. Session check to protect the page from logged-out users
 session_start();
 
+// Enforce login authentication
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
-    // If they aren't logged in, boot them to the login page
     header("Location: ../authentication/login-page.html");
     exit;
 }
+
+$firstName = $_SESSION['first_name'] ?? 'User';$lastName  = $_SESSION['last_name'] ?? '';$fullName  = trim($firstName . ' ' .$lastName);
+$initial   = strtoupper(substr($firstName, 0, 1));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -14,197 +16,493 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MemPulse - Spaced Repetition Flashcard</title>
-    <link rel="stylesheet" href="styles/normalize.css">
-    <link rel="stylesheet" href="styles/base.css">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0">
+    <title>MemPulse - Dashboard</title>
+    <style>
+        :root {
+            --bg-main: #f8fafd;
+            --bg-sidebar: #f0f4f9;
+            --bg-card: #ffffff;
+            --text-primary: #1f1f1f;
+            --text-secondary: #444746;
+            --accent-color: #0b57d0;
+            --accent-soft: #e8f0fe;
+            --border-color: #e0e2e0;
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --radius-pill: 28px;
+            --sidebar-width: 260px;
+            --danger-color: #c5221f;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            display: flex;
+            height: 100vh;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            overflow: hidden;
+        }
+
+        /* --- SIDEBAR --- */
+        aside {
+            width: var(--sidebar-width);
+            background-color: var(--bg-sidebar);
+            padding: 16px 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .brand {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--accent-color);
+            padding: 12px 16px;
+            margin-bottom: 8px;
+        }
+
+        .nav-list {
+            list-style: none;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 16px;
+            margin-bottom: 4px;
+            border-radius: var(--radius-pill);
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        .nav-item:hover {
+            background-color: #e1e7ef;
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background-color: #c2e7ff;
+            color: #001d35;
+            font-weight: 600;
+        }
+
+        .nav-icon {
+            margin-right: 12px;
+            font-size: 1.1rem;
+        }
+
+        .sidebar-section-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            padding: 16px 16px 8px 16px;
+            font-weight: 600;
+        }
+
+        .user-profile {
+            padding: 12px 16px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background-color: var(--accent-color);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.85rem;
+        }
+
+        /* --- MAIN DASHBOARD VIEW --- */
+        main {
+            flex: 1;
+            padding: 32px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .welcome-header h1 {
+            font-size: 1.6rem;
+            font-weight: 500;
+        }
+
+        .quote-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 20px 24px;
+            font-style: italic;
+            color: var(--text-secondary);
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .quote-author {
+            display: block;
+            margin-top: 8px;
+            font-style: normal;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text-primary);
+        }
+
+        /* STATS GRID */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .stat-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-md);
+            background-color: var(--accent-soft);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+        }
+
+        .stat-info h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .stat-info p {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        /* DASHBOARD SECTIONS */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .section-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .section-card h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* LIST ITEMS */
+        .item-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .list-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background-color: var(--bg-main);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+        }
+
+        .list-row-info div {
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .list-row-info span {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .badge-accuracy {
+            background-color: #e6f4ea;
+            color: #137333;
+            padding: 4px 10px;
+            border-radius: var(--radius-pill);
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .btn-study {
+            background-color: var(--accent-color);
+            color: #ffffff;
+            border: none;
+            padding: 6px 14px;
+            border-radius: var(--radius-pill);
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .btn-study:hover {
+            background-color: #0842a0;
+        }
+    </style>
 </head>
 
 <body>
 
-    <header class="site-header section">
-        <nav>
-            <a href="#" id="logo" class="logo" aria-label="MemPulse home">MemPulse</a>
-
-            <ul class="primary-navigation" aria-label="Primary navigation">
-                <li><a href="#" class="active" aria-current="page">Decks</a></li>
-                <li><a href="#">Browse</a></li>
-                <li><a href="#">Science</a></li>
+    <!-- LEFT SIDEBAR -->
+    <aside>
+        <div>
+            <div class="brand">MemPulse</div>
+            <ul class="nav-list">
+                <li><a href="index.php" class="nav-item active"> <span class="nav-icon">🏠</span> Home </a></li>
+                <li><a href="decks.php" class="nav-item"> <span class="nav-icon">📚</span> Decks </a></li>
             </ul>
 
-            <div class="header-actions">
-                <button id="create-menu-button" class="cta-button" type="button" aria-label="Create" title="Create" aria-haspopup="true" aria-expanded="false">
-                    <span class="material-symbols-rounded" aria-hidden="true">add</span>
-                </button>
-                <div id="create-menu" class="create-menu" hidden>
-                    <button type="button" data-create="card">Card</button>
-                    <button type="button" data-create="deck">Deck</button>
+            <div class="sidebar-section-title">Quick Decks</div>
+            <ul class="nav-list" id="quickDecksList">
+                <li><a href="#" class="nav-item"> <span class="nav-icon">🗂️</span> Loading... </a></li>
+            </ul>
+
+            <div class="sidebar-section-title">Resources</div>
+            <ul class="nav-list">
+                <li><a href="science.php" class="nav-item"> <span class="nav-icon">💡</span> Science </a></li>
+                <li><a href="settings.php" class="nav-item"> <span class="nav-icon">⚙️</span> Settings </a></li>
+            </ul>
+        </div>
+
+        <div class="user-profile">
+            <div class="avatar" id="userAvatar"><?php echo htmlspecialchars($initial); ?></div>
+            <div style="font-size: 0.85rem; color: var(--text-secondary);" id="userName"><?php echo htmlspecialchars($fullName); ?></div>
+        </div>
+    </aside>
+
+    <!-- MAIN DASHBOARD CONTENT -->
+    <main>
+        <div class="welcome-header">
+            <h1 id="welcomeTitle">Welcome back, <?php echo htmlspecialchars($firstName); ?> 👋</h1>
+        </div>
+
+        <!-- Motivational Quote -->
+        <div class="quote-card">
+            "Repetition is the mother of learning, the father of action, which makes it the architect of accomplishment."
+            <span class="quote-author">— Zig Ziglar</span>
+        </div>
+
+        <!-- Dynamic Stats Row -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">🔥</div>
+                <div class="stat-info">
+                    <h3 id="statStreak">0 Days</h3>
+                    <p>Study Streak</p>
                 </div>
-                <button id="theme-toggle" class="icon-button" type="button" aria-label="Switch to dark mode" aria-pressed="false" title="Switch to dark mode">
-                    <span class="material-symbols-rounded" aria-hidden="true">dark_mode</span>
-                </button>
-                <a class="icon-button" href="#" aria-label="Account" title="Account">
-                    <span class="material-symbols-rounded" aria-hidden="true">account_circle</span>
-                </a>
-                <a class="icon-button" href="../authentication/logout.php" aria-label="Account" title="Log out">
-    <span class="material-symbols-rounded" aria-hidden="true">logout</span>
-</a>
-
-            </div>
-        </nav>
-    </header>
-    <main class="dashboard decks-page" aria-labelledby="decks-heading">
-        <section class="dashboard-intro" aria-labelledby="decks-heading">
-            <p class="eyebrow">Your study space</p>
-            <h1 id="decks-heading"><span id="decks-greeting">Good morning</span>, <span id="decks-username">Username</span></h1>
-            <p id="decks-date" class="dashboard-date">Loading today...</p>
-            <p id="decks-quote" class="dashboard-quote">Small reviews build lasting knowledge.</p>
-        </section>
-
-        <section id="decks-stats" class="stat-grid" aria-label="Deck summary"></section>
-
-        <section class="decks-section" aria-labelledby="deck-list-heading">
-            <div class="section-heading">
-                <div>
-                    <p class="eyebrow">Your decks</p>
-                    <h2 id="deck-list-heading">Start studying</h2>
-                </div>
-            </div>
-            <p id="decks-status" class="decks-status" role="status">Loading decks...</p>
-            <div id="deck-list" class="deck-list" aria-live="polite"></div>
-        </section>
-        <section class="recent-section" aria-labelledby="recent-heading">
-            <div class="section-heading">
-                <h2 id="recent-heading">Recent activity</h2>
-            </div>
-            <div id="recent-list" class="recent-list" aria-live="polite"></div>
-        </section>
-        <section class="streak-section" aria-labelledby="streak-heading">
-            <div class="section-heading">
-                <h2 id="streak-heading">Study streak</h2>
-                <span class="activity-range">Last 30 days</span>
             </div>
 
-            <div class="streak-card">
-                <div class="streak-current">
-                    <p class="eyebrow">Current streak</p>
-                    <div class="streak-value"><strong id="current-streak">0</strong><span>days</span></div>
-                    <p id="streak-message" class="streak-message">Start a review session to begin your streak.</p>
-                </div>
-                <div class="streak-best">
-                    <span>Best streak</span>
-                    <strong id="best-streak">0 days</strong>
+            <div class="stat-card">
+                <div class="stat-icon">🎴</div>
+                <div class="stat-info">
+                    <h3 id="statTotalCards">0</h3>
+                    <p>Total Cards</p>
                 </div>
             </div>
-            <div class="activity-map-scroll">
-                <div id="activity-map" class="activity-map" role="list" aria-label="Cards reviewed over the last 30 days">
-                    <span class="activity-cell level-1" role="listitem" data-date="2026-07-16" data-reviewed-cards="2" aria-label="July 16, 2026: 2 cards reviewed"></span>
-                    <span class="activity-cell level-3" role="listitem" data-date="2026-07-17" data-reviewed-cards="8" aria-label="July 17, 2026: 8 cards reviewed"></span>
-                    <span class="activity-cell level-2" role="listitem" data-date="2026-07-18" data-reviewed-cards="5" aria-label="July 18, 2026: 5 cards reviewed"></span>
-                    <span class="activity-cell level-0" role="listitem" data-date="2026-07-19" data-reviewed-cards="0" aria-label="July 19, 2026: 0 cards reviewed"></span>
-                    <span class="activity-cell level-4" role="listitem" data-date="2026-07-20" data-reviewed-cards="14" aria-label="July 20, 2026: 14 cards reviewed"></span>
-                    <span class="activity-cell level-2" role="listitem" data-date="2026-07-21" data-reviewed-cards="4" aria-label="July 21, 2026: 4 cards reviewed"></span>
-                    <span class="activity-cell level-1" role="listitem" data-date="2026-07-22" data-reviewed-cards="1" aria-label="July 22, 2026: 1 card reviewed"></span>
-                    <span class="activity-cell level-3" role="listitem" data-date="2026-07-23" data-reviewed-cards="9" aria-label="July 23, 2026: 9 cards reviewed"></span>
-                    <span class="activity-cell level-2" role="listitem" data-date="2026-07-24" data-reviewed-cards="6" aria-label="July 24, 2026: 6 cards reviewed"></span>
-                    <span class="activity-cell level-0" role="listitem" data-date="2026-07-25" data-reviewed-cards="0" aria-label="July 25, 2026: 0 cards reviewed"></span>
-                    <span class="activity-cell level-1" role="listitem" data-date="2026-07-26" data-reviewed-cards="3" aria-label="July 26, 2026: 3 cards reviewed"></span>
-                    <span class="activity-cell level-4" role="listitem" data-date="2026-07-27" data-reviewed-cards="16" aria-label="July 27, 2026: 16 cards reviewed"></span>
-                    <span class="activity-cell level-3" role="listitem" data-date="2026-07-28" data-reviewed-cards="10" aria-label="July 28, 2026: 10 cards reviewed"></span>
-                    <span class="activity-cell level-2" role="listitem" data-date="2026-07-29" data-reviewed-cards="5" aria-label="July 29, 2026: 5 cards reviewed"></span>
-                    <span class="activity-cell level-4" role="listitem" data-date="2026-07-30" data-reviewed-cards="12" aria-label="July 30, 2026: 12 cards reviewed"></span>
-                    <span class="activity-cell level-1" role="listitem" data-date="2026-07-31" data-reviewed-cards="2" aria-label="July 31, 2026: 2 cards reviewed"></span>
-                    <span class="activity-cell level-0" role="listitem" data-date="2026-08-01" data-reviewed-cards="0" aria-label="August 1, 2026: 0 cards reviewed"></span>
-                    <span class="activity-cell level-2" role="listitem" data-date="2026-08-02" data-reviewed-cards="4" aria-label="August 2, 2026: 4 cards reviewed"></span>
-                    <span class="activity-cell level-3" role="listitem" data-date="2026-08-03" data-reviewed-cards="7" aria-label="August 3, 2026: 7 cards reviewed"></span>
-                    <span class="activity-cell level-1" role="listitem" data-date="2026-08-04" data-reviewed-cards="1" aria-label="August 4, 2026: 1 card reviewed"></span>
-                    <span class="activity-cell level-4" role="listitem" data-date="2026-08-05" data-reviewed-cards="15" aria-label="August 5, 2026: 15 cards reviewed"></span>
-                    <span class="activity-cell level-2" role="listitem" data-date="2026-08-06" data-reviewed-cards="5" aria-label="August 6, 2026: 5 cards reviewed"></span>
-                    <span class="activity-cell level-3" role="listitem" data-date="2026-08-07" data-reviewed-cards="8" aria-label="August 7, 2026: 8 cards reviewed"></span>
-                    <span class="activity-cell level-0" role="listitem" data-date="2026-08-08" data-reviewed-cards="0" aria-label="August 8, 2026: 0 cards reviewed"></span>
-                    <span class="activity-cell level-1" role="listitem" data-date="2026-08-09" data-reviewed-cards="3" aria-label="August 9, 2026: 3 cards reviewed"></span>
-                    <span class="activity-cell level-4" role="listitem" data-date="2026-08-10" data-reviewed-cards="18" aria-label="August 10, 2026: 18 cards reviewed"></span>
-                    <span class="activity-cell level-3" role="listitem" data-date="2026-08-11" data-reviewed-cards="9" aria-label="August 11, 2026: 9 cards reviewed"></span>
-                    <span class="activity-cell level-2" role="listitem" data-date="2026-08-12" data-reviewed-cards="4" aria-label="August 12, 2026: 4 cards reviewed"></span>
-                    <span class="activity-cell level-1" role="listitem" data-date="2026-08-13" data-reviewed-cards="2" aria-label="August 13, 2026: 2 cards reviewed"></span>
-                    <span class="activity-cell level-3" role="listitem" data-date="2026-08-14" data-reviewed-cards="7" aria-label="August 14, 2026: 7 cards reviewed"></span>
-                    <span class="activity-cell level-0" role="listitem" data-date="2026-08-15" data-reviewed-cards="0" aria-label="August 15, 2026: 0 cards reviewed"></span>
-                    <span class="activity-cell level-2" role="listitem" data-date="2026-08-16" data-reviewed-cards="5" aria-label="August 16, 2026: 5 cards reviewed"></span>
-                    <span class="activity-cell level-4" role="listitem" data-date="2026-08-17" data-reviewed-cards="13" aria-label="August 17, 2026: 13 cards reviewed"></span>
-                    <span class="activity-cell level-3" role="listitem" data-date="2026-08-18" data-reviewed-cards="8" aria-label="August 18, 2026: 8 cards reviewed"></span>
-                    <span class="activity-cell level-1" role="listitem" data-date="2026-08-19" data-reviewed-cards="2" aria-label="August 19, 2026: 2 cards reviewed"></span>
-                    <span class="activity-cell level-2" role="listitem" data-date="2026-08-20" data-reviewed-cards="6" aria-label="August 20, 2026: 6 cards reviewed"></span>
-                    <span class="activity-cell level-4" role="listitem" data-date="2026-08-21" data-reviewed-cards="17" aria-label="August 21, 2026: 17 cards reviewed"></span>
-                    <span class="activity-cell level-0" role="listitem" data-date="2026-08-22" data-reviewed-cards="0" aria-label="August 22, 2026: 0 cards reviewed"></span>
-                    <span class="activity-cell level-1" role="listitem" data-date="2026-08-23" data-reviewed-cards="1" aria-label="August 23, 2026: 1 card reviewed"></span>
-                    <span class="activity-cell level-3" role="listitem" data-date="2026-08-24" data-reviewed-cards="10" aria-label="August 24, 2026: 10 cards reviewed"></span>
-                    <span class="activity-cell level-4" role="listitem" data-date="2026-08-25" data-reviewed-cards="14" aria-label="August 25, 2026: 14 cards reviewed"></span>
-                    <span class="activity-cell level-2" role="listitem" data-date="2026-08-26" data-reviewed-cards="4" aria-label="August 26, 2026: 4 cards reviewed"></span>
-                    <span class="activity-cell level-3" role="listitem" data-date="2026-08-27" data-reviewed-cards="8" aria-label="August 27, 2026: 8 cards reviewed"></span>
-                    <span class="activity-cell level-1" role="listitem" data-date="2026-08-28" data-reviewed-cards="2" aria-label="August 28, 2026: 2 cards reviewed"></span>
-                    <span class="activity-cell level-0" role="listitem" data-date="2026-08-29" data-reviewed-cards="0" aria-label="August 29, 2026: 0 cards reviewed"></span>
-                    <span class="activity-cell level-2" role="listitem" data-date="2026-08-30" data-reviewed-cards="5" aria-label="August 30, 2026: 5 cards reviewed"></span>
-                    <span class="activity-cell level-4" role="listitem" data-date="2026-08-31" data-reviewed-cards="16" aria-label="August 31, 2026: 16 cards reviewed"></span>
-                    <span class="activity-cell level-3" role="listitem" data-date="2026-09-01" data-reviewed-cards="9" aria-label="September 1, 2026: 9 cards reviewed"></span>
-                    <span class="activity-cell level-2" role="listitem" data-date="2026-09-02" data-reviewed-cards="6" aria-label="September 2, 2026: 6 cards reviewed"></span>
-                    <span class="activity-cell level-4" role="listitem" data-date="2026-09-03" data-reviewed-cards="12" aria-label="September 3, 2026: 12 cards reviewed"></span>
-                    <span class="activity-cell level-1" role="listitem" data-date="2026-09-04" data-reviewed-cards="2" aria-label="September 4, 2026: 2 cards reviewed"></span>
-                    <span class="activity-cell level-3" role="listitem" data-date="2026-09-05" data-reviewed-cards="8" aria-label="September 5, 2026: 8 cards reviewed"></span>
-                    <span class="activity-cell level-0" role="listitem" data-date="2026-09-06" data-reviewed-cards="0" aria-label="September 6, 2026: 0 cards reviewed"></span>
-                    <span class="activity-cell level-2" role="listitem" data-date="2026-09-07" data-reviewed-cards="4" aria-label="September 7, 2026: 4 cards reviewed"></span>
-                    <span class="activity-cell level-4" role="listitem" data-date="2026-09-08" data-reviewed-cards="14" aria-label="September 8, 2026: 14 cards reviewed"></span>
-                    <span class="activity-cell level-3" role="listitem" data-date="2026-09-09" data-reviewed-cards="11" aria-label="September 9, 2026: 11 cards reviewed"></span>
+
+            <div class="stat-card">
+                <div class="stat-icon">⏱️</div>
+                <div class="stat-info">
+                    <h3 id="statDueCards">0</h3>
+                    <p>Cards Due Today</p>
                 </div>
             </div>
-        </section>
+        </div>
+
+        <!-- Main Grid: Due Sessions & Recent Logs -->
+        <div class="dashboard-grid">
+            
+            <!-- Due Deck Sessions Section -->
+            <div class="section-card">
+                <h2>Decks Ready for Review</h2>
+                <ul class="item-list" id="dueDecksList">
+                    <li class="list-row" style="justify-content: center; color: var(--text-secondary);">
+                        Loading due sessions...
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Recent Session Logs Section -->
+            <div class="section-card">
+                <h2>Recent Activity Logs</h2>
+                <ul class="item-list" id="recentLogsList">
+                    <li class="list-row" style="justify-content: center; color: var(--text-secondary);">
+                        Loading activity logs...
+                    </li>
+                </ul>
+            </div>
+
+        </div>
     </main>
 
-    <dialog id="card-dialog" class="creation-dialog" aria-labelledby="card-dialog-title">
-        <form id="card-form" method="dialog">
-            <div class="dialog-heading">
-                <div>
-                    <p class="eyebrow">New flashcard</p>
-                    <h2 id="card-dialog-title">Create a card</h2>
-                </div>
-                <button class="dialog-close" type="button" data-dialog-close aria-label="Close card form">&times;</button>
-            </div>
-            <label for="card-front">Front</label>
-            <textarea id="card-front" name="front" rows="3" required></textarea>
-            <label for="card-back">Back</label>
-            <textarea id="card-back" name="back" rows="3" required></textarea>
-            <p class="dialog-feedback" data-dialog-feedback></p>
-            <div class="dialog-actions">
-                <button class="dialog-secondary" type="button" data-dialog-close>Cancel</button>
-                <button class="primary-cta" type="submit">Save card</button>
-            </div>
-        </form>
-    </dialog>
+    <script>
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.innerText = text;
+        return div.innerHTML;
+    }
 
-    <dialog id="deck-dialog" class="creation-dialog" aria-labelledby="deck-dialog-title">
-        <form id="deck-form" method="dialog">
-            <div class="dialog-heading">
-                <div>
-                    <p class="eyebrow">New study space</p>
-                    <h2 id="deck-dialog-title">Create a deck</h2>
-                </div>
-                <button class="dialog-close" type="button" data-dialog-close aria-label="Close deck form">&times;</button>
-            </div>
-            <label for="deck-name">Deck name</label>
-            <input id="deck-name" name="name" type="text" required maxlength="80" autocomplete="off">
-            <p class="dialog-feedback" data-dialog-feedback></p>
-            <div class="dialog-actions">
-                <button class="dialog-secondary" type="button" data-dialog-close>Cancel</button>
-                <button class="primary-cta" type="submit">Save deck</button>
-            </div>
-        </form>
-    </dialog>
+    function formatTimeAgo(dateString) {
+        if (!dateString) return 'Recently';
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffInSeconds = Math.floor((now - date) / 1000);
 
-    <script src="scripts/app.js"></script>
-    <script src="scripts/greet.js"></script>
-    <script src="scripts/decks.js"></script>
-    <script src="scripts/recent.js"></script>
-    <script src="scripts/streak.js"></script>
-    <script src="scripts/create.js"></script>
+        if (diffInSeconds < 60) return 'Just now';
+        if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} mins ago`;
+        if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`;
+        if (diffInSeconds < 172800) return 'Yesterday';
+        return `${Math.floor(diffInSeconds / 86400)} days ago`;
+    }
+
+    async function loadDashboardStats() {
+        try {
+            const response = await fetch('api_review.php?action=get_dashboard_stats');
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                document.getElementById('statStreak').innerText = `${data.stats.streak} Days`;
+                document.getElementById('statTotalCards').innerText = data.stats.total_cards;
+                document.getElementById('statDueCards').innerText = data.stats.due_today;
+
+                const quickList = document.getElementById('quickDecksList');
+                if (!data.quick_decks || data.quick_decks.length === 0) {
+                    quickList.innerHTML = `<li class="nav-item" style="color: var(--text-secondary);">No decks yet</li>`;
+                } else {
+                    quickList.innerHTML = data.quick_decks.map(deck => `
+                        <li>
+                            <a href="review.php?deck_id=${deck.id}" class="nav-item">
+                                <span class="nav-icon">🗂️</span> ${escapeHtml(deck.title)}
+                            </a>
+                        </li>
+                    `).join('');
+                }
+            }
+        } catch (err) {
+            console.error('Error loading dashboard stats:', err);
+        }
+    }
+
+    async function loadDueDecks() {
+        const listContainer = document.getElementById('dueDecksList');
+
+        try {
+            const response = await fetch('api_review.php?action=get_due_decks');
+            const data = await response.json();
+
+            if (!data.decks || data.decks.length === 0) {
+                listContainer.innerHTML = `
+                    <li class="list-row" style="justify-content: center; padding: 16px;">
+                        <div style="color: var(--text-secondary);">🎉 All caught up! No decks due for review.</div>
+                    </li>`;
+                return;
+            }
+
+            listContainer.innerHTML = data.decks.map(deck => `
+                <li class="list-row">
+                    <div class="list-row-info">
+                        <div>${escapeHtml(deck.deck_title)}</div>
+                        <span>${deck.due_count} card${deck.due_count > 1 ? 's' : ''} ready</span>
+                    </div>
+                    <a href="review.php?deck_id=${deck.deck_id}" class="btn-study">Start Review</a>
+                </li>
+            `).join('');
+
+        } catch (err) {
+            console.error('Error fetching due decks:', err);
+            listContainer.innerHTML = `
+                <li class="list-row" style="color: var(--danger-color); justify-content: center;">
+                    Failed to load due decks.
+                </li>`;
+        }
+    }
+
+    async function loadRecentLogs() {
+        const listContainer = document.getElementById('recentLogsList');
+
+        try {
+            const response = await fetch('api_review.php?action=get_recent_logs');
+            const data = await response.json();
+
+            if (!data.logs || data.logs.length === 0) {
+                listContainer.innerHTML = `
+                    <li class="list-row" style="justify-content: center; padding: 16px;">
+                        <div style="color: var(--text-secondary);">No recent study activity recorded.</div>
+                    </li>`;
+                return;
+            }
+
+            listContainer.innerHTML = data.logs.map(log => {
+                const accuracy = parseFloat(log.accuracy_percentage || 0).toFixed(1);
+                return `
+                    <li class="list-row">
+                        <div class="list-row-info">
+                            <div>${escapeHtml(log.deck_title)}</div>
+                            <span>${formatTimeAgo(log.ended_at)} • ${log.total_reviewed} cards reviewed</span>
+                        </div>
+                        <span class="badge-accuracy">${accuracy}% Acc.</span>
+                    </li>
+                `;
+            }).join('');
+
+        } catch (err) {
+            console.error('Error fetching recent logs:', err);
+            listContainer.innerHTML = `
+                <li class="list-row" style="color: var(--danger-color); justify-content: center;">
+                    Failed to load recent logs.
+                </li>`;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDashboardStats();
+        loadDueDecks();
+        loadRecentLogs();
+    });
+    </script>
 </body>
 
 </html>

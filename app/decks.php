@@ -1,10 +1,76 @@
+<?php
+// 1. Session check to protect the page from logged-out users
+session_start();
+
+if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
+    // If they aren't logged in, redirect to the login page
+    header("Location: ../authentication/login-page.html");
+    exit;
+}
+
+// Obtain logged-in user ID dynamically from session
+$user_id = intval($_SESSION['user_id']);
+
+// Locate and include db.php safely
+if (file_exists(__DIR__ . '/../config/db.php')) {
+    require_once __DIR__ . '/../config/db.php';
+} elseif (file_exists(__DIR__ . '/../../config/db.php')) {
+    require_once __DIR__ . '/../../config/db.php';
+} elseif (file_exists(__DIR__ . '/db.php')) {
+    require_once __DIR__ . '/db.php';
+} else {
+    die("Database configuration file (db.php) could not be located.");
+}
+
+// 2. Fetch all active decks for the logged-in user
+$decks_stmt = $conn->prepare("SELECT id, title FROM decks WHERE user_id = ? AND deleted_at IS NULL ORDER BY created_at ASC");
+$decks_stmt->bind_param("i", $user_id);
+$decks_stmt->execute();
+$decks_result = $decks_stmt->get_result();
+
+$all_decks = [];
+while ($row = $decks_result->fetch_assoc()) {
+    $all_decks[] = $row;
+}
+
+// 3. Determine active deck ID
+$selected_deck_id = isset($_GET['deck_id']) ? intval($_GET['deck_id']) : ($all_decks[0]['id'] ?? 0);
+
+// Find active deck title
+$selected_deck_title = "No Deck Selected";
+foreach ($all_decks as $deck) {
+    if ($deck['id'] === $selected_deck_id) {
+        $selected_deck_title = $deck['title'];
+        break;
+    }
+}
+
+// 4. Fetch flashcards for selected deck owned by current user
+$cards = [];
+if ($selected_deck_id > 0) {
+    $cards_sql = "SELECT f.id, f.front, f.back, f.interval_days, f.next_review_at 
+                  FROM flashcards f
+                  JOIN decks d ON f.deck_id = d.id
+                  WHERE f.deck_id = ? AND d.user_id = ? AND f.deleted_at IS NULL 
+                  ORDER BY f.id DESC";
+    $cards_stmt = $conn->prepare($cards_sql);
+    $cards_stmt->bind_param("ii", $selected_deck_id, $user_id);
+    $cards_stmt->execute();
+    $cards_result = $cards_stmt->get_result();
+
+    while ($card = $cards_result->fetch_assoc()) {
+        $cards[] = $card;
+    }
+}
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MemPulse App</title>
+    <title>MemPulse - Decks & Flashcards</title>
     <style>
         /* Gemini-inspired Clean Design Variables */
         :root {
@@ -136,9 +202,30 @@
             align-items: center;
         }
 
+        .view-title-group {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
         .view-title h1 {
             font-size: 1.5rem;
             font-weight: 500;
+        }
+
+        .btn-study {
+            background-color: var(--accent-color);
+            color: #ffffff;
+            text-decoration: none;
+            padding: 8px 20px;
+            border-radius: var(--radius-pill);
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: opacity 0.2s ease;
+        }
+
+        .btn-study:hover {
+            opacity: 0.9;
         }
 
         .view-controls {
@@ -170,7 +257,7 @@
         /* --- TILE / GRID VIEW --- */
         .cards-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
             gap: 16px;
         }
 
@@ -207,11 +294,26 @@
         }
 
         .badge {
-            background-color: #e8f0fe;
-            color: var(--accent-color);
             padding: 4px 8px;
             border-radius: 6px;
             font-weight: 500;
+        }
+
+        .badge-due {
+            background-color: #fce8e6;
+            color: #b3261e;
+        }
+
+        .badge-later {
+            background-color: #e8f0fe;
+            color: var(--accent-color);
+        }
+
+        .empty-state {
+            padding: 48px 0;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
         }
 
         /* --- LIST VIEW OVERRIDE CLASS --- */
@@ -242,20 +344,29 @@
         <div>
             <div class="brand">MemPulse</div>
             <ul class="nav-list">
-                <li><a href="dashboard.html" class="nav-item"> <span class="nav-icon">🏠</span> Home </a></li>
-                <li><a href="#" class="nav-item active"> <span class="nav-icon">📚</span> Decks </a></li>
+                <li><a href="index.php" class="nav-item"> <span class="nav-icon">🏠</span> Home </a></li>
+                <li><a href="decks.php" class="nav-item active"> <span class="nav-icon">📚</span> Decks </a></li>
             </ul>
 
             <div class="sidebar-section-title">Quick Decks</div>
             <ul class="nav-list">
-                <li><a href="#" class="nav-item"> <span class="nav-icon">🗂️</span> Computer Science </a></li>
-                <li><a href="#" class="nav-item"> <span class="nav-icon">🗂️</span> Spanish Verbs </a></li>
+                <?php foreach ($all_decks as $deck): ?>
+                <li>
+                    <a href="decks.php?deck_id=<?= $deck['id'] ?>" class="nav-item <?= ($deck['id'] === $selected_deck_id) ? 'active' : '' ?>">
+                        <span class="nav-icon">🗂️</span>
+                        <?= htmlspecialchars($deck['title']) ?>
+                    </a>
+                </li>
+                <?php endforeach; ?>
+                <?php if (empty($all_decks)): ?>
+                <li style="padding: 0 16px; font-size: 0.8rem; color: var(--text-secondary);">No decks available.</li>
+                <?php endif; ?>
             </ul>
 
             <div class="sidebar-section-title">Resources</div>
             <ul class="nav-list">
-                <li><a href="#" class="nav-item"> <span class="nav-icon">💡</span> Science </a></li>
-                <li><a href="#" class="nav-item"> <span class="nav-icon">⚙️</span> Settings </a></li>
+                <li><a href="science.php" class="nav-item"> <span class="nav-icon">💡</span> Science </a></li>
+                <li><a href="settings.php" class="nav-item"> <span class="nav-icon">⚙️</span> Settings </a></li>
             </ul>
         </div>
 
@@ -268,8 +379,15 @@
     <!-- MAIN VIEW -->
     <main>
         <div class="header-bar">
-            <div class="view-title">
-                <h1>Computer Science Deck</h1>
+            <div class="view-title-group">
+                <div class="view-title">
+                    <h1>
+                        <?= htmlspecialchars($selected_deck_title) ?>
+                    </h1>
+                </div>
+                <?php if ($selected_deck_id > 0): ?>
+                <a href="review.php?deck_id=<?= $selected_deck_id ?>" class="btn-study">▶ Review Deck</a>
+                <?php endif; ?>
             </div>
 
             <!-- Tile / List View Switcher -->
@@ -281,29 +399,33 @@
 
         <!-- FLASHCARDS CONTAINER -->
         <div id="cardsContainer" class="cards-grid">
+            <?php if (!empty($cards)): ?>
+            <?php foreach ($cards as $card): ?>
+            <?php 
+                        $is_due = strtotime($card['next_review_at']) <= time();
+                    ?>
             <div class="flashcard-item">
-                <div class="card-front">What is a B-Tree?</div>
+                <div class="card-front">
+                    <?= htmlspecialchars($card['front']) ?>
+                </div>
                 <div class="card-meta">
-                    <span>Interval: 4 days</span>
-                    <span class="badge">Due Today</span>
+                    <span>Interval:
+                        <?= intval($card['interval_days']) ?> day
+                        <?= $card['interval_days'] > 1 ? 's' : '' ?>
+                    </span>
+                    <?php if ($is_due): ?>
+                    <span class="badge badge-due">Due Today</span>
+                    <?php else: ?>
+                    <span class="badge badge-later">Review Later</span>
+                    <?php endif; ?>
                 </div>
             </div>
-
-            <div class="flashcard-item">
-                <div class="card-front">Explain InnoDB Buffer Pool</div>
-                <div class="card-meta">
-                    <span>Interval: 8 days</span>
-                    <span class="badge">Review Later</span>
-                </div>
+            <?php endforeach; ?>
+            <?php else: ?>
+            <div class="empty-state">
+                No flashcards found in this deck. Add cards to get started!
             </div>
-
-            <div class="flashcard-item">
-                <div class="card-front">What is the default isolation level in MySQL?</div>
-                <div class="card-meta">
-                    <span>Interval: 1 day</span>
-                    <span class="badge">Due Today</span>
-                </div>
-            </div>
+            <?php endif; ?>
         </div>
     </main>
 
