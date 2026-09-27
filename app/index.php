@@ -1,3 +1,83 @@
+<?php
+// 1. Initialize user session tracking
+session_start();
+
+// 2. Route Protection: Redirect to login view if user credentials are uninitialized
+if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || !isset($_SESSION['user_id'])) {
+    header("Location: ../authentication/login.php");
+    exit;
+}
+
+// 3. Connect to database layout module
+require_once __DIR__ . '/../config/db.php'; 
+
+$user_id = $_SESSION['user_id'];
+
+// --- EXTRACTION: LIVE USER PROFILE DETAILS ---
+// Pulling your newly added first_name and last_name columns directly from your updated users table
+$user_sql  = "SELECT first_name, last_name FROM users WHERE id = ? AND deleted_at IS NULL";
+$user_stmt = mysqli_prepare($conn, $user_sql);
+mysqli_stable_bind_param: mysqli_stmt_bind_param($user_stmt, "i", $user_id);
+mysqli_stmt_execute($user_stmt);
+mysqli_stmt_bind_result($user_stmt, $first_name, $last_name);
+mysqli_stmt_fetch($user_stmt);
+mysqli_stmt_close($user_stmt);
+
+// Handle display fallback strings defensively
+$display_name = trim(($first_name ?? '') . ' ' . ($last_name ?? ''));
+if (empty($display_name)) {
+    $display_name = "Active Learner";
+}
+
+// --- METRIC 1: CARDS DUE TODAY ---
+$due_sql = "SELECT COUNT(*) FROM flashcards f 
+            JOIN decks d ON f.deck_id = d.id 
+            WHERE d.user_id = ? AND f.deleted_at IS NULL AND f.next_review_at <= NOW()";
+$due_stmt = mysqli_prepare($conn, $due_sql);
+mysqli_stmt_bind_param($due_stmt, "i", $user_id);
+mysqli_stmt_execute($due_stmt);
+mysqli_stmt_bind_result($due_stmt, $cards_due);
+mysqli_stmt_fetch($due_stmt);
+mysqli_stmt_close($due_stmt);
+
+// --- METRIC 2: MASTERED CARDS (Interval days >= 21) ---
+$mastered_sql = "SELECT COUNT(*) FROM flashcards f 
+                 JOIN decks d ON f.deck_id = d.id 
+                 WHERE d.user_id = ? AND f.deleted_at IS NULL AND f.interval_days >= 21";
+$mastered_stmt = mysqli_prepare($conn, $mastered_sql);
+mysqli_stmt_bind_param($mastered_stmt, "i", $user_id);
+mysqli_stmt_execute($mastered_stmt);
+mysqli_stmt_bind_result($mastered_stmt, $mastered_cards);
+mysqli_stmt_fetch($mastered_stmt);
+mysqli_stmt_close($mastered_stmt);
+
+// --- METRIC 3: LIFETIME ACCURACY (Average from generated virtual column) ---
+$accuracy_sql = "SELECT AVG(accuracy_percentage) FROM review_sessions WHERE user_id = ? AND ended_at IS NOT NULL";
+$acc_stmt = mysqli_prepare($conn, $accuracy_sql);
+mysqli_stmt_bind_param($acc_stmt, "i", $user_id);
+mysqli_stmt_execute($acc_stmt);
+mysqli_stmt_bind_result($acc_stmt, $avg_accuracy);
+mysqli_stmt_fetch($acc_stmt);
+mysqli_stmt_close($acc_stmt);
+$avg_accuracy = $avg_accuracy !== null ? round($avg_accuracy, 1) : 0.0;
+
+// --- METRIC 4: TOUGH CARDS / LEECHES (Lapses >= 8) ---
+$tough_sql = "SELECT COUNT(*) FROM flashcards f 
+              JOIN decks d ON f.deck_id = d.id 
+              WHERE d.user_id = ? AND f.deleted_at IS NULL AND f.lapses >= 8";
+$tough_stmt = mysqli_prepare($conn, $tough_sql);
+mysqli_stmt_bind_param($tough_stmt, "i", $user_id);
+mysqli_stmt_execute($tough_stmt);
+mysqli_stmt_bind_result($tough_stmt, $tough_cards);
+mysqli_stmt_fetch($tough_stmt);
+mysqli_stmt_close($tough_stmt);
+
+// --- METRIC 5: STREAK AGGREGATION HANDLERS (Placeholders for heatmap step) ---
+$current_streak = 24; 
+$best_streak = 48;
+$streak_accuracy = 94.5;
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -140,10 +220,11 @@
                     <span class="material-symbols-outlined text-[24px]">settings</span>
                     <span class="sidebar-text transition-opacity duration-200">Settings</span>
                 </a>
-                <a class="flex items-center gap-3 px-3.5 py-2 rounded-xl font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-error transition-all" data-path="logout" href="#">
-                    <span class="material-symbols-outlined text-[24px]">logout</span>
-                    <span class="sidebar-text transition-opacity duration-200">Logout</span>
+                <a class="flex items-center gap-3 px-3.5 py-2 rounded-xl font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-error transition-all" data-path="logout" href="../authentication/logout.php">
+                <span class="material-symbols-outlined text-[24px]">logout</span>
+                <span class="sidebar-text transition-opacity duration-200">Logout</span>
                 </a>
+
             </nav>
             <div class="mt-2 pt-2 px-2 flex items-center justify-between rounded-xl bg-surface-container-low/60 p-2.5">
                 <div class="flex items-center gap-3 overflow-hidden">
@@ -151,8 +232,8 @@
                     <img alt="Profile" class="w-8 h-8 rounded-full object-cover ring-1 ring-outline-variant/50 flex-shrink-0" src="./assets/images/profile-picture.webp.jpg" />
 
                     <div class="sidebar-text flex flex-col min-w-0 transition-opacity duration-200">
-                        <span class="font-label-md text-label-md text-on-surface truncate font-semibold">Lehi Gomez</span>
-                        <span class="font-body-sm text-body-sm text-on-surface-variant truncate">Active Learner</span>
+                        <span id="sidebar-profile-name" class="font-label-md text-label-md text-on-surface truncate font-semibold">--</span>
+                        <span id="sidebar-profile-role" class="font-body-sm text-body-sm text-on-surface-variant truncate">Active Learner</span>
                     </div>
                 </div>
                 <!-- FIX 4: Wrapped more options action button in sidebar-text element -->
@@ -770,28 +851,27 @@
             }
         };
 
-        // ─── INITIALIZATION / DEMO INTEGRATION RUNNER ───
+        // ─── INITIALIZATION / LIVE SQL DATABASE RUNNER ───
         document.addEventListener("DOMContentLoaded", () => {
-            // This centralized mock data structure precisely mirrors your DB outputs!
             const incomingAppPayload = {
                 user: {
-                    displayName: "Lehi Gomez",
+                    displayName: <?php echo json_encode($display_name); ?>,
                     displayRole: "Active Learner",
-                    currentStreak: 24,
+                    currentStreak: <?php echo intval($current_streak); ?>,
                     profileImageUrl: "./assets/images/profile-picture.webp.jpg"
                 },
                 stats: {
-                    cardsDue: 18,
-                    masteredCards: 142,
-                    lifetimeAccuracy: 89.5, // From review_sessions virtual calculation
-                    toughCards: 3,         // From flashcards table checking lapses >= 8
-                    currentStreak: 24,
-                    bestStreak: 48,
-                    streakAccuracy: 94.5
+                    cardsDue: <?php echo intval($cards_due); ?>,
+                    masteredCards: <?php echo intval($mastered_cards); ?>,
+                    lifetimeAccuracy: <?php echo floatval($avg_accuracy); ?>,
+                    toughCards: <?php echo intval($tough_cards); ?>,
+                    currentStreak: <?php echo intval($current_streak); ?>,
+                    bestStreak: <?php echo intval($best_streak); ?>,
+                    streakAccuracy: <?php echo floatval($streak_accuracy); ?>
                 }
             };
 
-            // Execute the global synchronization sequence
+            // Run deep script synchronization
             MemPulseDashboard.updateAll(incomingAppPayload);
         });
     </script>

@@ -4,6 +4,8 @@ erDiagram
 	direction LR
 	USERS {
 		BIGINT id PK ""  
+		VARCHAR first_name  ""  
+		VARCHAR last_name  ""  
 		VARCHAR email  ""  
 		VARCHAR password_hash  ""  
 		ENUM role  ""  
@@ -81,6 +83,8 @@ Schema
 -- 1. USERS TABLE
 CREATE TABLE users (
 	id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+	first_name VARCHAR(50),
+	last_name VARCHAR(50),
 	email VARCHAR(255) NOT NULL UNIQUE,
 	password_hash VARCHAR(255) NOT NULL,
 	role ENUM('admin', 'user') NOT NULL DEFAULT 'user',
