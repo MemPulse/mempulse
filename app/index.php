@@ -72,10 +72,143 @@ mysqli_stmt_bind_result($tough_stmt, $tough_cards);
 mysqli_stmt_fetch($tough_stmt);
 mysqli_stmt_close($tough_stmt);
 
-// --- METRIC 5: STREAK AGGREGATION HANDLERS (Placeholders for heatmap step) ---
-$current_streak = 24; 
-$best_streak = 48;
-$streak_accuracy = 94.5;
+// --- COMPUTE STREAKS FROM REVIEW SESSIONS HISTORIES ---
+$current_streak = 0;
+$best_streak = 0;
+$streak_accuracy = 0.0;
+
+// 1. Fetch distinct active dates and total performance metrics for completed sessions
+$session_sql = "SELECT DATE(started_at) as session_date, 
+                       SUM(remembered_count) as total_remembered, 
+                       SUM(total_reviewed) as total_reviewed
+                FROM review_sessions 
+                WHERE user_id = ? AND ended_at IS NOT NULL
+                GROUP BY DATE(started_at)
+                ORDER BY session_date DESC";
+
+$session_stmt = mysqli_prepare($conn, $session_sql);
+mysqli_stmt_bind_param($session_stmt, "i", $user_id);
+mysqli_stmt_execute($session_stmt);
+$result = mysqli_stmt_get_result($session_stmt);
+
+$activity_history = [];
+while ($row = mysqli_fetch_assoc($result)) {
+    $activity_history[$row['session_date']] = [
+        'remembered' => intval($row['total_remembered']),
+        'reviewed' => intval($row['total_reviewed'])
+    ];
+}
+mysqli_stmt_close($session_stmt);
+
+// --- STREAK HEATMAP: LAST 365 DAYS ---
+// Reuse the same completed review-session history already loaded above so
+// heatmap activity and streak calculations stay based on one source of truth.
+$heatmap_end = new DateTime('today');
+$heatmap_start = (clone $heatmap_end)->modify('-364 days');
+$heatmap_data = [];
+$study_days = 0;
+
+foreach ($activity_history as $date_str => $metrics) {
+    $activity_date = DateTime::createFromFormat('!Y-m-d', $date_str);
+    if (!$activity_date) {
+        continue;
+    }
+
+    if ($activity_date >= $heatmap_start && $activity_date <= $heatmap_end && $metrics['reviewed'] > 0) {
+        $review_count = $metrics['reviewed'];
+        $heatmap_data[$date_str] = $review_count;
+        $study_days++;
+    }
+}
+
+// Align the visual grid to Monday-Sunday while keeping exactly the requested
+// 365-day data window. Padded days outside that window render invisibly.
+$heatmap_calendar_start = clone $heatmap_start;
+$heatmap_calendar_start->modify('monday this week');
+$heatmap_calendar_end = clone $heatmap_end;
+$heatmap_calendar_end->modify('sunday this week');
+$heatmap_week_count = (int) floor(($heatmap_calendar_end->diff($heatmap_calendar_start)->days + 1) / 7);
+
+// Fixed, human-readable activity bands. The cell color is still data-driven.
+$heatmap_level_class = static function (int $reviews): string {
+    if ($reviews <= 0) {
+        return 'bg-surface-container-high';
+    }
+    if ($reviews <= 5) {
+        return 'bg-primary-fixed';
+    }
+    if ($reviews <= 15) {
+        return 'bg-primary-fixed-dim';
+    }
+    if ($reviews <= 30) {
+        return 'bg-primary-container';
+    }
+    return 'bg-primary';
+};
+
+if (!empty($activity_history)) {
+    $today_str = date('Y-m-d');
+    $yesterday_str = date('Y-m-d', strtotime('-1 day'));
+    
+    // 2. Compute Current Streak & Tracking Parameters
+    $tracking_date = current(array_keys($activity_history));
+    
+    // The current streak is alive if the user reviewed today OR yesterday
+    if ($tracking_date === $today_str || $tracking_date === $yesterday_str) {
+        $check_date = new DateTime($tracking_date);
+        $streak_remembered = 0;
+        $streak_reviewed = 0;
+
+        while (true) {
+            $date_str = $check_date->format('Y-m-d');
+            if (isset($activity_history[$date_str])) {
+                $current_streak++;
+                $streak_remembered += $activity_history[$date_str]['remembered'];
+                $streak_reviewed += $activity_history[$date_str]['reviewed'];
+                $check_date->modify('-1 day');
+            } else {
+                break;
+            }
+        }
+        
+        // Calculate the accuracy over the current streak block
+        if ($streak_reviewed > 0) {
+            $streak_accuracy = round(($streak_remembered / $streak_reviewed) * 100, 1);
+        }
+    }
+
+    // 3. Compute Best Streak Historically
+    $temp_streak = 0;
+    $expected_date = null;
+
+    // Read chronologically from past to present to find the max streak sequence
+    foreach (array_reverse(array_keys($activity_history)) as $date_str) {
+        $current_date = new DateTime($date_str);
+        
+        if ($expected_date === null || $current_date == $expected_date) {
+            $temp_streak++;
+        } else {
+            if ($temp_streak > $best_streak) {
+                $best_streak = $temp_streak;
+            }
+            $temp_streak = 1; // Reset sequence counter
+        }
+        
+        // Setup expected next date (tomorrow in chronological sequence loop)
+        $expected_date = clone $current_date;
+        $expected_date->modify('+1 day');
+    }
+    
+    // Final check for the last calculated streak block loop
+    if ($temp_streak > $best_streak) {
+        $best_streak = $temp_streak;
+    }
+} else {
+    $best_streak = 0;
+    $current_streak = 0;
+    $streak_accuracy = 0.0;
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -113,7 +246,20 @@ $streak_accuracy = 94.5;
         }
 
         ::-webkit-scrollbar {
-            display: none;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.35);
+            border-radius: 999px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 116, 139, 0.55);
         }
 
         .stroke-dash-96 {
@@ -438,137 +584,88 @@ $streak_accuracy = 94.5;
 
                 <section class="grid grid-cols-1 lg:grid-cols-4 gap-6 w-full">
                     <!-- Streak Heatmap (3/4 width on desktop) -->
-                    <div class="lg:col-span-3 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-sm flex flex-col justify-between h-[300px]">
-                        <div class="flex flex-wrap items-center justify-between gap-4 mb-2">
+                    <div class="lg:col-span-3 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-sm flex flex-col h-[300px]">
+                        <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
                             <div>
                                 <div class="flex items-center gap-2">
                                     <span class="material-symbols-outlined text-primary text-[20px]">calendar_month</span>
                                     <h3 class="font-headline-sm text-[16px] font-semibold text-on-surface">Streak Heatmap</h3>
                                 </div>
+                                <p class="text-[11px] text-on-surface-variant mt-0.5 ml-7">Last 365 days • <span class="font-semibold text-on-surface"><?php echo $study_days; ?> / 365</span> study days</p>
                             </div>
                             <div class="flex items-center gap-1.5 font-label-sm text-[11px] text-on-surface-variant">
-                                <span class="">Less</span>
+                                <span>Less</span>
                                 <span class="w-3 h-3 rounded bg-surface-container-high"></span>
                                 <span class="w-3 h-3 rounded bg-primary-fixed"></span>
                                 <span class="w-3 h-3 rounded bg-primary-fixed-dim"></span>
                                 <span class="w-3 h-3 rounded bg-primary-container"></span>
                                 <span class="w-3 h-3 rounded bg-primary"></span>
-                                <span class="">More</span>
+                                <span>More</span>
                             </div>
                         </div>
-                        <div class="overflow-x-auto pb-1 flex-1 flex flex-col justify-center">
-                            <div class="min-w-[560px]">
-                                <div class="flex text-[11px] font-medium text-on-surface-variant/80 pl-8 mb-1.5">
-                                    <div class="w-[28%]">Jan</div>
-                                    <div class="w-[36%]">Feb</div>
-                                    <div class="w-[36%]">Mar</div>
+
+                        <div id="heatmap-scroll" class="overflow-x-auto pb-1 flex-1 flex flex-col justify-center">
+                            <div class="min-w-max">
+                                <!-- Month labels align with the weekly columns below. -->
+                                <div class="flex gap-1 pl-8 mb-1.5 h-4 text-[11px] font-medium text-on-surface-variant/80">
+                                    <?php
+                                    $label_week_start = clone $heatmap_calendar_start;
+                                    for ($week_index = 0; $week_index < $heatmap_week_count; $week_index++) {
+                                        $label = '';
+                                        $week_probe = clone $label_week_start;
+                                        for ($day_offset = 0; $day_offset < 7; $day_offset++) {
+                                            $probe_date = clone $week_probe;
+                                            $probe_date->modify('+' . $day_offset . ' days');
+                                            if ($probe_date < $heatmap_start || $probe_date > $heatmap_end) {
+                                                continue;
+                                            }
+                                            if ($probe_date->format('j') === '1') {
+                                                $label = $probe_date->format('M');
+                                                break;
+                                            }
+                                        }
+                                        echo '<div class="w-5 flex-none overflow-visible whitespace-nowrap">' . htmlspecialchars($label) . '</div>';
+                                        $label_week_start->modify('+7 days');
+                                    }
+                                    ?>
                                 </div>
-                                <div class="flex gap-2 items-center">
-                                    <div class="flex flex-col justify-between text-[11px] font-medium text-on-surface-variant/70 pr-2 select-none py-0.5 h-[168px]">
-                                        <span class="">Mon</span>
-                                        <span class="">Wed</span>
-                                        <span class="">Fri</span>
-                                        <span class="">Sun</span>
+
+                                <div class="flex gap-2 items-start">
+                                    <div class="flex flex-col justify-between text-[11px] font-medium text-on-surface-variant/70 pr-2 select-none py-0.5 h-[168px] w-6 flex-none">
+                                        <span>Mon</span>
+                                        <span>Wed</span>
+                                        <span>Fri</span>
+                                        <span>Sun</span>
                                     </div>
-                                    <div class="grid grid-flow-col grid-rows-7 gap-1 flex-1">
-                                        <div class="w-5 h-5 rounded bg-surface-container-high" title="No reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed" title="4 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed" title="5 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-surface-container-high" title="No reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed-dim" title="12 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed" title="6 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-surface-container-high" title="No reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed" title="7 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed-dim" title="14 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="22 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed" title="8 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="35 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="20 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed" title="9 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed-dim" title="15 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="24 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="38 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="21 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="40 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed-dim" title="16 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed" title="10 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="26 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="42 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="36 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed-dim" title="18 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="28 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="39 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed" title="8 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed-dim" title="15 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="25 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="45 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="34 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed-dim" title="16 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="24 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed" title="7 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="27 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="44 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="50 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="29 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="48 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed-dim" title="18 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed" title="10 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed-dim" title="14 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="26 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="46 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="28 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="38 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="22 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed" title="9 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="23 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="41 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="39 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed-dim" title="15 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="25 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="44 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed" title="8 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed-dim" title="17 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="30 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="48 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="52 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="26 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed-dim" title="19 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed" title="11 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="28 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="46 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="49 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="31 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="45 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="27 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed" title="12 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed-dim" title="18 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="29 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="47 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="51 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="30 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed-dim" title="16 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed" title="10 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="25 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="43 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="48 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="28 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="44 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="24 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed" title="9 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed-dim" title="19 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="31 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="53 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="56 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="33 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed-dim" title="20 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-fixed" title="11 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary-container" title="32 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary" title="49 reviews"></div>
-                                        <div class="w-5 h-5 rounded bg-primary ring-2 ring-primary ring-offset-2 ring-offset-surface-container-lowest" title="Today: 42 reviews due"></div>
-                                        <div class="w-5 h-5 rounded bg-surface-container-high" title="Tomorrow"></div>
-                                        <div class="w-5 h-5 rounded bg-surface-container-high" title="Upcoming"></div>
-                                        <div class="w-5 h-5 rounded bg-surface-container-high" title="Upcoming"></div>
-                                        <div class="w-5 h-5 rounded bg-surface-container-high" title="Upcoming"></div>
+
+                                    <div class="flex gap-1">
+                                        <?php
+                                        $week_start = clone $heatmap_calendar_start;
+                                        for ($week_index = 0; $week_index < $heatmap_week_count; $week_index++) {
+                                            echo '<div class="flex flex-col gap-1">';
+                                            for ($day_offset = 0; $day_offset < 7; $day_offset++) {
+                                                $cell_date = clone $week_start;
+                                                $cell_date->modify('+' . $day_offset . ' days');
+                                                $cell_key = $cell_date->format('Y-m-d');
+                                                $in_range = $cell_date >= $heatmap_start && $cell_date <= $heatmap_end;
+                                                $reviews = $in_range ? ($heatmap_data[$cell_key] ?? 0) : 0;
+
+                                                if (!$in_range) {
+                                                    echo '<div class="w-5 h-5 flex-none rounded opacity-0 pointer-events-none" aria-hidden="true"></div>';
+                                                    continue;
+                                                }
+
+                                                $cell_class = $heatmap_level_class($reviews);
+                                                $date_label = $cell_date->format('M j, Y');
+                                                $review_label = $reviews === 1 ? '1 review' : $reviews . ' reviews';
+                                                $title = $reviews > 0 ? $date_label . ' — ' . $review_label : $date_label . ' — No reviews';
+
+                                                echo '<div class="w-5 h-5 flex-none rounded ' . $cell_class . '" title="' . htmlspecialchars($title, ENT_QUOTES) . '" aria-label="' . htmlspecialchars($title, ENT_QUOTES) . '"></div>';
+                                            }
+                                            echo '</div>';
+                                            $week_start->modify('+7 days');
+                                        }
+                                        ?>
                                     </div>
                                 </div>
                             </div>
@@ -857,6 +954,7 @@ $streak_accuracy = 94.5;
 
         // ─── INITIALIZATION / LIVE SQL DATABASE RUNNER ───
 document.addEventListener("DOMContentLoaded", () => {
+    // This section at the bottom of your file now instantly matches your dynamic PHP calculations!
     const incomingAppPayload = {
         user: {
             displayName: <?php echo json_encode($display_name); ?>,
@@ -874,6 +972,16 @@ document.addEventListener("DOMContentLoaded", () => {
             streakAccuracy: <?php echo floatval($streak_accuracy); ?>
         }
     };
+
+    // Default the heatmap to the most recent study days
+    document.addEventListener("DOMContentLoaded", () => {
+        const heatmapScroller = document.getElementById("heatmap-scroll");
+
+        if (heatmapScroller) {
+            heatmapScroller.scrollLeft = heatmapScroller.scrollWidth;
+        }
+    });
+
 
     // Run deep script synchronization across Header, Sidebar, and Stats Row
     MemPulseDashboard.updateAll(incomingAppPayload);
