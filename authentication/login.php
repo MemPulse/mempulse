@@ -41,7 +41,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     mysqli_close($conn);
     
     // Invalid credentials back-route
-    header("Location: login-page.html?error=invalid_credentials");
+    header("Location: login.php?error=invalid_credentials");
     exit;
 }
 ?>
