@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MemPulse Sidebar</title>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet" />
+    <style>
+        @layer base {
+
+            html,
+            body {
+                margin: 0;
+                padding: 0;
+            }
+
+            body {
+                overscroll-behavior: none;
+            }
+
+            main>:first-child {
+                margin-top: 0 !important;
+            }
+
+            main>:last-child {
+                margin-bottom: 0 !important;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            display: none;
+        }
+
+        .stroke-dash-96 {
+            stroke-dasharray: 96, 100;
+        }
+    </style>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "primary": "#3525cd", "on-surface-variant": "#464555", "on-secondary-fixed-variant": "#5a00c6", "primary-fixed": "#e2dfff", "on-tertiary-fixed": "#2a1700", "background": "#f8f9ff", "on-surface": "#0b1c30", "secondary-container": "#8a4cfc", "secondary-fixed": "#eaddff", "primary-container": "#4f46e5", "tertiary-fixed": "#ffddb8", "surface-container-low": "#eff4ff", "on-primary-container": "#dad7ff", "inverse-surface": "#213145", "surface-container-lowest": "#ffffff", "on-primary": "#ffffff", "error": "#ba1a1a", "on-tertiary-fixed-variant": "#653e00", "on-tertiary-container": "#ffd4a4", "surface-container-highest": "#d3e4fe", "on-tertiary": "#ffffff", "primary-fixed-dim": "#c3c0ff", "surface-container-high": "#dce9ff", "on-secondary": "#ffffff", "surface-dim": "#cbdbf5", "surface": "#f8f9ff", "tertiary-fixed-dim": "#ffb95f", "outline-variant": "#c7c4d8", "on-secondary-container": "#fffbff", "on-background": "#0b1c30", "surface-bright": "#f8f9ff", "secondary-fixed-dim": "#d2bbff", "secondary": "#712ae2", "on-error-container": "#93000a", "inverse-primary": "#c3c0ff", "surface-tint": "#4d44e3", "surface-container": "#e5eeff", "on-primary-fixed": "#0f0069", "outline": "#777587", "surface-variant": "#d3e4fe", "inverse-on-surface": "#eaf1ff", "on-secondary-fixed": "#25005a", "on-error": "#ffffff", "on-primary-fixed-variant": "#3323cc", "tertiary": "#684000", "tertiary-container": "#885500", "error-container": "#ffdad6" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "margin": "2rem", "space-sm": "0.5rem", "space-lg": "1.5rem", "space-xl": "2.5rem", "gutter": "1.5rem", "space-md": "1rem", "space-xs": "0.25rem" }, "fontFamily": { "body-md": ["Inter"], "label-sm": ["Inter"], "headline-sm": ["Plus Jakarta Sans"], "headline-md": ["Plus Jakarta Sans"], "label-md": ["Inter"], "display": ["Plus Jakarta Sans"], "headline-lg-mobile": ["Plus Jakarta Sans"], "display-mobile": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"], "body-lg": ["Inter"], "label-lg": ["Inter"], "body-sm": ["Inter"] }, "fontSize": { "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }], "label-sm": ["11px", { "lineHeight": "14px", "fontWeight": "600" }], "headline-sm": ["18px", { "lineHeight": "26px", "fontWeight": "600" }], "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }], "label-md": ["12px", { "lineHeight": "16px", "fontWeight": "500" }], "display": ["48px", { "lineHeight": "56px", "fontWeight": "700" }], "headline-lg-mobile": ["26px", { "lineHeight": "34px", "fontWeight": "600" }], "display-mobile": ["36px", { "lineHeight": "44px", "fontWeight": "700" }], "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }], "body-lg": ["16px", { "lineHeight": "26px", "fontWeight": "400" }], "label-lg": ["14px", { "lineHeight": "20px", "fontWeight": "500" }], "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }] } } } };</script>
+</head>
+<style>
+
+</style>
+
+<body class="bg-background font-body-md text-on-surface antialiased min-h-screen selection:bg-primary-fixed selection:text-on-primary-fixed">
+
+    <aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest border-r border-outline-variant/40 z-50 flex flex-col justify-between py-6 px-4 shadow-[0_1px_8px_rgba(0,0,0,0.03)]">
+        <div class="flex flex-col gap-8">
+            <div class="flex items-center gap-3 px-3"><img alt="MemPulse Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1WxB2Q8V90FfZ4X7oS-x5qYNzPB_b8x6_vD6lbd7eBjEY3a3FZ8opzh9kFcWAEdPhgkgQXjAWrXBPBHKxWmgjy6sTfL54k-VoHo3z4h922gdAhkOVyyMMt48En-oL5_rJESHvFpgbbggJowqeFWzRq7iqGqWUOyplTAi2CcEJMlNM0GzhVBfCX3jXsTOMetxPtT_W-LQuK3Ug4FlfqSSTTiOjmk0dEcvbSmfka6qvTYB0B0GmTVBkDIB4en" /><span class="font-headline-sm text-headline-sm font-semibold tracking-tight text-on-surface">MemPulse</span></div>
+            <nav class="flex flex-col gap-1.5" data-active-classes="bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm">
+                <a aria-current="page" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm" data-path="home" href="#">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-[20px] text-on-surface-variant group-hover:text-on-surface transition-colors">home</span>
+                        <span>Home</span>
+                    </div>
+                </a>
+                <a class="flex items-center justify-between px-3.5 py-2.5 rounded-xl font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all group" data-path="decks" href="#">
+                    <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px] text-on-surface-variant group-hover:text-on-surface transition-colors">style</span><span>Decks</span></div>
+                </a><a class="flex items-center justify-between px-3.5 py-2.5 rounded-xl font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all group" data-path="review" href="#">
+                    <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px] text-on-surface-variant group-hover:text-on-surface transition-colors">pace</span><span>Review</span></div><span class="px-2 py-0.5 rounded-full bg-primary-container text-on-primary font-label-sm text-label-sm tracking-wide">42</span>
+                </a>
+            </nav>
+        </div>
+        <div class="flex flex-col gap-2 pt-4 border-t border-outline-variant/30">
+            <nav class="flex flex-col gap-1" data-active-classes="bg-surface-container-high text-on-surface font-semibold">
+                <a class="flex items-center gap-3 px-3.5 py-2 rounded-xl font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all" data-path="settings" href="#">
+                    <span class="material-symbols-outlined text-[20px]">settings</span>
+                    <span>Settings</span>
+                </a>
+                <a class="flex items-center gap-3 px-3.5 py-2 rounded-xl font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-error transition-all" data-path="logout" href="#">
+                    <span class="material-symbols-outlined text-[20px]">logout</span>
+                    <span>Logout</span>
+                </a>
+            </nav>
+            <div class="mt-2 pt-2 px-2 flex items-center justify-between rounded-xl bg-surface-container-low/60 p-2.5">
+                <div class="flex items-center gap-3 overflow-hidden">
+                    <img alt="Profile" class="w-8 h-8 rounded-full object-cover ring-1 ring-outline-variant/50 flex-shrink-0" src="./assets/images/profile-picture.webp.jpg" />
+                    <div class="flex flex-col min-w-0">
+                        <span class="font-label-md text-label-md text-on-surface truncate font-semibold">Lehi Gomez</span>
+                        <span class="font-body-sm text-body-sm text-on-surface-variant truncate">Active Learner</span>
+                    </div>
+                </div>
+                <a class="text-on-surface-variant hover:text-primary transition-colors" data-path="user-account" href="#" title="Account details">
+                    <span class="material-symbols-outlined text-[18px]">more_vert</span>
+                </a>
+            </div>
+        </div>
+    </aside>
+    <main class="pl-72 pt-12">
+        <header class="fixed top-0 left-72 right-0 h-16 bg-surface/85 backdrop-blur-md z-40 flex items-center justify-between px-8 border-b border-outline-variant/20">
+            <div class="flex items-center gap-3 w-80">
+                <div class="flex items-center gap-2 w-full px-3 py-1.5 rounded-lg bg-surface-container-low border border-outline-variant/30 text-on-surface-variant">
+                    <span class="material-symbols-outlined text-[18px]">search</span>
+                    <span class="font-body-sm text-body-sm flex-1 select-none">Search cards, tags, decks...</span>
+                    <span class="font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant/80 border border-outline-variant/40">⌘K</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2 px-3 py-1 rounded-full bg-[#fffbeb] border border-amber-200/80 text-tertiary shadow-sm">
+                    <span class="material-symbols-outlined text-amber-500 text-[18px]">local_fire_department</span>
+                    <span class="font-label-md text-label-md font-semibold tracking-wide"># Day Streak</span>
+                </div>
+                <a class="flex items-center gap-2" data-path="user-account" href="#">
+                    <img alt="Profile" class="w-8 h-8 rounded-full object-cover ring-2 ring-primary-fixed" src="./assets/images/profile-picture.webp.jpg">
+                </a>
+            </div>
+        </header>
+
+        <div class="max-w-7xl mx-auto px-8 py-8">
+            <div class="flex flex-col w-full gap-8">
+                <!-- Interactive Learning Science Hero Carousel (Top Position) - Lowered min-height -->
+                <section class="relative w-full rounded-2xl overflow-hidden shadow-lg min-h-[300px] bg-inverse-surface text-inverse-on-surface" id="hero-carousel">
+                    <!-- Slides Container - Lowered min-height -->
+                    <div class="relative w-full min-h-[300px]">
+
+                        <!-- Slide 1 -->
+                        <div class="hero-slide absolute inset-0 transition-opacity duration-700 ease-in-out flex items-center opacity-0 pointer-events-none z-0" data-slide-index="0">
+                            <div class="absolute inset-0 z-0 bg-inverse-surface">
+                                <!-- Image Wrapper: Lowered max-height and set uniform p-6 -->
+                                <div class="absolute right-0 top-0 bottom-0 w-full lg:w-1/2 p-6 flex items-center justify-center">
+                                    <div class="w-full h-full max-h-[220px] bg-white rounded-xl p-3 shadow-lg flex items-center justify-center overflow-hidden border border-white/20">
+                                        <img alt="Forgetting Curve Memory Retention Diagram" class="w-full h-full object-contain" src="https://googleusercontent.com">
+                                    </div>
+                                </div>
+                                <div class="absolute inset-0 bg-gradient-to-r from-inverse-surface via-inverse-surface/90 to-transparent lg:w-3/5 z-0"></div>
+                            </div>
+                            <!-- Text Content: Standardized padding to p-6 md:p-8 and removed empty markup gaps -->
+                            <div class="relative z-10 p-6 md:p-8 max-w-2xl flex flex-col gap-3">
+                                <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-secondary-container/50 backdrop-blur-md text-on-secondary-container font-label-sm text-label-sm w-fit border border-secondary-fixed/20 shadow-sm">
+                                    <span class="material-symbols-outlined text-[16px] text-cyan-300">psychology</span>
+                                    <span>Memory Science • Ebbinghaus Forgetting Curve</span>
+                                </div>
+                                <h2 class="font-headline-lg text-headline-lg font-bold tracking-tight text-white leading-tight">
+                                    Beat the Forgetting Curve with <br>Spaced-Repetition
+                                </h2>
+                                <p class="font-body-md text-body-md text-slate-200 leading-relaxed">
+                                    Review concepts before you forget them to lock knowledge into <br>long-term memory.
+                                </p>
+                                <div class="flex flex-wrap items-center gap-3 pt-1">
+                                    <button class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-lg text-label-lg shadow-md hover:shadow-lg transition-all group">
+                                        <span>Learn More</span>
+                                        <span class="material-symbols-outlined text-[18px] transition-transform group-hover:translate-x-1">arrow_forward</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Slide 2 -->
+                        <div class="hero-slide absolute inset-0 transition-opacity duration-700 ease-in-out flex items-center opacity-0 pointer-events-none z-0" data-slide-index="1">
+                            <div class="absolute inset-0 z-0 bg-inverse-surface">
+                                <!-- Image Wrapper: Lowered max-height and set uniform p-6 -->
+                                <div class="absolute right-0 top-0 bottom-0 w-full lg:w-1/2 p-6 flex items-center justify-center">
+                                    <div class="relative flex items-center justify-center w-full h-full max-h-[220px]">
+                                        <div class="absolute w-48 h-48 rounded-full bg-secondary-container/50 blur-3xl pointer-events-none"></div>
+                                        <img alt="MemPulse Deck Architecture Icon" class="relative z-10 max-h-[200px] w-auto object-contain transition-transform duration-500 hover:scale-105" src="https://googleusercontent.com">
+                                    </div>
+                                </div>
+                                <div class="absolute inset-0 bg-gradient-to-r from-inverse-surface via-inverse-surface/90 to-transparent lg:w-3/5 z-0"></div>
+                                <div class="absolute inset-0 bg-gradient-to-t from-inverse-surface/90 via-transparent to-transparent z-0"></div>
+                            </div>
+                            <!-- Text Content: Standardized padding to p-6 md:p-8 -->
+                            <div class="relative z-10 p-6 md:p-8 max-w-2xl flex flex-col gap-3">
+                                <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-secondary-container/50 backdrop-blur-md text-on-secondary-container font-label-sm text-label-sm w-fit border border-secondary-fixed/20 shadow-sm">
+                                    <span class="material-symbols-outlined text-[16px] text-cyan-300">style</span>
+                                    <span>Deck Architecture • Smart Organization</span>
+                                </div>
+                                <h2 class="font-headline-lg text-headline-lg font-bold tracking-tight text-white leading-tight">
+                                    Organize Your Flashcards with Decks
+                                </h2>
+                                <p class="font-body-md text-body-md text-slate-200 leading-relaxed">Transform topics into organized, custom study decks.</p>
+                                <div class="flex flex-wrap items-center gap-3 pt-1">
+                                    <button class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-lg text-label-lg shadow-md hover:shadow-lg transition-all group">
+                                        <span class="material-symbols-outlined text-[18px]">add</span>
+                                        <span>Create Deck</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Slide 3 -->
+                        <div class="hero-slide absolute inset-0 transition-opacity duration-700 ease-in-out flex items-center opacity-100 z-10" data-slide-index="2">
+                            <div class="absolute inset-0 z-0 bg-inverse-surface">
+                                <!-- Image Wrapper: Lowered max-height and set uniform p-6 -->
+                                <div class="absolute right-0 top-0 bottom-0 w-full lg:w-1/2 p-6 flex items-center justify-center">
+                                    <div class="relative flex items-center justify-center w-full h-full max-h-[220px]">
+                                        <div class="absolute w-48 h-48 rounded-full bg-primary-container/20 blur-3xl pointer-events-none"></div>
+                                        <img alt="MemPulse Colorful Flashcard Stack" class="relative z-10 max-h-[200px] w-auto object-contain transition-transform duration-500 hover:scale-105" src="https://googleusercontent.com">
+                                    </div>
+                                </div>
+                                <div class="absolute inset-0 bg-gradient-to-r from-inverse-surface via-inverse-surface/90 to-transparent lg:w-3/5 z-0"></div>
+                                <div class="absolute inset-0 bg-gradient-to-t from-inverse-surface/90 via-transparent to-transparent z-0"></div>
+                            </div>
+                            <!-- Text Content: Standardized padding to p-6 md:p-8 -->
+                            <div class="relative z-10 p-6 md:p-8 max-w-2xl flex flex-col gap-3">
+                                <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-secondary-container/50 backdrop-blur-md text-on-secondary-container font-label-sm text-label-sm w-fit border border-secondary-fixed/20 shadow-sm">
+                                    <span class="material-symbols-outlined text-[16px] text-cyan-300">auto_awesome</span>
+                                    <span>Card Design • Atomic Learning</span>
+                                </div>
+                                <h2 class="font-headline-lg text-headline-lg font-bold tracking-tight text-white leading-tight">
+                                    Build Your Flashcards with Precision
+                                </h2>
+                                <p class="font-body-md text-body-md text-slate-200 leading-relaxed">Structure complex subjects into bite-sized, high-retention study cards.</p>
+                                <div class="flex flex-wrap items-center gap-3 pt-1">
+                                    <button class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-lg text-label-lg shadow-md hover:shadow-lg transition-all group">
+                                        <span class="material-symbols-outlined text-[18px]">style</span>
+                                        <span>Create Card</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Carousel Pagination Indicators -->
+                    <div class="absolute bottom-5 left-8 md:left-12 z-20 flex items-center gap-2" id="hero-dots">
+                        <button aria-label="Slide 1" class="hero-dot h-2.5 rounded-full transition-all duration-300 bg-white/40 w-2.5" data-dot-index="0"></button>
+                        <button aria-label="Slide 2" class="hero-dot h-2.5 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/40 w-2.5" data-dot-index="1"></button>
+                        <button aria-label="Slide 3" class="hero-dot h-2.5 rounded-full transition-all duration-300 hover:bg-white/70 bg-cyan-400 w-8" data-dot-index="2"></button>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+    <script>
+        // Simple smooth scroll controls for deck carousel
+        const track = document.getElementById('deck-track');
+        const scrollLeftBtn = document.getElementById('deck-scroll-left');
+        const scrollRightBtn = document.getElementById('deck-scroll-right');
+
+        if (track && scrollLeftBtn && scrollRightBtn) {
+            scrollLeftBtn.addEventListener('click', () => {
+                track.scrollBy({ left: -340, behavior: 'smooth' });
+            });
+            scrollRightBtn.addEventListener('click', () => {
+                track.scrollBy({ left: 340, behavior: 'smooth' });
+            });
+        }
+
+        // Hero carousel controller
+        const slides = document.querySelectorAll('.hero-slide');
+        const dots = document.querySelectorAll('.hero-dot');
+        const heroPrev = document.getElementById('hero-prev');
+        const heroNext = document.getElementById('hero-next');
+        let currentSlide = 0;
+        const totalSlides = slides.length;
+
+        function showSlide(index) {
+            currentSlide = (index + totalSlides) % totalSlides;
+            slides.forEach((slide, idx) => {
+                if (idx === currentSlide) {
+                    slide.classList.remove('opacity-0', 'pointer-events-none', 'z-0');
+                    slide.classList.add('opacity-100', 'z-10');
+                } else {
+                    slide.classList.remove('opacity-100', 'z-10');
+                    slide.classList.add('opacity-0', 'pointer-events-none', 'z-0');
+                }
+            });
+
+            dots.forEach((dot, idx) => {
+                if (idx === currentSlide) {
+                    dot.classList.remove('bg-white/40', 'w-2.5');
+                    dot.classList.add('bg-cyan-400', 'w-8');
+                } else {
+                    dot.classList.remove('bg-cyan-400', 'w-8');
+                    dot.classList.add('bg-white/40', 'w-2.5');
+                }
+            });
+        }
+
+        if (heroPrev && heroNext) {
+            heroPrev.addEventListener('click', () => showSlide(currentSlide - 1));
+            heroNext.addEventListener('click', () => showSlide(currentSlide + 1));
+        }
+
+        dots.forEach((dot, idx) => {
+            dot.addEventListener('click', () => showSlide(idx));
+        });
+    </script>
+</body>
+
+
+</html>
