@@ -54,8 +54,6 @@
             display: none !important;
         }
 
-        /* --- Specific Layout Rules for Logo & Button Shifting --- */
-
         /* Hide the logo name text string when collapsed */
         #sidebar.collapsed .logo-text {
             opacity: 0 !important;
@@ -67,21 +65,28 @@
         #sidebar.collapsed #sidebar-header {
             flex-direction: column !important;
             gap: 16px !important;
-            /* Pushes the button cleanly under the logo icon */
             padding-left: 0 !important;
             padding-right: 0 !important;
             align-items: center !important;
         }
 
-        /* Enforce chronological order constraints */
         #sidebar.collapsed #sidebar-header>div {
             order: 1 !important;
-            /* Logo stays first at the very top */
         }
 
         #sidebar.collapsed #sidebar-toggle {
             order: 2 !important;
-            /* Toggle button moves directly below the logo, right above Home nav link */
+        }
+
+        /* ─── NEW: FORCE MAIN CONTENT AND FIXED HEADER TO SHIFT LEFT ─── */
+        main.collapsed {
+            padding-left: 80px !important;
+            /* Shakes off the pl-72 padding */
+        }
+
+        main.collapsed header {
+            left: 80px !important;
+            /* Shakes off the left-72 fixed offset */
         }
     </style>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
@@ -169,15 +174,21 @@
                 </div>
             </div>
             <div class="flex items-center gap-4">
+                <!-- Streak Indicator Badge Wrapper -->
                 <div class="flex items-center gap-2 px-3 py-1 rounded-full bg-[#fffbeb] border border-amber-200/80 text-tertiary shadow-sm">
                     <span class="material-symbols-outlined text-amber-500 text-[18px]">local_fire_department</span>
-                    <span class="font-label-md text-label-md font-semibold tracking-wide"># Day Streak</span>
+                    <!-- ID ADDED: Targets the display text node inside your top layout block -->
+                    <span id="header-streak-count" class="font-label-md text-label-md font-semibold tracking-wide">-- Days</span>
                 </div>
-                <a class="flex items-center gap-2" data-path="user-account" href="#">
-                    <img alt="Profile" class="w-8 h-8 rounded-full object-cover ring-2 ring-primary-fixed" src="./assets/images/profile-picture.webp.jpg">
+
+                <!-- User Account Action Link -->
+                <a class="flex items-center gap-2" data-path="user-account" href="#" title="View Account Details">
+                    <!-- ID ADDED: Targets the source parameter image node directly -->
+                    <img id="header-profile-img" alt="Profile" class="w-8 h-8 rounded-full object-cover ring-2 ring-primary-fixed" src="./assets/images/profile-picture.webp.jpg">
                 </a>
             </div>
         </header>
+
 
         <div class="max-w-7xl mx-auto px-8 py-8">
             <div class="flex flex-col w-full gap-8">
@@ -291,6 +302,55 @@
                         <button aria-label="Slide 3" class="hero-dot h-2.5 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/40 w-2.5" data-dot-index="2"></button>
                     </div>
                 </section>
+                <!-- Spaced Repetition Core Database Metrics Grid -->
+                <section class="grid grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+
+                    <!-- 1. Cards Due Today (Workload) -->
+                    <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:border-primary/50 transition-all">
+                        <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                            <span class="material-symbols-outlined text-[26px]">alarm</span>
+                        </div>
+                        <div class="flex flex-col min-w-0">
+                            <span class="font-label-sm text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant/70">Cards Due</span>
+                            <span class="font-headline-md text-xl font-bold tracking-tight text-on-surface mt-0.5">--</span>
+                        </div>
+                    </div>
+
+                    <!-- 2. Mastered Cards (Retention) -->
+                    <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:border-teal-500/50 transition-all">
+                        <div class="w-12 h-12 rounded-xl bg-teal-50 flex items-center justify-center text-teal-600 border border-teal-100 flex-shrink-0">
+                            <span class="material-symbols-outlined text-[26px]">verified</span>
+                        </div>
+                        <div class="flex flex-col min-w-0">
+                            <span class="font-label-sm text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant/70">Mastered</span>
+                            <span class="font-headline-md text-xl font-bold tracking-tight text-on-surface mt-0.5">--</span>
+                        </div>
+                    </div>
+
+                    <!-- 3. Lifetime Accuracy (Performance) -->
+                    <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:border-indigo-500/50 transition-all">
+                        <div class="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 border border-indigo-100 flex-shrink-0">
+                            <span class="material-symbols-outlined text-[26px]">analytics</span>
+                        </div>
+                        <div class="flex flex-col min-w-0">
+                            <span class="font-label-sm text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant/70">Avg Accuracy</span>
+                            <span class="font-headline-md text-xl font-bold tracking-tight text-on-surface mt-0.5">--%</span>
+                        </div>
+                    </div>
+
+                    <!-- 4. Tough Cards / Leeches (Troubleshooting) -->
+                    <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:border-error/50 transition-all">
+                        <div class="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center text-error border border-red-100 flex-shrink-0">
+                            <span class="material-symbols-outlined text-[26px]">psychology_alt</span>
+                        </div>
+                        <div class="flex flex-col min-w-0">
+                            <span class="font-label-sm text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant/70">Tough Cards</span>
+                            <span class="font-headline-md text-xl font-bold tracking-tight text-on-surface mt-0.5">--</span>
+                        </div>
+                    </div>
+
+                </section>
+
                 <section class="grid grid-cols-1 lg:grid-cols-4 gap-6 w-full">
                     <!-- Streak Heatmap (3/4 width on desktop) -->
                     <div class="lg:col-span-3 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-sm flex flex-col justify-between h-[300px]">
@@ -433,7 +493,7 @@
                     <div class="lg:col-span-1 flex flex-col gap-3 h-[300px]">
                         <!-- Top Row: Compact Current & Best Streaks -->
                         <div class="grid grid-cols-2 gap-3 h-[120px]">
-                            <!-- Current Streak -->
+                            <!-- Current Streak Card -->
                             <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-3 shadow-sm flex flex-col justify-between relative overflow-hidden group hover:border-amber-300 transition-colors">
                                 <div class="absolute -right-4 -bottom-4 w-12 h-12 bg-amber-500/10 rounded-full blur-xl pointer-events-none"></div>
                                 <div class="flex items-center justify-between">
@@ -445,12 +505,13 @@
                                     </div>
                                 </div>
                                 <div class="flex items-baseline gap-1 mt-auto">
-                                    <span class="font-headline-lg text-2xl font-bold tracking-tight text-on-surface">24</span>
+                                    <!-- ID ADDED: Target with JS -->
+                                    <span id="stat-current-streak" class="font-headline-lg text-2xl font-bold tracking-tight text-on-surface">--</span>
                                     <span class="font-label-md text-[11px] text-on-surface-variant font-medium">Days</span>
                                 </div>
                             </div>
 
-                            <!-- Best Streak -->
+                            <!-- Best Streak Card -->
                             <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-3 shadow-sm flex flex-col justify-between relative overflow-hidden group hover:border-primary-container/40 transition-colors">
                                 <div class="absolute -right-4 -bottom-4 w-12 h-12 bg-primary/10 rounded-full blur-xl pointer-events-none"></div>
                                 <div class="flex items-center justify-between">
@@ -462,7 +523,8 @@
                                     </div>
                                 </div>
                                 <div class="flex items-baseline gap-1 mt-auto">
-                                    <span class="font-headline-lg text-2xl font-bold tracking-tight text-on-surface">48</span>
+                                    <!-- ID ADDED: Target with JS -->
+                                    <span id="stat-best-streak" class="font-headline-lg text-2xl font-bold tracking-tight text-on-surface">--</span>
                                     <span class="font-label-md text-[11px] text-on-surface-variant font-medium">Days</span>
                                 </div>
                             </div>
@@ -484,19 +546,17 @@
                             <div class="my-auto pt-2 flex items-center justify-between gap-4">
                                 <div>
                                     <div class="flex items-baseline gap-1">
-                                        <span class="font-headline-lg text-3xl font-bold tracking-tight text-on-surface">94.5</span>
+                                        <!-- ID ADDED: Target with JS -->
+                                        <span id="stat-streak-accuracy" class="font-headline-lg text-3xl font-bold tracking-tight text-on-surface">--</span>
                                         <span class="font-label-md text-label-md text-on-surface-variant font-semibold">%</span>
                                     </div>
-                                    <p class="text-[11px] text-on-surface-variant mt-0.5">Perfect focus over the last 24 days</p>
-                                </div>
-
-                                <!-- Simple Mini Progress Ring or Sparkline placeholder alignment -->
-                                <div class="relative w-12 h-12 flex items-center justify-center rounded-full bg-teal-50 border border-teal-100">
-                                    <span class="material-symbols-outlined text-teal-600 text-[20px]">trending_up</span>
+                                    <!-- ID ADDED: Target for helper subtitle text strings if needed -->
+                                    <p id="stat-accuracy-subtitle" class="text-[11px] text-on-surface-variant mt-0.5">Calculated over the current streak</p>
                                 </div>
                             </div>
                         </div>
                     </div>
+
 
                 </section>
             </div>
@@ -507,12 +567,14 @@
         // Sidebar toggle logic
         document.addEventListener("DOMContentLoaded", () => {
             const sidebar = document.querySelector("#sidebar");
+            const mainContent = document.querySelector("main"); // 1. Target the main element
             const toggleBtn = document.querySelector("#sidebar-toggle");
             const toggleIcon = toggleBtn.querySelector(".material-symbols-outlined");
 
             toggleBtn.addEventListener("click", () => {
-                // Toggle the collapsed layout state class
+                // Toggle the collapsed layout state class on BOTH elements
                 sidebar.classList.toggle("collapsed");
+                mainContent.classList.toggle("collapsed"); // 2. Toggle main class
 
                 // Swap the panel icons based on state
                 if (sidebar.classList.contains("collapsed")) {
@@ -523,7 +585,32 @@
             });
         });
 
+        // Function to update the top navigation header dynamically
+        function updateHeaderData(userData) {
+            const headerStreak = document.getElementById('header-streak-count');
+            const headerProfileImg = document.getElementById('header-profile-img');
 
+            // 1. Update Streak Count Display Node smoothly
+            if (headerStreak) {
+                headerStreak.textContent = userData.currentStreak + (userData.currentStreak === 1 ? ' Day' : ' Days');
+            }
+
+            // 2. Update Image Path Assets dynamically
+            if (headerProfileImg && userData.profileImageUrl) {
+                headerProfileImg.src = userData.profileImageUrl;
+            }
+        }
+
+        // Example Integration Test Payload
+        document.addEventListener("DOMContentLoaded", () => {
+            const userPayload = {
+                currentStreak: 24,
+                profileImageUrl: "./assets/images/profile-picture.webp.jpg"
+            };
+
+            // Run the updater sequence
+            // updateHeaderData(userPayload);
+        });
 
         // Simple smooth scroll controls for deck carousel
         const track = document.getElementById('deck-track');
@@ -611,6 +698,102 @@
 
         // Initialize the slide loop on page load
         startAutoPlay();
+    </script>
+    <script>
+        /**
+     * Global Dashboard Manager Module
+     * Coordinates active dynamic interface state tracking for MemPulse
+     */
+        const MemPulseDashboard = {
+            // 1. Core State Updater Method
+            updateAll(appPayload) {
+                if (!appPayload) return;
+
+                this.syncHeader(appPayload.user);
+                this.syncSidebarProfile(appPayload.user);
+                this.syncDatabaseMetrics(appPayload.stats);
+                this.syncStreakMetrics(appPayload.stats);
+            },
+
+            // 2. Synchronize Top Fixed Navigation Header Elements
+            syncHeader(user) {
+                if (!user) return;
+                const headerStreak = document.getElementById('header-streak-count');
+                const headerImg = document.getElementById('header-profile-img');
+
+                if (headerStreak) {
+                    headerStreak.textContent = user.currentStreak + (user.currentStreak === 1 ? ' Day' : ' Days');
+                }
+                if (headerImg && user.profileImageUrl) {
+                    headerImg.src = user.profileImageUrl;
+                }
+            },
+
+            // 3. Synchronize Bottom Expanded/Collapsed Sidebar Components
+            syncSidebarProfile(user) {
+                if (!user) return;
+                const sidebarName = document.getElementById('sidebar-profile-name');
+                const sidebarRole = document.getElementById('sidebar-profile-role');
+                const sidebarImg = document.getElementById('sidebar-profile-img');
+
+                if (sidebarName) sidebarName.textContent = user.displayName;
+                if (sidebarRole) sidebarRole.textContent = user.displayRole;
+                if (sidebarImg && user.profileImageUrl) {
+                    sidebarImg.src = user.profileImageUrl;
+                }
+            },
+
+            // 4. Update the Spaced-Repetition Core Database Analytics Rows
+            syncDatabaseMetrics(stats) {
+                if (!stats) return;
+                const cardsDue = document.getElementById('stat-cards-due');
+                const mastered = document.getElementById('stat-mastered');
+                const accuracy = document.getElementById('stat-accuracy');
+                const tough = document.getElementById('stat-tough');
+
+                if (cardsDue) cardsDue.textContent = stats.cardsDue ?? '--';
+                if (mastered) mastered.textContent = stats.masteredCards ?? '--';
+                if (accuracy) accuracy.textContent = (stats.lifetimeAccuracy !== undefined) ? `${stats.lifetimeAccuracy}%` : '--%';
+                if (tough) tough.textContent = stats.toughCards ?? '--';
+            },
+
+            // 5. Update Streak and Performance Calculation Cards
+            syncStreakMetrics(stats) {
+                if (!stats) return;
+                const currentStreak = document.getElementById('stat-current-streak');
+                const bestStreak = document.getElementById('stat-best-streak');
+                const streakAccuracy = document.getElementById('stat-streak-accuracy');
+
+                if (currentStreak) currentStreak.textContent = stats.currentStreak ?? '--';
+                if (bestStreak) bestStreak.textContent = stats.bestStreak ?? '--';
+                if (streakAccuracy) streakAccuracy.textContent = stats.streakAccuracy ?? '--';
+            }
+        };
+
+        // ─── INITIALIZATION / DEMO INTEGRATION RUNNER ───
+        document.addEventListener("DOMContentLoaded", () => {
+            // This centralized mock data structure precisely mirrors your DB outputs!
+            const incomingAppPayload = {
+                user: {
+                    displayName: "Lehi Gomez",
+                    displayRole: "Active Learner",
+                    currentStreak: 24,
+                    profileImageUrl: "./assets/images/profile-picture.webp.jpg"
+                },
+                stats: {
+                    cardsDue: 18,
+                    masteredCards: 142,
+                    lifetimeAccuracy: 89.5, // From review_sessions virtual calculation
+                    toughCards: 3,         // From flashcards table checking lapses >= 8
+                    currentStreak: 24,
+                    bestStreak: 48,
+                    streakAccuracy: 94.5
+                }
+            };
+
+            // Execute the global synchronization sequence
+            MemPulseDashboard.updateAll(incomingAppPayload);
+        });
     </script>
 </body>
 
