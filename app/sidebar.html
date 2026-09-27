@@ -39,60 +39,128 @@
         .stroke-dash-96 {
             stroke-dasharray: 96, 100;
         }
+
+        /* Sidebar Toggle */
+        /* --- Base Collapsed Sidebar Rules --- */
+        #sidebar.collapsed {
+            width: 80px !important;
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+        }
+
+        /* Hide standard layout text elements */
+        #sidebar.collapsed .sidebar-text {
+            opacity: 0 !important;
+            display: none !important;
+        }
+
+        /* --- Specific Layout Rules for Logo & Button Shifting --- */
+
+        /* Hide the logo name text string when collapsed */
+        #sidebar.collapsed .logo-text {
+            opacity: 0 !important;
+            width: 0 !important;
+            display: none !important;
+        }
+
+        /* Change header layout structure from a row grid to vertical stack */
+        #sidebar.collapsed #sidebar-header {
+            flex-direction: column !important;
+            gap: 16px !important;
+            /* Pushes the button cleanly under the logo icon */
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            align-items: center !important;
+        }
+
+        /* Enforce chronological order constraints */
+        #sidebar.collapsed #sidebar-header>div {
+            order: 1 !important;
+            /* Logo stays first at the very top */
+        }
+
+        #sidebar.collapsed #sidebar-toggle {
+            order: 2 !important;
+            /* Toggle button moves directly below the logo, right above Home nav link */
+        }
     </style>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "primary": "#3525cd", "on-surface-variant": "#464555", "on-secondary-fixed-variant": "#5a00c6", "primary-fixed": "#e2dfff", "on-tertiary-fixed": "#2a1700", "background": "#f8f9ff", "on-surface": "#0b1c30", "secondary-container": "#8a4cfc", "secondary-fixed": "#eaddff", "primary-container": "#4f46e5", "tertiary-fixed": "#ffddb8", "surface-container-low": "#eff4ff", "on-primary-container": "#dad7ff", "inverse-surface": "#213145", "surface-container-lowest": "#ffffff", "on-primary": "#ffffff", "error": "#ba1a1a", "on-tertiary-fixed-variant": "#653e00", "on-tertiary-container": "#ffd4a4", "surface-container-highest": "#d3e4fe", "on-tertiary": "#ffffff", "primary-fixed-dim": "#c3c0ff", "surface-container-high": "#dce9ff", "on-secondary": "#ffffff", "surface-dim": "#cbdbf5", "surface": "#f8f9ff", "tertiary-fixed-dim": "#ffb95f", "outline-variant": "#c7c4d8", "on-secondary-container": "#fffbff", "on-background": "#0b1c30", "surface-bright": "#f8f9ff", "secondary-fixed-dim": "#d2bbff", "secondary": "#712ae2", "on-error-container": "#93000a", "inverse-primary": "#c3c0ff", "surface-tint": "#4d44e3", "surface-container": "#e5eeff", "on-primary-fixed": "#0f0069", "outline": "#777587", "surface-variant": "#d3e4fe", "inverse-on-surface": "#eaf1ff", "on-secondary-fixed": "#25005a", "on-error": "#ffffff", "on-primary-fixed-variant": "#3323cc", "tertiary": "#684000", "tertiary-container": "#885500", "error-container": "#ffdad6" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "margin": "2rem", "space-sm": "0.5rem", "space-lg": "1.5rem", "space-xl": "2.5rem", "gutter": "1.5rem", "space-md": "1rem", "space-xs": "0.25rem" }, "fontFamily": { "body-md": ["Inter"], "label-sm": ["Inter"], "headline-sm": ["Plus Jakarta Sans"], "headline-md": ["Plus Jakarta Sans"], "label-md": ["Inter"], "display": ["Plus Jakarta Sans"], "headline-lg-mobile": ["Plus Jakarta Sans"], "display-mobile": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"], "body-lg": ["Inter"], "label-lg": ["Inter"], "body-sm": ["Inter"] }, "fontSize": { "body-md": ["14px", { "lineHeight": "22px", "fontWeight": "400" }], "label-sm": ["11px", { "lineHeight": "14px", "fontWeight": "600" }], "headline-sm": ["18px", { "lineHeight": "26px", "fontWeight": "600" }], "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }], "label-md": ["12px", { "lineHeight": "16px", "fontWeight": "500" }], "display": ["48px", { "lineHeight": "56px", "fontWeight": "700" }], "headline-lg-mobile": ["26px", { "lineHeight": "34px", "fontWeight": "600" }], "display-mobile": ["36px", { "lineHeight": "44px", "fontWeight": "700" }], "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }], "body-lg": ["16px", { "lineHeight": "26px", "fontWeight": "400" }], "label-lg": ["14px", { "lineHeight": "20px", "fontWeight": "500" }], "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }] } } } };</script>
 </head>
-<style>
-
-</style>
 
 <body class="bg-background font-body-md text-on-surface antialiased min-h-screen selection:bg-primary-fixed selection:text-on-primary-fixed">
 
-    <aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest border-r border-outline-variant/40 z-50 flex flex-col justify-between py-6 px-4 shadow-[0_1px_8px_rgba(0,0,0,0.03)]">
+    <aside id="sidebar" class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest border-r border-outline-variant/40 z-50 flex flex-col justify-between py-6 px-4 shadow-[0_1px_8px_rgba(0,0,0,0.03)] transition-all duration-300 ease-in-out">
         <div class="flex flex-col gap-8">
-            <div class="flex items-center gap-3 px-3"><img alt="MemPulse Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1WxB2Q8V90FfZ4X7oS-x5qYNzPB_b8x6_vD6lbd7eBjEY3a3FZ8opzh9kFcWAEdPhgkgQXjAWrXBPBHKxWmgjy6sTfL54k-VoHo3z4h922gdAhkOVyyMMt48En-oL5_rJESHvFpgbbggJowqeFWzRq7iqGqWUOyplTAi2CcEJMlNM0GzhVBfCX3jXsTOMetxPtT_W-LQuK3Ug4FlfqSSTTiOjmk0dEcvbSmfka6qvTYB0B0GmTVBkDIB4en" /><span class="font-headline-sm text-headline-sm font-semibold tracking-tight text-on-surface">MemPulse</span></div>
+
+            <!-- Outer layout section container -->
+            <div id="sidebar-header" class="flex items-center justify-between gap-3 px-3 transition-all duration-300">
+                <!-- Inner container holding the logo image assets -->
+                <div class="flex items-center gap-3 flex-shrink-0">
+                    <img alt="MemPulse Logo" class="h-8 w-auto object-contain flex-shrink-0" src="./assets/images/mempulse-logo.png" />
+                    <span class="logo-text font-headline-sm text-headline-sm font-semibold tracking-tight text-on-surface transition-all duration-200">MemPulse</span>
+                </div>
+
+                <!-- Toggle Action Button element -->
+                <button id="sidebar-toggle" class="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors flex-shrink-0" title="Toggle Sidebar">
+                    <span class="material-symbols-outlined text-[24px]">left_panel_close</span>
+                </button>
+            </div>
             <nav class="flex flex-col gap-1.5" data-active-classes="bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm">
                 <a aria-current="page" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm" data-path="home" href="#">
                     <div class="flex items-center gap-3">
-                        <span class="material-symbols-outlined text-[20px] text-on-surface-variant group-hover:text-on-surface transition-colors">home</span>
-                        <span>Home</span>
+                        <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">home</span>
+                        <span class="sidebar-text transition-opacity duration-200">Home</span>
                     </div>
                 </a>
                 <a class="flex items-center justify-between px-3.5 py-2.5 rounded-xl font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all group" data-path="decks" href="#">
-                    <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px] text-on-surface-variant group-hover:text-on-surface transition-colors">style</span><span>Decks</span></div>
-                </a><a class="flex items-center justify-between px-3.5 py-2.5 rounded-xl font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all group" data-path="review" href="#">
-                    <div class="flex items-center gap-3"><span class="material-symbols-outlined text-[20px] text-on-surface-variant group-hover:text-on-surface transition-colors">pace</span><span>Review</span></div><span class="px-2 py-0.5 rounded-full bg-primary-container text-on-primary font-label-sm text-label-sm tracking-wide">42</span>
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">style</span>
+                        <span class="sidebar-text transition-opacity duration-200">Decks</span>
+                    </div>
+                </a>
+                <a class="flex items-center justify-between px-3.5 py-2.5 rounded-xl font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all group" data-path="review" href="#">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">pace</span>
+                        <span class="sidebar-text transition-opacity duration-200">Review</span>
+                    </div>
+                    <!-- FIX 2: Wrapped review badge in sidebar-text container so it disappears when collapsed -->
+                    <span class="sidebar-text px-2 py-0.5 rounded-full bg-primary-container text-on-primary font-label-sm text-label-sm tracking-wide transition-opacity duration-200">42</span>
                 </a>
             </nav>
         </div>
         <div class="flex flex-col gap-2 pt-4 border-t border-outline-variant/30">
             <nav class="flex flex-col gap-1" data-active-classes="bg-surface-container-high text-on-surface font-semibold">
                 <a class="flex items-center gap-3 px-3.5 py-2 rounded-xl font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all" data-path="settings" href="#">
-                    <span class="material-symbols-outlined text-[20px]">settings</span>
-                    <span>Settings</span>
+                    <span class="material-symbols-outlined text-[24px]">settings</span>
+                    <span class="sidebar-text transition-opacity duration-200">Settings</span>
                 </a>
                 <a class="flex items-center gap-3 px-3.5 py-2 rounded-xl font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-error transition-all" data-path="logout" href="#">
-                    <span class="material-symbols-outlined text-[20px]">logout</span>
-                    <span>Logout</span>
+                    <span class="material-symbols-outlined text-[24px]">logout</span>
+                    <span class="sidebar-text transition-opacity duration-200">Logout</span>
                 </a>
             </nav>
             <div class="mt-2 pt-2 px-2 flex items-center justify-between rounded-xl bg-surface-container-low/60 p-2.5">
                 <div class="flex items-center gap-3 overflow-hidden">
+                    <!-- FIX 3: Removed the layout wrapping error. Image stays visible, texts go inside the target wrapper block -->
                     <img alt="Profile" class="w-8 h-8 rounded-full object-cover ring-1 ring-outline-variant/50 flex-shrink-0" src="./assets/images/profile-picture.webp.jpg" />
-                    <div class="flex flex-col min-w-0">
+
+                    <div class="sidebar-text flex flex-col min-w-0 transition-opacity duration-200">
                         <span class="font-label-md text-label-md text-on-surface truncate font-semibold">Lehi Gomez</span>
                         <span class="font-body-sm text-body-sm text-on-surface-variant truncate">Active Learner</span>
                     </div>
                 </div>
-                <a class="text-on-surface-variant hover:text-primary transition-colors" data-path="user-account" href="#" title="Account details">
+                <!-- FIX 4: Wrapped more options action button in sidebar-text element -->
+                <a class="sidebar-text text-on-surface-variant hover:text-primary transition-colors transition-opacity duration-200" data-path="user-account" href="#" title="Account details">
                     <span class="material-symbols-outlined text-[18px]">more_vert</span>
                 </a>
             </div>
         </div>
     </aside>
-    <main class="pl-72 pt-12">
-        <header class="fixed top-0 left-72 right-0 h-16 bg-surface/85 backdrop-blur-md z-40 flex items-center justify-between px-8 border-b border-outline-variant/20">
+
+
+    <main class="pl-72 pt-12 transition-all duration-300 ease-in-out">
+        <header class="fixed top-0 left-72 right-0 h-16 bg-surface/85 backdrop-blur-md z-40 flex items-center justify-between px-8 border-b border-outline-variant/20 transition-all duration-300 ease-in-out">
             <div class="flex items-center gap-3 w-80">
                 <div class="flex items-center gap-2 w-full px-3 py-1.5 rounded-lg bg-surface-container-low border border-outline-variant/30 text-on-surface-variant">
                     <span class="material-symbols-outlined text-[18px]">search</span>
@@ -361,48 +429,102 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Streak Stats (1/4 width on desktop): current streak & best streak -->
+                    <!-- Streak & Accuracy Stats (1/4 width on desktop) -->
                     <div class="lg:col-span-1 flex flex-col gap-3 h-[300px]">
-                        <div class="flex-1 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-sm flex flex-col justify-between relative overflow-hidden group hover:border-amber-300 transition-colors">
-                            <div class="absolute -right-4 -bottom-4 w-20 h-20 bg-amber-500/10 rounded-full blur-xl pointer-events-none"></div>
-                            <div class="flex items-center justify-between">
-                                <span class="font-label-sm text-[11px] font-semibold uppercase tracking-wider text-amber-600 bg-amber-50 border border-amber-200/60 px-2.5 py-0.5 rounded-full">
-                                    Current Streak
-                                </span>
-                                <div class="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200/80 flex items-center justify-center text-amber-500 shadow-xs">
-                                    <span class="material-symbols-outlined text-[18px]">local_fire_department</span>
+                        <!-- Top Row: Compact Current & Best Streaks -->
+                        <div class="grid grid-cols-2 gap-3 h-[120px]">
+                            <!-- Current Streak -->
+                            <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-3 shadow-sm flex flex-col justify-between relative overflow-hidden group hover:border-amber-300 transition-colors">
+                                <div class="absolute -right-4 -bottom-4 w-12 h-12 bg-amber-500/10 rounded-full blur-xl pointer-events-none"></div>
+                                <div class="flex items-center justify-between">
+                                    <span class="font-label-sm text-[10px] font-semibold uppercase tracking-wider text-amber-600 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-full">
+                                        Current
+                                    </span>
+                                    <div class="w-6 h-6 rounded-lg bg-amber-50 border border-amber-200/80 flex items-center justify-center text-amber-500 shadow-xs">
+                                        <span class="material-symbols-outlined text-[14px]">local_fire_department</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-baseline gap-1 mt-auto">
+                                    <span class="font-headline-lg text-2xl font-bold tracking-tight text-on-surface">24</span>
+                                    <span class="font-label-md text-[11px] text-on-surface-variant font-medium">Days</span>
                                 </div>
                             </div>
-                            <div class="my-auto pt-1">
-                                <div class="flex items-baseline gap-2">
-                                    <span class="font-headline-lg text-3xl font-bold tracking-tight text-on-surface">24</span>
-                                    <span class="font-label-md text-label-md text-on-surface-variant font-medium">Days</span>
+
+                            <!-- Best Streak -->
+                            <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-3 shadow-sm flex flex-col justify-between relative overflow-hidden group hover:border-primary-container/40 transition-colors">
+                                <div class="absolute -right-4 -bottom-4 w-12 h-12 bg-primary/10 rounded-full blur-xl pointer-events-none"></div>
+                                <div class="flex items-center justify-between">
+                                    <span class="font-label-sm text-[10px] font-semibold uppercase tracking-wider text-primary bg-primary-fixed/60 border border-primary-fixed-dim/40 px-2 py-0.5 rounded-full">
+                                        Best
+                                    </span>
+                                    <div class="w-6 h-6 rounded-lg bg-primary-fixed/60 border border-primary-fixed-dim/40 flex items-center justify-center text-primary shadow-xs">
+                                        <span class="material-symbols-outlined text-[14px]">emoji_events</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-baseline gap-1 mt-auto">
+                                    <span class="font-headline-lg text-2xl font-bold tracking-tight text-on-surface">48</span>
+                                    <span class="font-label-md text-[11px] text-on-surface-variant font-medium">Days</span>
                                 </div>
                             </div>
                         </div>
-                        <div class="flex-1 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-sm flex flex-col justify-between relative overflow-hidden group hover:border-primary-container/40 transition-colors">
-                            <div class="absolute -right-4 -bottom-4 w-20 h-20 bg-primary/10 rounded-full blur-xl pointer-events-none"></div>
+
+                        <!-- Bottom Section: Current Streak Accuracy Card -->
+                        <div class="flex-1 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-sm flex flex-col justify-between relative overflow-hidden group hover:border-teal-300 transition-colors">
+                            <div class="absolute -right-4 -bottom-4 w-20 h-20 bg-teal-500/10 rounded-full blur-xl pointer-events-none"></div>
                             <div class="flex items-center justify-between">
-                                <span class="font-label-sm text-[11px] font-semibold uppercase tracking-wider text-primary bg-primary-fixed/60 border border-primary-fixed-dim/40 px-2.5 py-0.5 rounded-full">
-                                    Best Streak
+                                <span class="font-label-sm text-[11px] font-semibold uppercase tracking-wider text-teal-600 bg-teal-50 border border-teal-200/60 px-2.5 py-0.5 rounded-full">
+                                    Streak Accuracy
                                 </span>
-                                <div class="w-8 h-8 rounded-xl bg-primary-fixed/60 border border-primary-fixed-dim/40 flex items-center justify-center text-primary shadow-xs">
-                                    <span class="material-symbols-outlined text-[18px]">emoji_events</span>
+                                <div class="w-8 h-8 rounded-xl bg-teal-50 border border-teal-200/80 flex items-center justify-center text-teal-500 shadow-xs">
+                                    <span class="material-symbols-outlined text-[18px]">track_changes</span>
                                 </div>
                             </div>
-                            <div class="my-auto pt-1">
-                                <div class="flex items-baseline gap-2">
-                                    <span class="font-headline-lg text-3xl font-bold tracking-tight text-on-surface">48</span>
-                                    <span class="font-label-md text-label-md text-on-surface-variant font-medium">Days</span>
+
+                            <!-- Accuracy Details -->
+                            <div class="my-auto pt-2 flex items-center justify-between gap-4">
+                                <div>
+                                    <div class="flex items-baseline gap-1">
+                                        <span class="font-headline-lg text-3xl font-bold tracking-tight text-on-surface">94.5</span>
+                                        <span class="font-label-md text-label-md text-on-surface-variant font-semibold">%</span>
+                                    </div>
+                                    <p class="text-[11px] text-on-surface-variant mt-0.5">Perfect focus over the last 24 days</p>
+                                </div>
+
+                                <!-- Simple Mini Progress Ring or Sparkline placeholder alignment -->
+                                <div class="relative w-12 h-12 flex items-center justify-center rounded-full bg-teal-50 border border-teal-100">
+                                    <span class="material-symbols-outlined text-teal-600 text-[20px]">trending_up</span>
                                 </div>
                             </div>
                         </div>
                     </div>
+
                 </section>
             </div>
         </div>
     </main>
+
     <script>
+        // Sidebar toggle logic
+        document.addEventListener("DOMContentLoaded", () => {
+            const sidebar = document.querySelector("#sidebar");
+            const toggleBtn = document.querySelector("#sidebar-toggle");
+            const toggleIcon = toggleBtn.querySelector(".material-symbols-outlined");
+
+            toggleBtn.addEventListener("click", () => {
+                // Toggle the collapsed layout state class
+                sidebar.classList.toggle("collapsed");
+
+                // Swap the panel icons based on state
+                if (sidebar.classList.contains("collapsed")) {
+                    toggleIcon.textContent = "left_panel_open";
+                } else {
+                    toggleIcon.textContent = "left_panel_close";
+                }
+            });
+        });
+
+
+
         // Simple smooth scroll controls for deck carousel
         const track = document.getElementById('deck-track');
         const scrollLeftBtn = document.getElementById('deck-scroll-left');
