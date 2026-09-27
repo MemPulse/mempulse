@@ -393,7 +393,8 @@ $streak_accuracy = 94.5;
                         </div>
                         <div class="flex flex-col min-w-0">
                             <span class="font-label-sm text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant/70">Cards Due</span>
-                            <span class="font-headline-md text-xl font-bold tracking-tight text-on-surface mt-0.5">--</span>
+                            <!-- ADDED TARGET ID HERE -->
+                            <span id="stat-cards-due" class="font-headline-md text-xl font-bold tracking-tight text-on-surface mt-0.5">--</span>
                         </div>
                     </div>
 
@@ -404,7 +405,8 @@ $streak_accuracy = 94.5;
                         </div>
                         <div class="flex flex-col min-w-0">
                             <span class="font-label-sm text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant/70">Mastered</span>
-                            <span class="font-headline-md text-xl font-bold tracking-tight text-on-surface mt-0.5">--</span>
+                            <!-- ADDED TARGET ID HERE -->
+                            <span id="stat-mastered" class="font-headline-md text-xl font-bold tracking-tight text-on-surface mt-0.5">--</span>
                         </div>
                     </div>
 
@@ -415,7 +417,8 @@ $streak_accuracy = 94.5;
                         </div>
                         <div class="flex flex-col min-w-0">
                             <span class="font-label-sm text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant/70">Avg Accuracy</span>
-                            <span class="font-headline-md text-xl font-bold tracking-tight text-on-surface mt-0.5">--%</span>
+                            <!-- ADDED TARGET ID HERE -->
+                            <span id="stat-accuracy" class="font-headline-md text-xl font-bold tracking-tight text-on-surface mt-0.5">--%</span>
                         </div>
                     </div>
 
@@ -426,7 +429,8 @@ $streak_accuracy = 94.5;
                         </div>
                         <div class="flex flex-col min-w-0">
                             <span class="font-label-sm text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant/70">Tough Cards</span>
-                            <span class="font-headline-md text-xl font-bold tracking-tight text-on-surface mt-0.5">--</span>
+                            <!-- ADDED TARGET ID HERE -->
+                            <span id="stat-tough" class="font-headline-md text-xl font-bold tracking-tight text-on-surface mt-0.5">--</span>
                         </div>
                     </div>
 
@@ -852,28 +856,29 @@ $streak_accuracy = 94.5;
         };
 
         // ─── INITIALIZATION / LIVE SQL DATABASE RUNNER ───
-        document.addEventListener("DOMContentLoaded", () => {
-            const incomingAppPayload = {
-                user: {
-                    displayName: <?php echo json_encode($display_name); ?>,
-                    displayRole: "Active Learner",
-                    currentStreak: <?php echo intval($current_streak); ?>,
-                    profileImageUrl: "./assets/images/profile-picture.webp.jpg"
-                },
-                stats: {
-                    cardsDue: <?php echo intval($cards_due); ?>,
-                    masteredCards: <?php echo intval($mastered_cards); ?>,
-                    lifetimeAccuracy: <?php echo floatval($avg_accuracy); ?>,
-                    toughCards: <?php echo intval($tough_cards); ?>,
-                    currentStreak: <?php echo intval($current_streak); ?>,
-                    bestStreak: <?php echo intval($best_streak); ?>,
-                    streakAccuracy: <?php echo floatval($streak_accuracy); ?>
-                }
-            };
+document.addEventListener("DOMContentLoaded", () => {
+    const incomingAppPayload = {
+        user: {
+            displayName: <?php echo json_encode($display_name); ?>,
+            displayRole: "Active Learner",
+            currentStreak: <?php echo intval($current_streak); ?>,
+            profileImageUrl: "./assets/images/profile-picture.webp.jpg" 
+        },
+        stats: {
+            cardsDue: <?php echo intval($cards_due); ?>,
+            masteredCards: <?php echo intval($mastered_cards); ?>,
+            lifetimeAccuracy: <?php echo floatval($avg_accuracy); ?>,
+            toughCards: <?php echo intval($tough_cards); ?>,
+            currentStreak: <?php echo intval($current_streak); ?>,
+            bestStreak: <?php echo intval($best_streak); ?>,
+            streakAccuracy: <?php echo floatval($streak_accuracy); ?>
+        }
+    };
 
-            // Run deep script synchronization
-            MemPulseDashboard.updateAll(incomingAppPayload);
-        });
+    // Run deep script synchronization across Header, Sidebar, and Stats Row
+    MemPulseDashboard.updateAll(incomingAppPayload);
+});
+
     </script>
 </body>
 
