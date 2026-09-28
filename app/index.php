@@ -82,8 +82,10 @@ $session_sql = "SELECT DATE(started_at) as session_date,
                        SUM(remembered_count) as total_remembered, 
                        SUM(total_reviewed) as total_reviewed
                 FROM review_sessions 
-                WHERE user_id = ? AND ended_at IS NOT NULL
+                WHERE user_id = ? 
+                  AND ended_at IS NOT NULL
                 GROUP BY DATE(started_at)
+                HAVING SUM(total_reviewed) > 0
                 ORDER BY session_date DESC";
 
 $session_stmt = mysqli_prepare($conn, $session_sql);
@@ -245,22 +247,73 @@ if (!empty($activity_history)) {
             }
         }
 
-        ::-webkit-scrollbar {
+        /* Hide normal page scrollbars */
+        html,
+        body,
+        main {
+            scrollbar-width: none;
+        }
+
+        html::-webkit-scrollbar,
+        body::-webkit-scrollbar,
+        main::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Show scrollbar only for the heatmap */
+        #heatmap-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
+        }
+
+        #heatmap-scroll::-webkit-scrollbar {
+            display: block;
             height: 8px;
         }
 
-        ::-webkit-scrollbar-track {
+        #heatmap-scroll::-webkit-scrollbar-track {
             background: transparent;
         }
 
-        ::-webkit-scrollbar-thumb {
+        #heatmap-scroll::-webkit-scrollbar-thumb {
             background: rgba(100, 116, 139, 0.35);
             border-radius: 999px;
         }
 
-        ::-webkit-scrollbar-thumb:hover {
+        #heatmap-scroll::-webkit-scrollbar-thumb:hover {
             background: rgba(100, 116, 139, 0.55);
         }
+        
+        #heatmap-scroll .heatmap-cell {
+            position: relative;
+            cursor: pointer;
+            overflow: visible;
+        }
+
+        #heatmap-scroll .heatmap-cell::after {
+            content: attr(data-tooltip);
+            position: fixed;
+            left: var(--tooltip-left);
+            top: var(--tooltip-top);
+            transform: translate(-50%, -100%);
+            background: #213145;
+            color: #ffffff;
+            font-size: 11px;
+            line-height: 1.3;
+            padding: 6px 8px;
+            border-radius: 7px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease;
+            z-index: 9999;
+        }
+
+        #heatmap-scroll .heatmap-cell:hover::after {
+            opacity: 1;
+        }
+
+        
 
         .stroke-dash-96 {
             stroke-dasharray: 96, 100;
@@ -328,7 +381,7 @@ if (!empty($activity_history)) {
             <div id="sidebar-header" class="flex items-center justify-between gap-3 px-3 transition-all duration-300">
                 <!-- Inner container holding the logo image assets -->
                 <div class="flex items-center gap-3 flex-shrink-0">
-                    <img alt="MemPulse Logo" class="h-8 w-auto object-contain flex-shrink-0" src="./assets/images/mempulse-logo.png" />
+                    <img alt="MemPulse Logo" class="h-12 w-auto object-contain flex-shrink-0" src="./assets/images/mempulse-logo.png" />
                     <span class="logo-text font-headline-sm text-headline-sm font-semibold tracking-tight text-on-surface transition-all duration-200">MemPulse</span>
                 </div>
 
@@ -372,21 +425,21 @@ if (!empty($activity_history)) {
                 </a>
 
             </nav>
-            <div class="mt-2 pt-2 px-2 flex items-center justify-between rounded-xl bg-surface-container-low/60 p-2.5">
-                <div class="flex items-center gap-3 overflow-hidden">
+            <!-- <div class="mt-2 pt-2 px-2 flex items-center justify-between rounded-xl bg-surface-container-low/60 p-2.5">
+                <div class="flex items-center gap-3 overflow-hidden"> -->
                     <!-- FIX 3: Removed the layout wrapping error. Image stays visible, texts go inside the target wrapper block -->
-                    <img alt="Profile" class="w-8 h-8 rounded-full object-cover ring-1 ring-outline-variant/50 flex-shrink-0" src="./assets/images/profile-picture.webp.jpg" />
+                    <!-- <img alt="Profile" class="w-8 h-8 rounded-full object-cover ring-1 ring-outline-variant/50 flex-shrink-0" src="./assets/images/profile-picture.webp.jpg" />
 
                     <div class="sidebar-text flex flex-col min-w-0 transition-opacity duration-200">
                         <span id="sidebar-profile-name" class="font-label-md text-label-md text-on-surface truncate font-semibold">--</span>
                         <span id="sidebar-profile-role" class="font-body-sm text-body-sm text-on-surface-variant truncate">Active Learner</span>
                     </div>
-                </div>
+                </div> -->
                 <!-- FIX 4: Wrapped more options action button in sidebar-text element -->
-                <a class="sidebar-text text-on-surface-variant hover:text-primary transition-colors transition-opacity duration-200" data-path="user-account" href="#" title="Account details">
+                <!-- <a class="sidebar-text text-on-surface-variant hover:text-primary transition-colors transition-opacity duration-200" data-path="user-account" href="#" title="Account details">
                     <span class="material-symbols-outlined text-[18px]">more_vert</span>
                 </a>
-            </div>
+            </div> -->
         </div>
     </aside>
 
@@ -607,7 +660,7 @@ if (!empty($activity_history)) {
                         <div id="heatmap-scroll" class="overflow-x-auto pb-1 flex-1 flex flex-col justify-center">
                             <div class="min-w-max">
                                 <!-- Month labels align with the weekly columns below. -->
-                                <div class="flex gap-1 pl-8 mb-1.5 h-4 text-[11px] font-medium text-on-surface-variant/80">
+                                <div class="flex gap-1 pl-10 mb-1.5 h-4 text-[11px] font-medium text-on-surface-variant/80">
                                     <?php
                                     $label_week_start = clone $heatmap_calendar_start;
                                     for ($week_index = 0; $week_index < $heatmap_week_count; $week_index++) {
@@ -651,17 +704,22 @@ if (!empty($activity_history)) {
                                                 $reviews = $in_range ? ($heatmap_data[$cell_key] ?? 0) : 0;
 
                                                 if (!$in_range) {
-                                                    echo '<div class="w-5 h-5 flex-none rounded opacity-0 pointer-events-none" aria-hidden="true"></div>';
-                                                    continue;
-                                                }
+                                                echo '<div class="w-5 h-5 flex-none rounded bg-transparent"></div>';
+                                                continue;
+}
 
                                                 $cell_class = $heatmap_level_class($reviews);
                                                 $date_label = $cell_date->format('M j, Y');
                                                 $review_label = $reviews === 1 ? '1 review' : $reviews . ' reviews';
                                                 $title = $reviews > 0 ? $date_label . ' — ' . $review_label : $date_label . ' — No reviews';
 
-                                                echo '<div class="w-5 h-5 flex-none rounded ' . $cell_class . '" title="' . htmlspecialchars($title, ENT_QUOTES) . '" aria-label="' . htmlspecialchars($title, ENT_QUOTES) . '"></div>';
-                                            }
+                                                $tooltip = $reviews > 0
+                                                    ? $date_label . ' • ' . $review_label
+                                                    : $date_label . ' • No reviews';
+
+                                                echo '<div class="heatmap-cell w-5 h-5 flex-none rounded ' . $cell_class . '"'
+                                                    . ' data-tooltip="' . htmlspecialchars($tooltip, ENT_QUOTES) . '"'
+                                                    . ' aria-label="' . htmlspecialchars($tooltip, ENT_QUOTES) . '"></div>';                                            }
                                             echo '</div>';
                                             $week_start->modify('+7 days');
                                         }
@@ -975,13 +1033,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Default the heatmap to the most recent study days
     document.addEventListener("DOMContentLoaded", () => {
-        const heatmapScroller = document.getElementById("heatmap-scroll");
+    const heatmapScroller = document.getElementById("heatmap-scroll");
 
-        if (heatmapScroller) {
-            heatmapScroller.scrollLeft = heatmapScroller.scrollWidth;
-        }
+    if (heatmapScroller) {
+        requestAnimationFrame(() => {
+            heatmapScroller.scrollLeft =
+                heatmapScroller.scrollWidth - heatmapScroller.clientWidth;
+        });
+    }
+});
+
+    document.querySelectorAll("#heatmap-scroll .heatmap-cell").forEach(cell => {
+        cell.addEventListener("mouseenter", () => {
+            const rect = cell.getBoundingClientRect();
+
+            cell.style.setProperty("--tooltip-left", `${rect.left + rect.width / 2}px`);
+            cell.style.setProperty("--tooltip-top", `${rect.top - 8}px`);
+        });
     });
-
 
     // Run deep script synchronization across Header, Sidebar, and Stats Row
     MemPulseDashboard.updateAll(incomingAppPayload);
