@@ -11,8 +11,8 @@
                 <div class="flex items-center gap-2 px-3 py-1 rounded-full bg-[#fffbeb] border border-amber-200/80 text-tertiary shadow-sm">
                     <span class="material-symbols-outlined text-amber-500 text-[18px]">local_fire_department</span>
                     <!-- ID ADDED: Targets the display text node inside your top layout block -->
-                    <span id="header-streak-count" class="font-label-md text-label-md font-semibold tracking-wide">-- Days</span>
-                    <?php echo intval($current_streak); ?> <?php echo $current_streak === 1 ? 'Day' : 'Days'; ?>
+                    <span id="header-streak-count" class="font-label-md text-label-md font-semibold tracking-wide">
+                    <?php echo intval($current_streak); ?> <?php echo $current_streak === 1 ? 'Day' : 'Days'; ?></span>
                 </div>
 
                 <!-- User Account Action Link -->
