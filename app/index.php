@@ -215,29 +215,23 @@ if (!empty($activity_history)) {
 
 <!DOCTYPE html>
 <html lang="en">
-
-<!-- Head (head.php) -->
 <?php include __DIR__ . '\includes\head.php';?>
 
 <body class="bg-background font-body-md text-on-surface antialiased min-h-screen selection:bg-primary-fixed selection:text-on-primary-fixed">
 
-    <!-- Sidebar -->
      <?php include __DIR__ . '\includes\sidebar.php'; ?>
-
 
     <main class="pl-72 pt-12 transition-all duration-300 ease-in-out">
         
-        <!-- Header -->
         <?php include __DIR__ . '\includes\header.php'; ?>
 
         <div class="max-w-7xl mx-auto px-8 py-8">
             <div class="flex flex-col w-full gap-8">
                 
             <?php include __DIR__ . '\components\hero-carousel.php'; ?>
+            
             <?php include __DIR__ . '\components\metric-card.php'; ?>
-            
-            
-            
+                     
             <section class="grid grid-cols-1 lg:grid-cols-4 gap-6 w-full">
                 <!-- Streak Heatmap (3/4 width on desktop) -->
                     <?php include __DIR__ . '\components\streak-heatmap.php'; ?>
@@ -245,15 +239,13 @@ if (!empty($activity_history)) {
                     <!-- Streak & Accuracy Stats (1/4 width on desktop) -->
                     <?php include __DIR__ . '\components\streak-stats.php'; ?>
                     
-
-
                 </section>
             </div>
         </div>
     </main>
 
     <!-- Footer -->
-        <script>
+    <script>
         window.MemPulseHomeData = {
             stats: {
                 cardsDue: <?php echo intval($cards_due); ?>,
