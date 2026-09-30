@@ -3,7 +3,7 @@
                 <div class="flex items-center gap-2 w-full px-3 py-1.5 rounded-lg bg-surface-container-low border border-outline-variant/30 text-on-surface-variant">
                     <span class="material-symbols-outlined text-[18px]">search</span>
                     <span class="font-body-sm text-body-sm flex-1 select-none">Search cards, tags, decks...</span>
-                    <span class="font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant/80 border border-outline-variant/40">⌘K</span>
+                    <span class="font-label-sm text-label-sm px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant/80 border border-outline-variant/40">CTRL K</span>
                 </div>
             </div>
             <div class="flex items-center gap-4">
@@ -15,10 +15,22 @@
                     <?php echo intval($current_streak); ?> <?php echo $current_streak === 1 ? 'Day' : 'Days'; ?></span>
                 </div>
 
-                <!-- User Account Action Link -->
                 <a class="flex items-center gap-2" data-path="user-account" href="#" title="View Account Details">
-                    <!-- ID ADDED: Targets the source parameter image node directly -->
-                    <img id="header-profile-img" alt="Profile" class="w-8 h-8 rounded-full object-cover ring-2 ring-primary-fixed" src="./assets/images/profile-picture.webp.jpg">
+
+                    <img
+                        id="header-profile-img"
+                        alt="Profile"
+                        class="w-8 h-8 rounded-full object-cover ring-2 ring-primary-fixed"
+                        src="./assets/images/profile-picture.webp.jpg"
+                    >
+
+                    <span
+                        id="header-user-name"
+                        class="font-label-md text-label-md font-semibold text-on-surface whitespace-nowrap"
+                    >
+                        <?php echo htmlspecialchars($display_name); ?>
+                    </span>
+
                 </a>
             </div>
         </header>

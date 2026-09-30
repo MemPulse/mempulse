@@ -15,33 +15,128 @@
                 </button>
             </div>
             <nav class="flex flex-col gap-1.5" data-active-classes="bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm">
-                <a aria-current="page" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm" data-path="home" href="#">
+                <!-- Home Page -->
+                <a
+                    aria-current="<?= $currentPage === 'home' ? 'page' : 'false' ?>"
+                    class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group
+                    <?= $currentPage === 'home'
+                        ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm'
+                        : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
+                    ?>"
+                    data-path="home"
+                    href="index.php"
+                >
                     <div class="flex items-center gap-3">
-                        <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">home</span>
+                        <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">
+                            home
+                        </span>
                         <span class="sidebar-text transition-opacity duration-200">Home</span>
                     </div>
                 </a>
-                <a class="flex items-center justify-between px-3.5 py-2.5 rounded-xl font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all group" data-path="decks" href="#">
+
+                <!-- Decks Page -->
+                <a
+                    aria-current="<?= $currentPage === 'decks' ? 'page' : 'false' ?>"
+                    class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group
+                    <?= $currentPage === 'decks'
+                        ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm'
+                        : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
+                    ?>"
+                    data-path="decks"
+                    href="decks.php"
+                >
                     <div class="flex items-center gap-3">
-                        <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">style</span>
+                        <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">
+                            style
+                        </span>
                         <span class="sidebar-text transition-opacity duration-200">Decks</span>
                     </div>
                 </a>
-                <a class="flex items-center justify-between px-3.5 py-2.5 rounded-xl font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all group" data-path="review" href="#">
+
+                <!-- Review Page -->
+                <a
+                    aria-current="<?= $currentPage === 'review' ? 'page' : 'false' ?>"
+                    class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group
+                    <?= $currentPage === 'review'
+                        ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm'
+                        : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
+                    ?>"
+                    data-path="review"
+                    href="review.php"
+                >
                     <div class="flex items-center gap-3">
-                        <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">pace</span>
-                        <span class="sidebar-text transition-opacity duration-200">Review</span>
+                        <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">
+                            pace
+                        </span>
+
+                        <span class="sidebar-text transition-opacity duration-200">
+                            Review
+                        </span>
                     </div>
-                    <!-- FIX 2: Wrapped review badge in sidebar-text container so it disappears when collapsed -->
-                    <span class="sidebar-text px-2 py-0.5 rounded-full bg-primary-container text-on-primary font-label-sm text-label-sm tracking-wide transition-opacity duration-200">42</span>
+
+                    <!-- Review badge -->
+                    <span class="sidebar-text px-2 py-0.5 rounded-full bg-primary-container text-on-primary font-label-sm text-label-sm tracking-wide transition-opacity duration-200">
+                        42
+                    </span>
+                </a>
+
+                <!-- Reports -->
+                <a
+                    aria-current="<?= $currentPage === 'reports' ? 'page' : 'false' ?>"
+                    class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group
+                    <?= $currentPage === 'reports'
+                        ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm'
+                        : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
+                    ?>"
+                    data-path="decks"
+                    href="reports.php"
+                >
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">
+                            monitoring
+                        </span>
+                        <span class="sidebar-text transition-opacity duration-200">Reports</span>
+                    </div>
+                </a>
+                <!-- Science -->
+                <a
+                    aria-current="<?= $currentPage === 'science' ? 'page' : 'false' ?>"
+                    class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group
+                    <?= $currentPage === 'science'
+                        ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm'
+                        : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
+                    ?>"
+                    data-path="decks"
+                    href="science.php"
+                >
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">
+                            psychology
+                        </span>
+                        <span class="sidebar-text transition-opacity duration-200">Science</span>
+                    </div>
                 </a>
             </nav>
         </div>
         <div class="flex flex-col gap-2 pt-4 border-t border-outline-variant/30">
             <nav class="flex flex-col gap-1" data-active-classes="bg-surface-container-high text-on-surface font-semibold">
-                <a class="flex items-center gap-3 px-3.5 py-2 rounded-xl font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all" data-path="settings" href="#">
-                    <span class="material-symbols-outlined text-[24px]">settings</span>
-                    <span class="sidebar-text transition-opacity duration-200">Settings</span>
+                <!-- Science -->
+                <a
+                    aria-current="<?= $currentPage === 'settings' ? 'page' : 'false' ?>"
+                    class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group
+                    <?= $currentPage === 'settings'
+                        ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm'
+                        : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
+                    ?>"
+                    data-path="decks"
+                    href="settings.php"
+                >
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">
+                            settings
+                        </span>
+                        <span class="sidebar-text transition-opacity duration-200">Settings</span>
+                    </div>
                 </a>
                 <a class="flex items-center gap-3 px-3.5 py-2 rounded-xl font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-error transition-all" data-path="logout" href="../authentication/logout.php">
                 <span class="material-symbols-outlined text-[24px]">logout</span>
@@ -49,20 +144,5 @@
                 </a>
 
             </nav>
-            <!-- <div class="mt-2 pt-2 px-2 flex items-center justify-between rounded-xl bg-surface-container-low/60 p-2.5">
-                <div class="flex items-center gap-3 overflow-hidden"> -->
-                    <!-- FIX 3: Removed the layout wrapping error. Image stays visible, texts go inside the target wrapper block -->
-                    <!-- <img alt="Profile" class="w-8 h-8 rounded-full object-cover ring-1 ring-outline-variant/50 flex-shrink-0" src="./assets/images/profile-picture.webp.jpg" />
-
-                    <div class="sidebar-text flex flex-col min-w-0 transition-opacity duration-200">
-                        <span id="sidebar-profile-name" class="font-label-md text-label-md text-on-surface truncate font-semibold">--</span>
-                        <span id="sidebar-profile-role" class="font-body-sm text-body-sm text-on-surface-variant truncate">Active Learner</span>
-                    </div>
-                </div> -->
-                <!-- FIX 4: Wrapped more options action button in sidebar-text element -->
-                <!-- <a class="sidebar-text text-on-surface-variant hover:text-primary transition-colors transition-opacity duration-200" data-path="user-account" href="#" title="Account details">
-                    <span class="material-symbols-outlined text-[18px]">more_vert</span>
-                </a>
-            </div> -->
         </div>
     </aside>
