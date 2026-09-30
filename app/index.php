@@ -215,7 +215,10 @@ if (!empty($activity_history)) {
 
 <!DOCTYPE html>
 <html lang="en">
+
+$pageTitle = "Home Dashboard";
 <?php include __DIR__ . '\includes\head.php';?>
+<head>
 
 <body class="bg-background font-body-md text-on-surface antialiased min-h-screen selection:bg-primary-fixed selection:text-on-primary-fixed">
 
@@ -260,7 +263,7 @@ if (!empty($activity_history)) {
     </script>
 
     <?php include __DIR__ . '/includes/footer.php'; ?>
-    </body>
 
+    </body>
 
 </html>
