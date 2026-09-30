@@ -88,7 +88,7 @@
                         ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm'
                         : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
                     ?>"
-                    data-path="decks"
+                    data-path="reports"
                     href="reports.php"
                 >
                     <div class="flex items-center gap-3">
@@ -106,7 +106,7 @@
                         ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm'
                         : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
                     ?>"
-                    data-path="decks"
+                    data-path="science"
                     href="science.php"
                 >
                     <div class="flex items-center gap-3">
@@ -120,7 +120,7 @@
         </div>
         <div class="flex flex-col gap-2 pt-4 border-t border-outline-variant/30">
             <nav class="flex flex-col gap-1" data-active-classes="bg-surface-container-high text-on-surface font-semibold">
-                <!-- Science -->
+                <!-- Settings -->
                 <a
                     aria-current="<?= $currentPage === 'settings' ? 'page' : 'false' ?>"
                     class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group
@@ -128,7 +128,7 @@
                         ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm'
                         : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
                     ?>"
-                    data-path="decks"
+                    data-path="settings"
                     href="settings.php"
                 >
                     <div class="flex items-center gap-3">
@@ -138,7 +138,9 @@
                         <span class="sidebar-text transition-opacity duration-200">Settings</span>
                     </div>
                 </a>
-                <a class="flex items-center gap-3 px-3.5 py-2 rounded-xl font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-error transition-all" data-path="logout" href="../authentication/logout.php">
+                <a class="flex items-center gap-3 px-3.5 py-2 rounded-xl font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-error transition-all" 
+                data-path="logout" 
+                href="../authentication/logout.php">
                 <span class="material-symbols-outlined text-[24px]">logout</span>
                 <span class="sidebar-text transition-opacity duration-200">Logout</span>
                 </a>

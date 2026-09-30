@@ -26,5 +26,7 @@ $currentPage = "reports";
         <?php include __DIR__ . '\includes\header-data.php'; ?>
         <?php include __DIR__ . '\includes\header.php'; ?>
     </main>
+    <?php include __DIR__ . '/includes/footer.php'; ?>
+
 </body>
 </html>

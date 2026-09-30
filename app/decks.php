@@ -15,7 +15,7 @@ $currentPage = "decks";
 ?>
 <!DOCTYPE html>
 <html lang="en">
-    <?php include __DIR__ . '/includes/head.php';?>
+<?php include __DIR__ . '\includes\head.php';?>
 
 <body class="bg-background font-body-md text-on-surface antialiased min-h-screen selection:bg-primary-fixed selection:text-on-primary-fixed">
 
@@ -24,7 +24,7 @@ $currentPage = "decks";
 
      <main class="pl-72 pt-12 transition-all duration-300 ease-in-out">
         
-<?php include __DIR__ . '\includes\header-data.php'; ?>
+        <?php include __DIR__ . '\includes\header-data.php'; ?>
         <?php include __DIR__ . '\includes\header.php'; ?>
     <div class="max-w-7xl mx-auto px-8 py-8">
         <div class="flex flex-col w-full gap-8">
@@ -547,6 +547,7 @@ $currentPage = "decks";
 </div>
 </main>
 <script>
+
         // View Toggle Controller (Grid vs List)
         const viewGridBtn = document.getElementById('view-grid-btn');
         const viewListBtn = document.getElementById('view-list-btn');
@@ -670,6 +671,6 @@ $currentPage = "decks";
         startAutoPlay();
     </script>
 
-
+<?php include __DIR__ . '/includes/footer.php'; ?>
 </body>
 </html>
