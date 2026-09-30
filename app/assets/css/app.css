@@ -1,0 +1,141 @@
+@layer base {
+
+    html,
+    body {
+        margin: 0;
+        padding: 0;
+    }
+
+    body {
+        overscroll-behavior: none;
+    }
+
+    main>:first-child {
+        margin-top: 0 !important;
+    }
+
+    main>:last-child {
+        margin-bottom: 0 !important;
+    }
+}
+
+/* Hide normal page scrollbars */
+html,
+body,
+main {
+    scrollbar-width: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+main::-webkit-scrollbar {
+    display: none;
+}
+
+/* Show scrollbar only for the heatmap */
+#heatmap-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
+}
+
+#heatmap-scroll::-webkit-scrollbar {
+    display: block;
+    height: 8px;
+}
+
+#heatmap-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#heatmap-scroll::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.35);
+    border-radius: 999px;
+}
+
+#heatmap-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 116, 139, 0.55);
+}
+
+#heatmap-scroll .heatmap-cell {
+    position: relative;
+    cursor: pointer;
+    overflow: visible;
+}
+
+#heatmap-scroll .heatmap-cell::after {
+    content: attr(data-tooltip);
+    position: fixed;
+    left: var(--tooltip-left);
+    top: var(--tooltip-top);
+    transform: translate(-50%, -100%);
+    background: #213145;
+    color: #ffffff;
+    font-size: 11px;
+    line-height: 1.3;
+    padding: 6px 8px;
+    border-radius: 7px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    z-index: 9999;
+}
+
+#heatmap-scroll .heatmap-cell:hover::after {
+    opacity: 1;
+}
+
+
+
+.stroke-dash-96 {
+    stroke-dasharray: 96, 100;
+}
+
+/* Sidebar Toggle */
+/* --- Base Collapsed Sidebar Rules --- */
+#sidebar.collapsed {
+    width: 80px !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+}
+
+/* Hide standard layout text elements */
+#sidebar.collapsed .sidebar-text {
+    opacity: 0 !important;
+    display: none !important;
+}
+
+/* Hide the logo name text string when collapsed */
+#sidebar.collapsed .logo-text {
+    opacity: 0 !important;
+    width: 0 !important;
+    display: none !important;
+}
+
+/* Change header layout structure from a row grid to vertical stack */
+#sidebar.collapsed #sidebar-header {
+    flex-direction: column !important;
+    gap: 16px !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    align-items: center !important;
+}
+
+#sidebar.collapsed #sidebar-header>div {
+    order: 1 !important;
+}
+
+#sidebar.collapsed #sidebar-toggle {
+    order: 2 !important;
+}
+
+/* ─── NEW: FORCE MAIN CONTENT AND FIXED HEADER TO SHIFT LEFT ─── */
+main.collapsed {
+    padding-left: 80px !important;
+    /* Shakes off the pl-72 padding */
+}
+
+main.collapsed header {
+    left: 80px !important;
+    /* Shakes off the left-72 fixed offset */
+}
