@@ -211,14 +211,13 @@ if (!empty($activity_history)) {
     $streak_accuracy = 0.0;
 }
 
+$pageTitle = "Home Dashboard";
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
 
-$pageTitle = "Home Dashboard";
 <?php include __DIR__ . '\includes\head.php';?>
-<head>
 
 <body class="bg-background font-body-md text-on-surface antialiased min-h-screen selection:bg-primary-fixed selection:text-on-primary-fixed">
 
