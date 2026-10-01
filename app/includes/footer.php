@@ -110,7 +110,7 @@
             const incomingAppPayload = {
                 user: {
                     displayName: <?php echo json_encode($display_name); ?>,
-                    displayRole: "Active Learner",
+                    displayRole: "User",
                     currentStreak: <?php echo intval($current_streak); ?>,
                     profileImageUrl: "./assets/images/profile-picture.webp.jpg" 
                 },

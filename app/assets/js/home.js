@@ -32,7 +32,12 @@ const MemPulseDashboard = {
         const bestStreak = document.getElementById('stat-best-streak');
         const streakAccuracy = document.getElementById('stat-streak-accuracy');
 
-        if (currentStreak) currentStreak.textContent = stats.currentStreak ?? '--';
+        if (currentStreak) {
+            const value = stats.currentStreak ?? '--';
+            currentStreak.textContent =
+                value === 1 ? '1 Day' : `${value} Days`;
+        }
+
         if (bestStreak) bestStreak.textContent = stats.bestStreak ?? '--';
         if (streakAccuracy) streakAccuracy.textContent = stats.streakAccuracy ?? '--';
     }
