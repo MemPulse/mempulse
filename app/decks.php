@@ -105,6 +105,7 @@ while ($row = mysqli_fetch_assoc($result)) {
         'id'          => (int) $row['id'],
         'title'       => $row['title'],
         'card_count'  => $card_count,
+        'due_count'   => (int) $row['due_count'],
         'accuracy'    => $accuracy,
         'theme'       => accuracy_theme($accuracy),
         'due_text'    => due_label((int) $row['due_count'], $card_count, $row['next_due']),
@@ -152,10 +153,10 @@ $currentPage = "decks";
                         <div class="flex flex-wrap items-center gap-2.5">
                             <!-- View toggle -->
                             <div aria-label="View toggle" class="inline-flex items-center p-1 rounded-xl bg-surface-container border border-outline-variant/30 text-on-surface-variant" role="group">
-                                <button aria-pressed="true" class="flex items-center justify-center p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface transition-colors" id="view-grid-btn" title="Grid View" type="button">
+                                <button aria-pressed="true" class="flex items-center justify-center p-1.5 rounded-lg bg-surface-container-lowest text-primary font-semibold shadow-xs transition-all" id="view-grid-btn" title="Grid View" type="button">
                                     <span class="material-symbols-outlined text-[20px]">grid_view</span>
                                 </button>
-                                <button aria-pressed="false" class="flex items-center justify-center p-1.5 rounded-lg bg-surface-container-lowest text-primary font-semibold shadow-xs transition-all" id="view-list-btn" title="List View" type="button">
+                                <button aria-pressed="false" class="flex items-center justify-center p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface transition-colors" id="view-list-btn" title="List View" type="button">
                                     <span class="material-symbols-outlined text-[20px]">view_list</span>
                                 </button>
                             </div>
@@ -181,6 +182,12 @@ $currentPage = "decks";
                             <div data-deck-card="<?= $deck['id'] ?>" class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-primary-fixed-dim/60 transition-all flex flex-col group">
                                 <!-- Cover -->
                                 <div class="relative h-44 w-full overflow-hidden border-b border-outline-variant/20 flex items-center justify-center" style="<?= h($deck['cover_style']) ?>">
+                                    <?php if ($deck['due_count'] > 0): ?>
+                                        <div class="absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/45 backdrop-blur-md text-white text-[12px] font-semibold shadow-sm">
+                                            <span class="material-symbols-outlined text-[16px]">schedule</span>
+                                            <span><?= $deck['due_count'] ?> due now</span>
+                                        </div>
+                                    <?php endif; ?>
                                     <span class="material-symbols-outlined text-white/80 text-[56px]">style</span>
                                     <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
                                     <button class="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/30 backdrop-blur-md text-white hover:bg-black/50 transition-colors flex items-center justify-center" title="Deck Options" type="button" data-deck-menu data-deck-id="<?= $deck['id'] ?>" aria-haspopup="menu" aria-expanded="false">
@@ -190,9 +197,13 @@ $currentPage = "decks";
                                 <!-- Metadata -->
                                 <div class="p-5 flex-1 flex flex-col justify-between gap-4">
                                     <div>
-                                        <h3 data-deck-title="<?= $deck['id'] ?>" class="font-headline-sm text-[18px] font-bold text-on-surface tracking-tight group-hover:text-primary transition-colors">
-                                            <?= h($deck['title']) ?>
-                                        </h3>
+                                        <a
+                                            href="deck.php?deck_id=<?= $deck['id'] ?>"
+                                            data-deck-title="<?= $deck['id'] ?>"
+                                            class="font-headline-sm text-[18px] font-bold text-on-surface tracking-tight group-hover:text-primary transition-colors"
+                                        >
+                                            <?= h(mb_strimwidth($deck['title'], 0, 45, '...')) ?>
+                                        </a>
                                         <div class="mt-2.5 flex items-center justify-between font-label-md text-label-md text-on-surface-variant">
                                             <div class="flex items-center gap-1.5">
                                                 <span class="material-symbols-outlined text-primary text-[18px]">style</span>
@@ -203,27 +214,38 @@ $currentPage = "decks";
                                                 <span><?= h($deck['theme']['label']) ?></span>
                                             </div>
                                         </div>
-                                        <div class="mt-2 flex items-center gap-1 text-on-surface-variant text-[13px]">
-                                            <span class="material-symbols-outlined text-[16px] text-primary">schedule</span>
-                                            <?= h($deck['due_text']) ?>
-                                        </div>
                                         <div class="w-full bg-surface-container-high rounded-full h-1.5 mt-3 overflow-hidden">
                                             <div class="<?= $deck['theme']['bar'] ?> h-1.5 rounded-full" style="width: <?= (int) ($deck['accuracy'] ?? 0) ?>%"></div>
                                         </div>
+
+                                        <?php if ($deck['due_count'] > 0): ?>
+                                            <button
+                                                type="button"
+                                                data-action="review"
+                                                data-deck-id="<?= $deck['id'] ?>"
+                                                class="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md font-bold shadow-sm hover:shadow-md transition-all"
+                                            >
+                                                <span class="material-symbols-outlined text-[19px]">play_arrow</span>
+                                                <span>Review <?= $deck['due_count'] ?> Due</span>
+                                            </button>
+                                        <?php endif; ?>
                                     </div>
                                     <div class="pt-2 border-t border-outline-variant/20 flex items-center gap-2.5">
-                                        <button class="flex-1 inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md font-semibold transition-colors" type="button" data-action="browse" data-deck-id="<?= $deck['id'] ?>">
-                                            <span class="material-symbols-outlined text-[18px]">visibility</span>
-                                            <span>Browse Deck</span>
-                                        </button>
-                                        <button class="flex-1 inline-flex items-center justify-center gap-1 px-3.5 py-2 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md font-semibold transition-colors shadow-xs" type="button" data-action="add-card" data-deck-id="<?= $deck['id'] ?>">
+                                        <!-- <button class="flex-1 inline-flex items-center justify-center gap-1 px-3.5 py-2 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md font-semibold transition-colors shadow-xs" type="button" data-action="add-card" data-deck-id="<?= $deck['id'] ?>">
                                             <span class="material-symbols-outlined text-[18px]">add</span>
                                             <span>Add Card</span>
-                                        </button>
+                                        </button> -->
                                     </div>
                                 </div>
                             </div>
                         <?php endforeach; ?>
+                        <!-- Create new deck tile -->
+                        <div class="border-2 border-dashed border-outline-variant/50 hover:border-primary rounded-2xl min-h-[16rem] flex flex-col items-center justify-center gap-3 bg-surface-container-low/30 hover:bg-surface-container-low transition-all cursor-pointer group" id="new-deck-tile">
+                            <div class="w-14 h-14 rounded-xl bg-surface-container-lowest border border-outline-variant/30 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+                                <span class="material-symbols-outlined text-[24px]">add_circle</span>
+                            </div>
+                            <h4 class="font-headline-sm text-[16px] font-bold text-on-surface group-hover:text-primary transition-colors">Create New Deck</h4>
+                        </div>
                     </div>
 
                     <!-- List view (default) -->
@@ -235,7 +257,13 @@ $currentPage = "decks";
                                         <span class="material-symbols-outlined text-white/90 text-[26px]">style</span>
                                     </div>
                                     <div class="flex flex-col min-w-0">
-                                        <h3 data-deck-title="<?= $deck['id'] ?>" class="font-headline-sm text-[17px] font-bold text-on-surface tracking-tight group-hover:text-primary transition-colors truncate"><?= h($deck['title']) ?></h3>
+                                        <a
+                                            href="deck.php?deck_id=<?= $deck['id'] ?>"
+                                            data-deck-title="<?= $deck['id'] ?>"
+                                            class="font-headline-sm text-[18px] font-bold text-on-surface tracking-tight group-hover:text-primary transition-colors"
+                                        >
+                                            <?= h(mb_strimwidth($deck['title'], 0, 45, '...')) ?>
+                                        </a>
                                         <div class="flex items-center gap-4 mt-1 font-body-sm text-body-sm text-on-surface-variant">
                                             <span class="inline-flex items-center gap-1 font-semibold text-on-surface">
                                                 <span class="material-symbols-outlined text-[16px] text-primary">style</span>
@@ -262,14 +290,21 @@ $currentPage = "decks";
                                         </div>
                                     </div>
                                     <div class="flex items-center gap-2 flex-shrink-0">
-                                        <button class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md font-semibold transition-colors" type="button" data-action="browse" data-deck-id="<?= $deck['id'] ?>">
-                                            <span class="material-symbols-outlined text-[18px]">visibility</span>
-                                            <span class="hidden sm:inline">Browse</span>
-                                        </button>
-                                        <button class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md font-semibold transition-colors shadow-xs" type="button" data-action="add-card" data-deck-id="<?= $deck['id'] ?>">
+                                        <?php if ($deck['due_count'] > 0): ?>
+                                            <button
+                                                class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md font-bold shadow-sm hover:shadow-md transition-all"
+                                                type="button"
+                                                data-action="review"
+                                                data-deck-id="<?= $deck['id'] ?>"
+                                            >
+                                                <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+                                                <span>Review <?= $deck['due_count'] ?> Due</span>
+                                            </button>
+                                        <?php endif; ?>
+                                        <!-- <button class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md font-semibold transition-colors shadow-xs" type="button" data-action="add-card" data-deck-id="<?= $deck['id'] ?>">
                                             <span class="material-symbols-outlined text-[18px]">add</span>
                                             <span class="hidden sm:inline">Add Card</span>
-                                        </button>
+                                        </button> -->
                                         <button class="w-8 h-8 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-on-surface transition-colors flex items-center justify-center" title="Deck Options" type="button" data-deck-menu data-deck-id="<?= $deck['id'] ?>" aria-haspopup="menu" aria-expanded="false">
                                             <span class="material-symbols-outlined text-[18px]">more_vert</span>
                                         </button>
@@ -297,6 +332,10 @@ $currentPage = "decks";
 
     <!-- Shared kebab menu (positioned by JS so card overflow can't clip it) -->
     <div id="deck-menu" class="hidden fixed z-50 w-44 rounded-xl bg-surface-container-lowest border border-outline-variant/30 shadow-lg py-1" role="menu">
+        <button type="button" role="menuitem" data-menu-action="add-card" class="w-full flex items-center gap-2 px-3 py-2 text-left text-on-surface hover:bg-surface-container transition-colors">
+            <span class="material-symbols-outlined text-[18px]">add</span>
+            <span>Add Card</span>
+        </button>
         <button type="button" role="menuitem" data-menu-action="rename" class="w-full flex items-center gap-2 px-3 py-2 text-left text-on-surface hover:bg-surface-container transition-colors">
             <span class="material-symbols-outlined text-[18px]">edit</span>
             <span>Rename</span>
@@ -339,34 +378,78 @@ $currentPage = "decks";
         </div>
     </dialog>
 
+        <!-- Create deck dialog -->
+    <dialog id="create-dialog" class="rounded-2xl p-0 w-full max-w-md bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
+        <form id="create-form" class="p-6 flex flex-col gap-4" novalidate>
+            <h3 class="font-headline-sm text-[18px] font-bold">New deck</h3>
+            <div class="flex flex-col gap-1.5">
+                <label for="create-input" class="text-on-surface-variant text-[13px] font-semibold">Deck name</label>
+                <input id="create-input" type="text" maxlength="150" autocomplete="off" placeholder="e.g. Biology Chapter 3" class="w-full px-3 py-2 rounded-xl border border-outline-variant/50 bg-surface text-on-surface focus:outline-none focus:border-primary">
+                <p id="create-error" class="hidden text-rose-700 text-[13px]" role="alert"></p>
+            </div>
+            <div class="flex justify-end gap-2.5">
+                <button type="button" data-close-dialog class="px-4 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold transition-colors">Cancel</button>
+                <button type="submit" id="create-save" class="px-4 py-2 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-semibold transition-colors disabled:opacity-60">Create deck</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Add card dialog -->
+    <dialog id="card-dialog" class="rounded-2xl p-0 w-full max-w-lg bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
+        <form id="card-form" class="p-6 flex flex-col gap-4" novalidate>
+            <div>
+                <h3 class="font-headline-sm text-[18px] font-bold">Add card</h3>
+                <p class="text-on-surface-variant text-[13px] mt-1">to <span id="card-deck-name" class="font-semibold text-on-surface"></span></p>
+            </div>
+            <div class="flex flex-col gap-1.5">
+                <label for="card-front" class="text-on-surface-variant text-[13px] font-semibold">Front</label>
+                <textarea id="card-front" rows="3" maxlength="5000" placeholder="Question or prompt" class="w-full px-3 py-2 rounded-xl border border-outline-variant/50 bg-surface text-on-surface focus:outline-none focus:border-primary resize-y"></textarea>
+            </div>
+            <div class="flex flex-col gap-1.5">
+                <label for="card-back" class="text-on-surface-variant text-[13px] font-semibold">Back</label>
+                <textarea id="card-back" rows="3" maxlength="5000" placeholder="Answer" class="w-full px-3 py-2 rounded-xl border border-outline-variant/50 bg-surface text-on-surface focus:outline-none focus:border-primary resize-y"></textarea>
+            </div>
+            <p id="card-error" class="hidden text-rose-700 text-[13px]" role="alert"></p>
+            <p id="card-success" class="hidden text-emerald-700 text-[13px]" role="status">Card added. Add another, or close when you're done.</p>
+            <div class="flex justify-end gap-2.5">
+                <button type="button" data-close-dialog class="px-4 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold transition-colors">Close</button>
+                <button type="submit" id="card-save" class="px-4 py-2 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-semibold transition-colors disabled:opacity-60">Add card</button>
+            </div>
+        </form>
+    </dialog>
+
     <script>
-        // View toggle (grid vs list)
+        // View toggle (grid vs list), remembered in localStorage
         const viewGridBtn = document.getElementById('view-grid-btn');
         const viewListBtn = document.getElementById('view-list-btn');
         const gridView = document.getElementById('decks-grid-view');
         const listView = document.getElementById('decks-list-view');
 
+        const VIEW_KEY = 'mempulse_decks_view';
         const activeBtn = "flex items-center justify-center p-1.5 rounded-lg bg-surface-container-lowest text-primary font-semibold shadow-xs transition-all";
         const idleBtn = "flex items-center justify-center p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface transition-colors";
 
-        if (viewGridBtn && viewListBtn && gridView && listView) {
-            viewGridBtn.addEventListener('click', () => {
-                gridView.classList.remove('hidden');
-                listView.classList.add('hidden');
-                viewGridBtn.className = activeBtn;
-                viewGridBtn.setAttribute('aria-pressed', 'true');
-                viewListBtn.className = idleBtn;
-                viewListBtn.setAttribute('aria-pressed', 'false');
-            });
+        function setView(mode) {
+            const isGrid = mode !== 'list';
+            gridView.classList.toggle('hidden', !isGrid);
+            listView.classList.toggle('hidden', isGrid);
+            viewGridBtn.className = isGrid ? activeBtn : idleBtn;
+            viewGridBtn.setAttribute('aria-pressed', String(isGrid));
+            viewListBtn.className = isGrid ? idleBtn : activeBtn;
+            viewListBtn.setAttribute('aria-pressed', String(!isGrid));
+        }
 
-            viewListBtn.addEventListener('click', () => {
-                listView.classList.remove('hidden');
-                gridView.classList.add('hidden');
-                viewListBtn.className = activeBtn;
-                viewListBtn.setAttribute('aria-pressed', 'true');
-                viewGridBtn.className = idleBtn;
-                viewGridBtn.setAttribute('aria-pressed', 'false');
-            });
+        function saveView(mode) {
+            try { localStorage.setItem(VIEW_KEY, mode); } catch (_) { /* storage blocked */ }
+        }
+
+        if (viewGridBtn && viewListBtn && gridView && listView) {
+            let saved = null;
+            try { saved = localStorage.getItem(VIEW_KEY); } catch (_) { /* storage blocked */ }
+            setView(saved === 'list' ? 'list' : 'grid');
+
+            viewGridBtn.addEventListener('click', () => { setView('grid'); saveView('grid'); });
+            viewListBtn.addEventListener('click', () => { setView('list'); saveView('list'); });
         }
 
         // ---------------------------------------------------------------
@@ -434,7 +517,7 @@ $currentPage = "decks";
         });
 
         async function sendDeckAction(payload) {
-            const res = await fetch('../api/deck-actions.php', {
+            const res = await fetch('api/deck-actions.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...payload, csrf_token: CSRF_TOKEN })
@@ -442,7 +525,9 @@ $currentPage = "decks";
             let data = {};
             try { data = await res.json(); } catch (_) { /* non-JSON response */ }
             if (!res.ok || !data.ok) {
-                throw new Error(data.error || 'Something went wrong. Please try again.');
+                const err = new Error(data.error || 'Request failed (HTTP ' + res.status + ').');
+                err.suggestion = data.suggestion || null;
+                throw err;
             }
             return data;
         }
@@ -462,6 +547,8 @@ $currentPage = "decks";
                 deleteName.textContent = '"' + getDeckTitle(activeDeckId) + '"';
                 deleteError.classList.add('hidden');
                 deleteDialog.showModal();
+            } else if (action === 'add-card') {
+                openCardDialog(activeDeckId);
             }
         });
 
@@ -481,8 +568,7 @@ $currentPage = "decks";
                 });
                 renameDialog.close();
             } catch (err) {
-                renameError.textContent = err.message;
-                renameError.classList.remove('hidden');
+                showFieldError(renameError, renameInput, err);
             } finally {
                 renameSave.disabled = false;
             }
@@ -508,6 +594,152 @@ $currentPage = "decks";
                 deleteConfirm.disabled = false;
             }
         });
+
+        // ---------------------------------------------------------------
+        // Create deck (header button, grid tile, list row)
+        // ---------------------------------------------------------------
+        const createDialog = document.getElementById('create-dialog');
+        const createForm = document.getElementById('create-form');
+        const createInput = document.getElementById('create-input');
+        const createError = document.getElementById('create-error');
+        const createSave = document.getElementById('create-save');
+
+        function openCreateDialog() {
+            createInput.value = '';
+            createError.classList.add('hidden');
+            createDialog.showModal();
+            createInput.focus();
+        }
+
+        ['new-deck-btn', 'new-deck-tile', 'new-deck-row'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('click', openCreateDialog);
+        });
+
+        createForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const title = createInput.value.trim();
+            if (title === '') {
+                createError.textContent = 'Deck name cannot be empty.';
+                createError.classList.remove('hidden');
+                return;
+            }
+            createSave.disabled = true;
+            try {
+                await sendDeckAction({ action: 'create', title });
+                window.location.reload(); // new deck is drawn by the server in both views
+            } catch (err) {
+                showFieldError(createError, createInput, err);
+                createSave.disabled = false;
+            }
+        });
+
+        // ---------------------------------------------------------------
+        // Review due cards
+        // ---------------------------------------------------------------
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-action="review"]');
+            if (!btn) return;
+
+            const deckId = btn.dataset.deckId;
+            if (deckId) {
+                window.location.href = 'review.php?deck_id=' + encodeURIComponent(deckId);
+            }
+        });
+
+        // ---------------------------------------------------------------
+        // Add card (any element with data-action="add-card" data-deck-id="...")
+        // ---------------------------------------------------------------
+        const cardDialog = document.getElementById('card-dialog');
+    const cardForm = document.getElementById('card-form');
+    const cardFront = document.getElementById('card-front');
+    const cardBack = document.getElementById('card-back');
+    const cardError = document.getElementById('card-error');
+    const cardSuccess = document.getElementById('card-success');
+    const cardSave = document.getElementById('card-save');
+    const cardDeckName = document.getElementById('card-deck-name');
+
+    let cardDeckId = null;
+    let cardsAdded = false;
+
+    function openCardDialog(deckId) {
+        cardDeckId = deckId;
+        cardsAdded = false;
+        cardDeckName.textContent = getDeckTitle(deckId);
+        cardFront.value = '';
+        cardBack.value = '';
+        cardError.classList.add('hidden');
+        cardSuccess.classList.add('hidden');
+        cardDialog.showModal();
+        cardFront.focus();
+    }
+
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-action="add-card"]');
+        if (btn) openCardDialog(btn.dataset.deckId);
+    });
+
+    // Ctrl/Cmd + Enter saves from either textarea
+    [cardFront, cardBack].forEach((field) => {
+        field.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                cardForm.requestSubmit();
+            }
+        });
+    });
+
+    cardForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const front = cardFront.value.trim();
+        const back = cardBack.value.trim();
+
+        cardSuccess.classList.add('hidden');
+        if (front === '' || back === '') {
+            cardError.textContent = 'Both the front and back are required.';
+            cardError.classList.remove('hidden');
+            return;
+        }
+        cardError.classList.add('hidden');
+
+        cardSave.disabled = true;
+        try {
+            await sendDeckAction({ action: 'add_card', deck_id: cardDeckId, front, back });
+            cardsAdded = true;
+            cardFront.value = '';
+            cardBack.value = '';
+            cardSuccess.classList.remove('hidden');
+            cardFront.focus();
+        } catch (err) {
+            cardError.textContent = err.message;
+            cardError.classList.remove('hidden');
+        } finally {
+            cardSave.disabled = false;
+        }
+    });
+
+    // Shows an error and, if the server suggested a name, a one-click "Use ..." button.
+    function showFieldError(errorEl, input, err) {
+        errorEl.textContent = err.message;
+        if (err.suggestion) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'ml-2 underline font-semibold';
+            btn.textContent = 'Use "' + err.suggestion + '"';
+            btn.addEventListener('click', () => {
+                input.value = err.suggestion;
+                errorEl.classList.add('hidden');
+                input.focus();
+            });
+            errorEl.appendChild(btn);
+        }
+        errorEl.classList.remove('hidden');
+    }
+
+    // Refresh counts once the dialog closes (Close button, Esc, or backdrop)
+    cardDialog.addEventListener('close', () => {
+        if (cardsAdded) window.location.reload();
+    });
     </script>
 
     <?php include __DIR__ . '/includes/footer.php'; ?>
