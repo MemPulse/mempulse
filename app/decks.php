@@ -389,7 +389,7 @@ $currentPage = "decks";
         </div>
     </dialog>
 
-        <!-- Create deck dialog -->
+    <!-- Create deck dialog -->
     <dialog id="create-dialog" class="rounded-2xl p-0 w-full max-w-md bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
         <form id="create-form" class="p-6 flex flex-col gap-4" novalidate>
             <h3 class="font-headline-sm text-[18px] font-bold">New deck</h3>
@@ -410,8 +410,20 @@ $currentPage = "decks";
         <form id="card-form" class="p-6 flex flex-col gap-4" novalidate>
             <div>
                 <h3 class="font-headline-sm text-[18px] font-bold">Add card</h3>
-                <p class="text-on-surface-variant text-[13px] mt-1">to <span id="card-deck-name" class="font-semibold text-on-surface"></span></p>
+                <p class="text-on-surface-variant text-[13px] mt-1">Choose a deck, then add your flashcard.</p>
             </div>
+
+            <div class="flex flex-col gap-1.5">
+                <label for="card-deck-select" class="text-on-surface-variant text-[13px] font-semibold">Deck</label>
+                <select id="card-deck-select" class="w-full px-3 py-2 rounded-xl border border-outline-variant/50 bg-surface text-on-surface focus:outline-none focus:border-primary">
+                    <option value="" selected disabled>Select a deck</option>
+                    <?php foreach ($decks as $deck): ?>
+                        <option value="<?= $deck['id'] ?>"><?= h($deck['title']) ?></option>
+                    <?php endforeach; ?>
+                    <option value="__create__">＋ Create new deck</option>
+                </select>
+            </div>
+
             <div class="flex flex-col gap-1.5">
                 <label for="card-front" class="text-on-surface-variant text-[13px] font-semibold">Front</label>
                 <textarea id="card-front" rows="3" maxlength="5000" placeholder="Question or prompt" class="w-full px-3 py-2 rounded-xl border border-outline-variant/50 bg-surface text-on-surface focus:outline-none focus:border-primary resize-y"></textarea>
@@ -590,6 +602,14 @@ $currentPage = "decks";
             try {
                 await sendDeckAction({ action: 'delete', deck_id: activeDeckId });
                 document.querySelectorAll('[data-deck-card="' + activeDeckId + '"]').forEach((el) => el.remove());
+
+                const deletedDeckOption = cardDeckSelect.querySelector('option[value="' + activeDeckId + '"]');
+                if (deletedDeckOption) deletedDeckOption.remove();
+                if (cardDeckId === Number(activeDeckId)) {
+                    cardDeckId = null;
+                    cardDeckSelect.value = '';
+                }
+
                 deleteDialog.close();
 
                 const remaining = document.querySelectorAll('#decks-grid-view [data-deck-card]').length;
@@ -615,16 +635,30 @@ $currentPage = "decks";
         const createError = document.getElementById('create-error');
         const createSave = document.getElementById('create-save');
 
-        function openCreateDialog() {
+        let creatingDeckForCard = false;
+        let suppressCardResume = false;
+
+        function openCreateDialog(fromCard = false) {
+            creatingDeckForCard = fromCard;
+
+            // Do not try to stack two modal dialogs. Close Add Card first and
+            // remember that it needs to be restored after the create flow.
+            if (fromCard && cardDialog.open) {
+                suppressCardResume = true;
+                cardDialog.close();
+                suppressCardResume = false;
+            }
+
             createInput.value = '';
             createError.classList.add('hidden');
+            createSave.disabled = false;
             createDialog.showModal();
             createInput.focus();
         }
 
         ['new-deck-btn', 'new-deck-tile', 'new-deck-row'].forEach((id) => {
             const el = document.getElementById(id);
-            if (el) el.addEventListener('click', openCreateDialog);
+            if (el) el.addEventListener('click', () => openCreateDialog(false));
         });
 
         createForm.addEventListener('submit', async (e) => {
@@ -637,11 +671,31 @@ $currentPage = "decks";
             }
             createSave.disabled = true;
             try {
-                await sendDeckAction({ action: 'create', title });
-                window.location.reload(); // new deck is drawn by the server in both views
+                const data = await sendDeckAction({ action: 'create', title });
+
+                if (creatingDeckForCard) {
+                    // Reload the page so the new deck is rendered everywhere:
+                    // grid, list, deck count, and Add Card dropdown.
+                    // The query parameters restore the Add Card workflow.
+                    window.location.href =
+                        'decks.php?add_card=1&deck_id=' + encodeURIComponent(data.id);
+                } else {
+                    window.location.reload();
+                }
             } catch (err) {
                 showFieldError(createError, createInput, err);
                 createSave.disabled = false;
+            }
+        });
+
+        // If the user cancels the Create Deck dialog after reaching it from
+        // Add Card, return them to Add Card with their previous selection.
+        createDialog.addEventListener('close', () => {
+            if (creatingDeckForCard && !suppressCardResume) {
+                creatingDeckForCard = false;
+                cardDeckSelect.value = cardDeckId ? String(cardDeckId) : '';
+                cardDialog.showModal();
+                cardFront.focus();
             }
         });
 
@@ -662,95 +716,170 @@ $currentPage = "decks";
         // Add card (any element with data-action="add-card" data-deck-id="...")
         // ---------------------------------------------------------------
         const cardDialog = document.getElementById('card-dialog');
-    const cardForm = document.getElementById('card-form');
-    const cardFront = document.getElementById('card-front');
-    const cardBack = document.getElementById('card-back');
-    const cardError = document.getElementById('card-error');
-    const cardSuccess = document.getElementById('card-success');
-    const cardSave = document.getElementById('card-save');
-    const cardDeckName = document.getElementById('card-deck-name');
+        const cardForm = document.getElementById('card-form');
+        const cardDeckSelect = document.getElementById('card-deck-select');
+        const cardFront = document.getElementById('card-front');
+        const cardBack = document.getElementById('card-back');
+        const cardError = document.getElementById('card-error');
+        const cardSuccess = document.getElementById('card-success');
+        const cardSave = document.getElementById('card-save');
 
-    let cardDeckId = null;
-    let cardsAdded = false;
+        let cardDeckId = null;
+        let cardsAdded = false;
 
-    function openCardDialog(deckId) {
-        cardDeckId = deckId;
-        cardsAdded = false;
-        cardDeckName.textContent = getDeckTitle(deckId);
-        cardFront.value = '';
-        cardBack.value = '';
-        cardError.classList.add('hidden');
-        cardSuccess.classList.add('hidden');
-        cardDialog.showModal();
-        cardFront.focus();
-    }
+        function addDeckOption(id, title) {
+            const value = String(id);
+            const existing = Array.from(cardDeckSelect.options).find((option) => option.value === value);
 
-    document.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-action="add-card"]');
-        if (btn) openCardDialog(btn.dataset.deckId);
-    });
-
-    // Ctrl/Cmd + Enter saves from either textarea
-    [cardFront, cardBack].forEach((field) => {
-        field.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                cardForm.requestSubmit();
+            if (existing) {
+                existing.textContent = title;
+                return;
             }
-        });
-    });
 
-    cardForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const front = cardFront.value.trim();
-        const back = cardBack.value.trim();
+            const createOption = cardDeckSelect.querySelector('option[value="__create__"]');
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = title;
 
-        cardSuccess.classList.add('hidden');
-        if (front === '' || back === '') {
-            cardError.textContent = 'Both the front and back are required.';
-            cardError.classList.remove('hidden');
-            return;
+            if (createOption) {
+                cardDeckSelect.insertBefore(option, createOption);
+            } else {
+                cardDeckSelect.appendChild(option);
+            }
         }
-        cardError.classList.add('hidden');
 
-        cardSave.disabled = true;
-        try {
-            await sendDeckAction({ action: 'add_card', deck_id: cardDeckId, front, back });
-            cardsAdded = true;
+        function openCardDialog(deckId = null) {
+            const selectedId = Number(deckId);
+            cardDeckId = Number.isInteger(selectedId) && selectedId > 0 ? selectedId : null;
+            cardsAdded = false;
+
+            cardDeckSelect.value = cardDeckId ? String(cardDeckId) : '';
             cardFront.value = '';
             cardBack.value = '';
-            cardSuccess.classList.remove('hidden');
-            cardFront.focus();
-        } catch (err) {
-            cardError.textContent = err.message;
-            cardError.classList.remove('hidden');
-        } finally {
+            cardError.classList.add('hidden');
+            cardSuccess.classList.add('hidden');
             cardSave.disabled = false;
-        }
-    });
+            cardDialog.showModal();
 
-    // Shows an error and, if the server suggested a name, a one-click "Use ..." button.
-    function showFieldError(errorEl, input, err) {
-        errorEl.textContent = err.message;
-        if (err.suggestion) {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'ml-2 underline font-semibold';
-            btn.textContent = 'Use "' + err.suggestion + '"';
-            btn.addEventListener('click', () => {
-                input.value = err.suggestion;
-                errorEl.classList.add('hidden');
-                input.focus();
+            if (cardDeckId) {
+                cardFront.focus();
+            } else {
+                cardDeckSelect.focus();
+            }
+        }
+
+        cardDeckSelect.addEventListener('change', () => {
+            if (cardDeckSelect.value === '__create__') {
+                // Restore the previous selection before leaving the modal so
+                // cancelling Create Deck does not leave an invalid value.
+                cardDeckSelect.value = cardDeckId ? String(cardDeckId) : '';
+                openCreateDialog(true);
+                return;
+            }
+
+            const selectedId = Number(cardDeckSelect.value);
+            cardDeckId = Number.isInteger(selectedId) && selectedId > 0 ? selectedId : null;
+            cardError.classList.add('hidden');
+        });
+
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-action="add-card"]');
+            if (btn) openCardDialog(btn.dataset.deckId);
+        });
+
+        // Ctrl/Cmd + Enter saves from either textarea
+        [cardFront, cardBack].forEach((field) => {
+            field.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    cardForm.requestSubmit();
+                }
             });
-            errorEl.appendChild(btn);
-        }
-        errorEl.classList.remove('hidden');
-    }
+        });
 
-    // Refresh counts once the dialog closes (Close button, Esc, or backdrop)
-    cardDialog.addEventListener('close', () => {
-        if (cardsAdded) window.location.reload();
-    });
+        cardForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const front = cardFront.value.trim();
+            const back = cardBack.value.trim();
+            const selectedDeckId = Number(cardDeckSelect.value);
+
+            cardSuccess.classList.add('hidden');
+
+            // Never submit an Add Card request without a real deck selected.
+            if (!Number.isInteger(selectedDeckId) || selectedDeckId <= 0) {
+                cardDeckId = null;
+                cardError.textContent = 'Please choose a deck before adding the card.';
+                cardError.classList.remove('hidden');
+                cardDeckSelect.focus();
+                return;
+            }
+
+            cardDeckId = selectedDeckId;
+
+            if (front === '' || back === '') {
+                cardError.textContent = 'Both the front and back are required.';
+                cardError.classList.remove('hidden');
+                return;
+            }
+            cardError.classList.add('hidden');
+
+            cardSave.disabled = true;
+            try {
+                await sendDeckAction({ action: 'add_card', deck_id: cardDeckId, front, back });
+                cardsAdded = true;
+                cardFront.value = '';
+                cardBack.value = '';
+                cardSuccess.classList.remove('hidden');
+                cardFront.focus();
+            } catch (err) {
+                cardError.textContent = err.message;
+                cardError.classList.remove('hidden');
+            } finally {
+                cardSave.disabled = false;
+            }
+        });
+
+        // Shows an error and, if the server suggested a name, a one-click "Use ..." button.
+        function showFieldError(errorEl, input, err) {
+            errorEl.textContent = err.message;
+            if (err.suggestion) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'ml-2 underline font-semibold';
+                btn.textContent = 'Use "' + err.suggestion + '"';
+                btn.addEventListener('click', () => {
+                    input.value = err.suggestion;
+                    errorEl.classList.add('hidden');
+                    input.focus();
+                });
+                errorEl.appendChild(btn);
+            }
+            errorEl.classList.remove('hidden');
+        }
+
+        // Refresh counts once the dialog closes (Close button, Esc, or backdrop)
+        cardDialog.addEventListener('close', () => {
+            if (cardsAdded) window.location.reload();
+        });
+
+        // Allows a general Add Card shortcut (for example from index.php) to
+        // open this same, deck-aware modal without inventing a second flow.
+        cconst createRequested =
+            <?= isset($_GET['create']) && $_GET['create'] === '1' ? 'true' : 'false' ?>;
+
+        const addCardRequested =
+            <?= isset($_GET['add_card']) && $_GET['add_card'] === '1' ? 'true' : 'false' ?>;
+
+        const requestedDeckId =
+            <?= isset($_GET['deck_id']) && ctype_digit((string) $_GET['deck_id'])
+                ? (int) $_GET['deck_id']
+                : 'null' ?>;
+
+        if (createRequested) {
+            openCreateDialog();
+        } else if (addCardRequested) {
+            openCardDialog(requestedDeckId);
+        }
     </script>
 
     <?php include __DIR__ . '/includes/footer.php'; ?>

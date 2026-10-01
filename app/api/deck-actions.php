@@ -11,21 +11,22 @@ function respond(int $status, array $body): void
     exit;
 }
 
+// Returns "Title (2)", "Title (3)", ... the first one $exists() says is free.
+function suggest_unique(callable $exists, string $title, int $max = 150): string
+{
+    $base = preg_replace('/\s*\(\d+\)$/u', '', $title);
+    $base = mb_substr($base, 0, $max - 8, 'UTF-8');
+    for ($n = 2; $n < 1000; $n++) {
+        $candidate = $base . ' (' . $n . ')';
+        if (!$exists($candidate)) {
+            return $candidate;
+        }
+    }
+    return $base . ' (' . bin2hex(random_bytes(2)) . ')';
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     respond(405, ['error' => 'Method not allowed.']);
-    // Returns "Title (2)", "Title (3)", ... the first one $exists() says is free.
-    function suggest_unique(callable $exists, string $title, int $max = 150): string
-    {
-        $base = preg_replace('/\s*\(\d+\)$/u', '', $title);
-        $base = mb_substr($base, 0, $max - 8, 'UTF-8');
-        for ($n = 2; $n < 1000; $n++) {
-            $candidate = $base . ' (' . $n . ')';
-            if (!$exists($candidate)) {
-                return $candidate;
-            }
-        }
-        return $base . ' (' . bin2hex(random_bytes(2)) . ')';
-    }
 }
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || !isset($_SESSION['user_id'])) {

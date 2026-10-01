@@ -60,10 +60,11 @@
                                 </h2>
                                 <p class="font-body-md text-body-md text-slate-200 leading-relaxed">Transform topics into organized, custom study decks.</p>
                                 <div class="flex flex-wrap items-center gap-3 pt-1">
-                                    <button class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-lg text-label-lg shadow-md hover:shadow-lg transition-all group">
+                                    <a href="decks.php?create=1"
+                                     class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-lg text-label-lg shadow-md hover:shadow-lg transition-all group">
                                         <span class="material-symbols-outlined text-[18px]">add</span>
                                         <span>Create Deck</span>
-                                    </button>
+                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -92,10 +93,11 @@
                                 </h2>
                                 <p class="font-body-md text-body-md text-slate-200 leading-relaxed">Structure complex subjects into bite-sized, high-retention study cards.</p>
                                 <div class="flex flex-wrap items-center gap-3 pt-1">
-                                    <button class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-lg text-label-lg shadow-md hover:shadow-lg transition-all group">
+                                    <a href="decks.php?add_card=1" 
+                                    class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-lg text-label-lg shadow-md hover:shadow-lg transition-all group">
                                         <span class="material-symbols-outlined text-[18px]">add</span>
-                                        <span>Create Card</span>
-                                    </button>
+                                        <span>Add Card</span>
+                                    </a>
                                 </div>
                             </div>
                         </div>
