@@ -228,13 +228,18 @@ $currentPage = "decks";
                                                 <span class="material-symbols-outlined text-[19px]">play_arrow</span>
                                                 <span>Review <?= $deck['due_count'] ?> Due</span>
                                             </button>
+                                        <?php else: ?>
+                                            <button
+                                                type="button"
+                                                disabled
+                                                class="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container-high text-on-surface-variant/60 font-label-md text-label-md font-semibold cursor-not-allowed"
+                                            >
+                                                <span class="material-symbols-outlined text-[19px]">check_circle</span>
+                                                <span>All caught up!</span>
+                                            </button>
                                         <?php endif; ?>
                                     </div>
                                     <div class="pt-2 border-t border-outline-variant/20 flex items-center gap-2.5">
-                                        <!-- <button class="flex-1 inline-flex items-center justify-center gap-1 px-3.5 py-2 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md font-semibold transition-colors shadow-xs" type="button" data-action="add-card" data-deck-id="<?= $deck['id'] ?>">
-                                            <span class="material-symbols-outlined text-[18px]">add</span>
-                                            <span>Add Card</span>
-                                        </button> -->
                                     </div>
                                 </div>
                             </div>
@@ -292,19 +297,24 @@ $currentPage = "decks";
                                     <div class="flex items-center gap-2 flex-shrink-0">
                                         <?php if ($deck['due_count'] > 0): ?>
                                             <button
-                                                class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md font-bold shadow-sm hover:shadow-md transition-all"
                                                 type="button"
                                                 data-action="review"
                                                 data-deck-id="<?= $deck['id'] ?>"
+                                                class="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md font-bold shadow-sm hover:shadow-md transition-all"
                                             >
-                                                <span class="material-symbols-outlined text-[18px]">play_arrow</span>
-                                                <span>Review <?= $deck['due_count'] ?> Due</span>
+                                                <span class="material-symbols-outlined text-[19px]">play_arrow</span>
+                                                <span>Review</span>
+                                            </button>
+                                        <?php else: ?>
+                                            <button
+                                                type="button"
+                                                disabled
+                                                class="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container-high text-on-surface-variant/60 font-label-md text-label-md font-semibold cursor-not-allowed"
+                                            >
+                                                <span class="material-symbols-outlined text-[19px]">check_circle</span>
+                                                <span>Reviewed</span>
                                             </button>
                                         <?php endif; ?>
-                                        <!-- <button class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md font-semibold transition-colors shadow-xs" type="button" data-action="add-card" data-deck-id="<?= $deck['id'] ?>">
-                                            <span class="material-symbols-outlined text-[18px]">add</span>
-                                            <span class="hidden sm:inline">Add Card</span>
-                                        </button> -->
                                         <button class="w-8 h-8 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-on-surface transition-colors flex items-center justify-center" title="Deck Options" type="button" data-deck-menu data-deck-id="<?= $deck['id'] ?>" aria-haspopup="menu" aria-expanded="false">
                                             <span class="material-symbols-outlined text-[18px]">more_vert</span>
                                         </button>
@@ -332,17 +342,18 @@ $currentPage = "decks";
 
     <!-- Shared kebab menu (positioned by JS so card overflow can't clip it) -->
     <div id="deck-menu" class="hidden fixed z-50 w-44 rounded-xl bg-surface-container-lowest border border-outline-variant/30 shadow-lg py-1" role="menu">
-        <button type="button" role="menuitem" data-menu-action="add-card" class="w-full flex items-center gap-2 px-3 py-2 text-left text-on-surface hover:bg-surface-container transition-colors">
-            <span class="material-symbols-outlined text-[18px]">add</span>
-            <span>Add Card</span>
-        </button>
-        <button type="button" role="menuitem" data-menu-action="rename" class="w-full flex items-center gap-2 px-3 py-2 text-left text-on-surface hover:bg-surface-container transition-colors">
+        <button type="button" role="menuitem" data-menu-action="rename" class="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-on-surface hover:bg-surface-container transition-colors">
             <span class="material-symbols-outlined text-[18px]">edit</span>
             <span>Rename</span>
         </button>
-        <button type="button" role="menuitem" data-menu-action="delete" class="w-full flex items-center gap-2 px-3 py-2 text-left text-rose-700 hover:bg-rose-50 transition-colors">
+        <button type="button" role="menuitem" data-menu-action="delete" class="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-rose-700 hover:bg-rose-50 transition-colors">
             <span class="material-symbols-outlined text-[18px]">delete</span>
             <span>Delete</span>
+        </button>
+        <hr>
+        <button type="button" role="menuitem" data-menu-action="add-card" class="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-on-surface hover:bg-surface-container transition-colors">
+            <span class="material-symbols-outlined text-[18px]">add</span>
+            <span>Add Card</span>
         </button>
     </div>
 
