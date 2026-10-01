@@ -434,9 +434,26 @@ $currentPage = "decks";
             </div>
             <p id="card-error" class="hidden text-rose-700 text-[13px]" role="alert"></p>
             <p id="card-success" class="hidden text-emerald-700 text-[13px]" role="status">Card added. Add another, or close when you're done.</p>
-            <div class="flex justify-end gap-2.5">
+            <!-- <div class="flex justify-end gap-2.5">
                 <button type="button" data-close-dialog class="px-4 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold transition-colors">Close</button>
                 <button type="submit" id="card-save" class="px-4 py-2 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-semibold transition-colors disabled:opacity-60">Add card</button>
+            </div> -->
+            <div class="flex items-center justify-between gap-2.5 pt-2 border-t border-outline-variant/20">
+                <span class="text-on-surface-variant/70 text-[12px] font-medium inline-flex items-center gap-1.5">
+                    <kbd class="px-1.5 py-0.5 text-[11px] font-mono font-semibold text-on-surface-variant bg-surface-container-high border border-outline-variant/60 rounded-md shadow-2xs">Ctrl</kbd>
+                    <span>+</span>
+                    <kbd class="px-1.5 py-0.5 text-[11px] font-mono font-semibold text-on-surface-variant bg-surface-container-high border border-outline-variant/60 rounded-md shadow-2xs">Enter</kbd>
+                    <span class="ml-0.5">to save</span>
+                </span>
+
+                <div class="flex items-center gap-2.5">
+                    <button type="button" data-close-dialog class="px-4 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-[14px] transition-colors">
+                        Close
+                    </button>
+                    <button type="submit" id="card-save" class="px-4 py-2 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-semibold text-[14px] transition-colors disabled:opacity-60">
+                        Add card
+                    </button>
+                </div>
             </div>
         </form>
     </dialog>
@@ -859,12 +876,19 @@ $currentPage = "decks";
 
         // Refresh counts once the dialog closes (Close button, Esc, or backdrop)
         cardDialog.addEventListener('close', () => {
-            if (cardsAdded) window.location.reload();
+            if (cardsAdded) {
+        // Clean up URL query parameters so the modal doesn't pop up again on reload
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+        
+        // Reload the page cleanly
+        window.location.reload();
+    }
         });
 
         // Allows a general Add Card shortcut (for example from index.php) to
         // open this same, deck-aware modal without inventing a second flow.
-        cconst createRequested =
+        const createRequested =
             <?= isset($_GET['create']) && $_GET['create'] === '1' ? 'true' : 'false' ?>;
 
         const addCardRequested =
