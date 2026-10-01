@@ -141,11 +141,8 @@ $currentPage = "decks";
                     <!-- Section header and controls -->
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-xl bg-primary-fixed flex items-center justify-center text-on-primary-fixed-variant shadow-xs">
-                                <span class="material-symbols-outlined text-[22px]">style</span>
-                            </div>
                             <div class="flex items-center gap-2.5">
-                                <h2 class="font-headline-md text-headline-md font-bold tracking-tight text-on-surface">Deck Gallery</h2>
+                                <h2 class="font-headline-md text-headline-md font-bold tracking-tight text-on-surface">Decks</h2>
                                 <span id="deck-count-badge" class="px-2.5 py-0.5 rounded-full bg-primary-container text-on-primary font-label-sm text-label-sm font-semibold tracking-wide shadow-xs">
                                     <?= $deck_total ?> <?= $deck_total === 1 ? 'Deck' : 'Decks' ?>
                                 </span>
@@ -155,10 +152,10 @@ $currentPage = "decks";
                         <div class="flex flex-wrap items-center gap-2.5">
                             <!-- View toggle -->
                             <div aria-label="View toggle" class="inline-flex items-center p-1 rounded-xl bg-surface-container border border-outline-variant/30 text-on-surface-variant" role="group">
-                                <button aria-pressed="false" class="flex items-center justify-center p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface transition-colors" id="view-grid-btn" title="Grid View" type="button">
+                                <button aria-pressed="true" class="flex items-center justify-center p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface transition-colors" id="view-grid-btn" title="Grid View" type="button">
                                     <span class="material-symbols-outlined text-[20px]">grid_view</span>
                                 </button>
-                                <button aria-pressed="true" class="flex items-center justify-center p-1.5 rounded-lg bg-surface-container-lowest text-primary font-semibold shadow-xs transition-all" id="view-list-btn" title="List View" type="button">
+                                <button aria-pressed="false" class="flex items-center justify-center p-1.5 rounded-lg bg-surface-container-lowest text-primary font-semibold shadow-xs transition-all" id="view-list-btn" title="List View" type="button">
                                     <span class="material-symbols-outlined text-[20px]">view_list</span>
                                 </button>
                             </div>
@@ -179,7 +176,7 @@ $currentPage = "decks";
                     <?php else: ?>
 
                     <!-- Grid view (hidden by default) -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 transition-opacity duration-200 hidden" id="decks-grid-view">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 transition-opacity duration-200" id="decks-grid-view">
                         <?php foreach ($decks as $deck): ?>
                             <div data-deck-card="<?= $deck['id'] ?>" class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-primary-fixed-dim/60 transition-all flex flex-col group">
                                 <!-- Cover -->
@@ -230,7 +227,7 @@ $currentPage = "decks";
                     </div>
 
                     <!-- List view (default) -->
-                    <div class="flex flex-col gap-4" id="decks-list-view">
+                    <div class="flex flex-col gap-4 hidden" id="decks-list-view">
                         <?php foreach ($decks as $deck): ?>
                             <div data-deck-card="<?= $deck['id'] ?>" class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md hover:border-primary-fixed-dim/60 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4 group">
                                 <div class="flex items-center gap-4 min-w-0">
@@ -437,7 +434,7 @@ $currentPage = "decks";
         });
 
         async function sendDeckAction(payload) {
-            const res = await fetch('deck-actions.php', {
+            const res = await fetch('../api/deck-actions.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...payload, csrf_token: CSRF_TOKEN })
