@@ -33,13 +33,16 @@ const MemPulseDashboard = {
         const streakAccuracy = document.getElementById('stat-streak-accuracy');
 
         if (currentStreak) {
-            const value = stats.currentStreak ?? '--';
-            currentStreak.textContent =
-                value === 1 ? '1 Day' : `${value} Days`;
+            currentStreak.textContent = stats.currentStreak ?? '--';
         }
 
-        if (bestStreak) bestStreak.textContent = stats.bestStreak ?? '--';
-        if (streakAccuracy) streakAccuracy.textContent = stats.streakAccuracy ?? '--';
+        if (bestStreak) {
+            bestStreak.textContent = stats.bestStreak ?? '--';
+        }
+
+        if (streakAccuracy) {
+            streakAccuracy.textContent = stats.streakAccuracy ?? '--';
+        }
     }
 };
 

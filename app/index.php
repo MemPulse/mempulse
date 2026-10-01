@@ -237,11 +237,11 @@ $currentPage = 'home';
             
             <?php include __DIR__ . '\components\metric-card.php'; ?>
                      
-            <section class="grid grid-cols-1 lg:grid-cols-4 gap-6 w-full">
-                <!-- Streak Heatmap (3/4 width on desktop) -->
+            <section class="grid grid-cols-1 lg:grid-cols-6 gap-6 w-full">
+                <!-- Streak Heatmap (4/5 width on desktop) -->
                     <?php include __DIR__ . '\components\streak-heatmap.php'; ?>
                     
-                    <!-- Streak & Accuracy Stats (1/4 width on desktop) -->
+                    <!-- Streak & Accuracy Stats (1/5 width on desktop) -->
                     <?php include __DIR__ . '\components\streak-stats.php'; ?>
                     
                 </section>
