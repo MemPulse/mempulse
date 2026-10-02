@@ -1,7 +1,3 @@
-<script src="./assets/js/app.js"></script>
-<script src="./assets/js/sidebar.js"></script>
-<script src="./assets/js/carousel.js"></script>
-<script src="./assets/js/home.js"></script>
 <script>
     // Function to update the top navigation header dynamically
     function updateHeaderData(userData) {
@@ -18,19 +14,8 @@
             headerProfileImg.src = userData.profileImageUrl;
         }
     }
-
-    // Example Integration Test Payload
-    document.addEventListener("DOMContentLoaded", () => {
-        const userPayload = {
-            currentStreak: 24,
-            profileImageUrl: "./assets/images/profile-picture.webp.jpg"
-        };
-
-        // Run the updater sequence
-        // updateHeaderData(userPayload);
-    });
     </script>
-    
+
     <script>
         /**
      * Global Dashboard Manager Module

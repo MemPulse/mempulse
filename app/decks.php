@@ -1182,6 +1182,6 @@ $streak_accuracy = $streak_accuracy ?? 0;
         });
     </script>
 
-    <?php include __DIR__ . '/includes/footer.php'; ?>
+    
 </body>
 </html>
