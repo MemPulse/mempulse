@@ -1,194 +1,229 @@
-<aside id="sidebar" class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest border-r border-outline-variant/40 z-50 flex flex-col justify-between py-6 px-4 shadow-[0_1px_8px_rgba(0,0,0,0.03)] transition-all duration-300 ease-in-out">
-        <div class="flex flex-col gap-8">
+<!-- Mobile Overlay -->
+<div id="mobile-sidebar-overlay" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden transition-opacity opacity-0"></div>
 
-            <!-- Outer layout section container -->
-            <div id="sidebar-header" class="flex items-center justify-between gap-3 px-3 transition-all duration-300">
-                <!-- Inner container holding the logo image assets -->
-                <div class="flex items-center gap-3 flex-shrink-0">
-                    <img alt="MemPulse Logo" class="h-12 w-auto object-contain flex-shrink-0" src="./assets/images/mempulse-logo.png" />
-                    <span class="logo-text font-headline-sm text-headline-sm font-semibold tracking-tight text-on-surface transition-all duration-200">MemPulse</span>
+<aside aside id="sidebar" class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest border-r border-outline-variant/40 z-50 flex flex-col justify-between py-6 px-4 shadow-[0_1px_8px_rgba(0,0,0,0.03)] transition-all duration-300 ease-in-out transform -translate-x-full md:translate-x-0">
+
+    <!-- Outer layout section container -->
+    <div id="sidebar-header" class="flex items-center justify-between gap-3 px-3 transition-all duration-300">
+        <!-- Inner container holding the logo image assets -->
+        <div class="flex items-center gap-3 flex-shrink-0">
+            <img alt="MemPulse Logo" class="h-12 w-auto object-contain flex-shrink-0" src="./assets/images/mempulse-logo.png" />
+            <span class="logo-text font-headline-sm text-headline-sm font-semibold tracking-tight text-on-surface transition-all duration-200">MemPulse</span>
+        </div>
+
+        <!-- Toggle Action Button element -->
+        <button id="sidebar-toggle" class="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors flex-shrink-0" title="Toggle Sidebar">
+            <span class="material-symbols-outlined text-[24px]">left_panel_close</span>
+        </button>
+    </div>
+        <nav class="flex flex-col gap-1.5" data-active-classes="bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm">
+            <!-- Home Page -->
+            <a
+                aria-current="<?= $currentPage === 'home' ? 'page' : 'false' ?>"
+                class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group
+                <?= $currentPage === 'home'
+                    ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm'
+                    : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
+                ?>"
+                data-path="home"
+                href="index.php"
+            >
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">
+                        home
+                    </span>
+                    <span class="sidebar-text transition-opacity duration-200">Home</span>
+                </div>
+            </a>
+
+            <!-- Decks Page -->
+            <a
+                aria-current="<?= $currentPage === 'decks' ? 'page' : 'false' ?>"
+                class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group
+                <?= $currentPage === 'decks'
+                    ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm'
+                    : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
+                ?>"
+                data-path="decks"
+                href="decks.php"
+            >
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">
+                        style
+                    </span>
+                    <span class="sidebar-text transition-opacity duration-200">Decks</span>
+                </div>
+            </a>
+
+            <!-- Review Page -->
+            <a
+                aria-current="<?= $currentPage === 'review' ? 'page' : 'false' ?>"
+                class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group
+                <?= $currentPage === 'review'
+                    ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm'
+                    : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
+                ?>"
+                data-path="review"
+                href="review.php"
+            >
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">
+                        pace
+                    </span>
+
+                    <span class="sidebar-text transition-opacity duration-200">
+                        Review
+                    </span>
                 </div>
 
-                <!-- Toggle Action Button element -->
-                <button id="sidebar-toggle" class="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors flex-shrink-0" title="Toggle Sidebar">
-                    <span class="material-symbols-outlined text-[24px]">left_panel_close</span>
-                </button>
-            </div>
-            <nav class="flex flex-col gap-1.5" data-active-classes="bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm">
-                <!-- Home Page -->
-                <a
-                    aria-current="<?= $currentPage === 'home' ? 'page' : 'false' ?>"
-                    class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group
-                    <?= $currentPage === 'home'
-                        ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm'
-                        : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
-                    ?>"
-                    data-path="home"
-                    href="index.php"
-                >
-                    <div class="flex items-center gap-3">
-                        <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">
-                            home
-                        </span>
-                        <span class="sidebar-text transition-opacity duration-200">Home</span>
-                    </div>
-                </a>
+                <!-- Review badge -->
+                <span class="sidebar-text px-2 py-0.5 rounded-full bg-primary-container text-on-primary font-label-sm text-label-sm tracking-wide transition-opacity duration-200">
+                    42
+                </span>
+            </a>
 
-                <!-- Decks Page -->
-                <a
-                    aria-current="<?= $currentPage === 'decks' ? 'page' : 'false' ?>"
-                    class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group
-                    <?= $currentPage === 'decks'
-                        ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm'
-                        : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
-                    ?>"
-                    data-path="decks"
-                    href="decks.php"
-                >
-                    <div class="flex items-center gap-3">
-                        <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">
-                            style
-                        </span>
-                        <span class="sidebar-text transition-opacity duration-200">Decks</span>
-                    </div>
-                </a>
-
-                <!-- Review Page -->
-                <a
-                    aria-current="<?= $currentPage === 'review' ? 'page' : 'false' ?>"
-                    class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group
-                    <?= $currentPage === 'review'
-                        ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm'
-                        : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
-                    ?>"
-                    data-path="review"
-                    href="review.php"
-                >
-                    <div class="flex items-center gap-3">
-                        <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">
-                            pace
-                        </span>
-
-                        <span class="sidebar-text transition-opacity duration-200">
-                            Review
-                        </span>
-                    </div>
-
-                    <!-- Review badge -->
-                    <span class="sidebar-text px-2 py-0.5 rounded-full bg-primary-container text-on-primary font-label-sm text-label-sm tracking-wide transition-opacity duration-200">
-                        42
+            <!-- Reports -->
+            <a
+                aria-current="<?= $currentPage === 'reports' ? 'page' : 'false' ?>"
+                class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group
+                <?= $currentPage === 'reports'
+                    ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm'
+                    : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
+                ?>"
+                data-path="reports"
+                href="reports.php"
+            >
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">
+                        monitoring
                     </span>
-                </a>
+                    <span class="sidebar-text transition-opacity duration-200">Reports</span>
+                </div>
+            </a>
+            <!-- Science -->
+            <a
+                aria-current="<?= $currentPage === 'science' ? 'page' : 'false' ?>"
+                class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group
+                <?= $currentPage === 'science'
+                    ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm'
+                    : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
+                ?>"
+                data-path="science"
+                href="science.php"
+            >
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">
+                        psychology
+                    </span>
+                    <span class="sidebar-text transition-opacity duration-200">Science</span>
+                </div>
+            </a>
+        </nav>
+    </div>
+    <div class="flex flex-col gap-2 pt-4 border-t border-outline-variant/30">
+        <nav class="flex flex-col gap-1" data-active-classes="bg-surface-container-high text-on-surface font-semibold">
+            <!-- Settings -->
+            <a
+                aria-current="<?= $currentPage === 'settings' ? 'page' : 'false' ?>"
+                class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group
+                <?= $currentPage === 'settings'
+                    ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm'
+                    : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
+                ?>"
+                data-path="settings"
+                href="settings.php"
+            >
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">
+                        settings
+                    </span>
+                    <span class="sidebar-text transition-opacity duration-200">Settings</span>
+                </div>
+            </a>
+            <a class="flex items-center gap-3 px-3.5 py-2 rounded-xl font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-error transition-all" 
+            data-path="logout" 
+            href="../authentication/logout.php">
+            <span class="material-symbols-outlined text-[24px]">logout</span>
+            <span class="sidebar-text transition-opacity duration-200">Logout</span>
+            </a>
 
-                <!-- Reports -->
-                <a
-                    aria-current="<?= $currentPage === 'reports' ? 'page' : 'false' ?>"
-                    class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group
-                    <?= $currentPage === 'reports'
-                        ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm'
-                        : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
-                    ?>"
-                    data-path="reports"
-                    href="reports.php"
-                >
-                    <div class="flex items-center gap-3">
-                        <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">
-                            monitoring
-                        </span>
-                        <span class="sidebar-text transition-opacity duration-200">Reports</span>
-                    </div>
-                </a>
-                <!-- Science -->
-                <a
-                    aria-current="<?= $currentPage === 'science' ? 'page' : 'false' ?>"
-                    class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group
-                    <?= $currentPage === 'science'
-                        ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm'
-                        : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
-                    ?>"
-                    data-path="science"
-                    href="science.php"
-                >
-                    <div class="flex items-center gap-3">
-                        <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">
-                            psychology
-                        </span>
-                        <span class="sidebar-text transition-opacity duration-200">Science</span>
-                    </div>
-                </a>
-            </nav>
-        </div>
-        <div class="flex flex-col gap-2 pt-4 border-t border-outline-variant/30">
-            <nav class="flex flex-col gap-1" data-active-classes="bg-surface-container-high text-on-surface font-semibold">
-                <!-- Settings -->
-                <a
-                    aria-current="<?= $currentPage === 'settings' ? 'page' : 'false' ?>"
-                    class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group
-                    <?= $currentPage === 'settings'
-                        ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm'
-                        : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
-                    ?>"
-                    data-path="settings"
-                    href="settings.php"
-                >
-                    <div class="flex items-center gap-3">
-                        <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">
-                            settings
-                        </span>
-                        <span class="sidebar-text transition-opacity duration-200">Settings</span>
-                    </div>
-                </a>
-                <a class="flex items-center gap-3 px-3.5 py-2 rounded-xl font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-error transition-all" 
-                data-path="logout" 
-                href="../authentication/logout.php">
-                <span class="material-symbols-outlined text-[24px]">logout</span>
-                <span class="sidebar-text transition-opacity duration-200">Logout</span>
-                </a>
+        </nav>
+    </div>
+</aside>
 
-            </nav>
-        </div>
-    </aside>
-
-    <script>
-        document.addEventListener("DOMContentLoaded", () => {
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
         const sidebar = document.querySelector("#sidebar");
         const mainContent = document.querySelector("main");
         const toggleBtn = document.querySelector("#sidebar-toggle");
+        const mobileToggleBtn = document.querySelector("#mobile-menu-toggle");
+        const mobileOverlay = document.querySelector("#mobile-sidebar-overlay");
 
-        if (!sidebar || !toggleBtn) return;
+        if (!sidebar) return;
 
-        const toggleIcon = toggleBtn.querySelector(".material-symbols-outlined");
+        const toggleIcon = toggleBtn ? toggleBtn.querySelector(".material-symbols-outlined") : null;
 
-        // Restore sidebar state
+        // Restore desktop sidebar state only if window is wide enough
         const sidebarCollapsed = localStorage.getItem("sidebarCollapsed") === "true";
-
-        if (sidebarCollapsed) {
+        if (sidebarCollapsed && window.innerWidth >= 768) {
             sidebar.classList.add("collapsed");
             if (mainContent) {
                 mainContent.classList.add("collapsed");
             }
-
             if (toggleIcon) {
                 toggleIcon.textContent = "left_panel_open";
             }
         }
 
-        // Toggle sidebar
-        toggleBtn.addEventListener("click", () => {
-            const isCollapsed = sidebar.classList.toggle("collapsed");
+        // Desktop toggle
+        if (toggleBtn) {
+            toggleBtn.addEventListener("click", () => {
+                // If clicked on mobile (e.g. they shrunk the window), just close it completely
+                if (window.innerWidth < 768) {
+                    closeMobileSidebar();
+                    return;
+                }
+                
+                const isCollapsed = sidebar.classList.toggle("collapsed");
+                if (mainContent) {
+                    mainContent.classList.toggle("collapsed", isCollapsed);
+                }
+                if (toggleIcon) {
+                    toggleIcon.textContent = isCollapsed ? "left_panel_open" : "left_panel_close";
+                }
+                localStorage.setItem("sidebarCollapsed", isCollapsed);
+            });
+        }
 
-            if (mainContent) {
-                mainContent.classList.toggle("collapsed", isCollapsed);
-            }
+        // Mobile toggle logic
+        function openMobileSidebar() {
+            sidebar.classList.remove("-translate-x-full");
+            sidebar.classList.remove("collapsed"); 
+            mobileOverlay.classList.remove("hidden");
+            
+            if (toggleIcon) toggleIcon.textContent = "close";
+            // Tiny delay ensures display block applies before opacity transition
+            setTimeout(() => mobileOverlay.classList.remove("opacity-0"), 10);
+
+
+        }
+
+        function closeMobileSidebar() {
+            sidebar.classList.add("-translate-x-full");
+            mobileOverlay.classList.add("opacity-0");
 
             if (toggleIcon) {
-                toggleIcon.textContent = isCollapsed
-                    ? "left_panel_open"
-                    : "left_panel_close";
-            }
+            toggleIcon.textContent = sidebar.classList.contains("collapsed") ? "left_panel_open" : "left_panel_close";
+        }
+            setTimeout(() => mobileOverlay.classList.add("hidden"), 300);
+        }
 
-            // Save state for other pages
-            localStorage.setItem("sidebarCollapsed", isCollapsed);
-        });
+        if (mobileToggleBtn) {
+            mobileToggleBtn.addEventListener("click", openMobileSidebar);
+        }
+        
+        if (mobileOverlay) {
+            mobileOverlay.addEventListener("click", closeMobileSidebar);
+        }
     });
-    </script>
+</script>

@@ -1182,6 +1182,5 @@ $streak_accuracy = $streak_accuracy ?? 0;
         });
     </script>
 
-    
 </body>
 </html>

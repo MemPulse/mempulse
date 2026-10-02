@@ -102,11 +102,9 @@ while ($row = mysqli_fetch_assoc($result)) {
 }
 mysqli_stmt_close($session_stmt);
 
-// --- STREAK HEATMAP: LAST 365 DAYS ---
-// Reuse the same completed review-session history already loaded above so
-// heatmap activity and streak calculations stay based on one source of truth.
+// --- STREAK HEATMAP: LAST 120 DAYS ---
 $heatmap_end = new DateTime('today');
-$heatmap_start = (clone $heatmap_end)->modify('-364 days');
+$heatmap_start = (clone $heatmap_end)->modify('-119 days'); // Changed to 120 days
 $heatmap_data = [];
 $study_days = 0;
 
@@ -123,30 +121,23 @@ foreach ($activity_history as $date_str => $metrics) {
     }
 }
 
-// Align the visual grid to Monday-Sunday while keeping exactly the requested
-// 365-day data window. Padded days outside that window render invisibly.
+// Align visual grid to Monday-Sunday
 $heatmap_calendar_start = clone $heatmap_start;
 $heatmap_calendar_start->modify('monday this week');
 $heatmap_calendar_end = clone $heatmap_end;
 $heatmap_calendar_end->modify('sunday this week');
 $heatmap_week_count = (int) floor(($heatmap_calendar_end->diff($heatmap_calendar_start)->days + 1) / 7);
 
-// Fixed, human-readable activity bands. The cell color is still data-driven.
-$heatmap_level_class = static function (int $reviews): string {
-    if ($reviews <= 0) {
-        return 'bg-surface-container-high';
+// Fix: Use a standard named function so dashboard.php can properly call it
+if (!function_exists('heatmap_level_class')) {
+    function heatmap_level_class(int $reviews): string {
+        if ($reviews <= 0) return 'bg-surface-container-high';
+        if ($reviews <= 14) return 'bg-primary-fixed';
+        if ($reviews <= 39) return 'bg-primary-fixed-dim';
+        if ($reviews <= 79) return 'bg-primary-container';
+        return 'bg-primary';
     }
-    if ($reviews <= 5) {
-        return 'bg-primary-fixed';
-    }
-    if ($reviews <= 15) {
-        return 'bg-primary-fixed-dim';
-    }
-    if ($reviews <= 30) {
-        return 'bg-primary-container';
-    }
-    return 'bg-primary';
-};
+}
 
 if (!empty($activity_history)) {
     $today_str = date('Y-m-d');
@@ -225,11 +216,11 @@ $currentPage = 'home';
 
     <?php include __DIR__ . '\includes\sidebar.php'; ?>
 
-    <main class="pl-72 pt-12 transition-all duration-300 ease-in-out">
+    <main class="pt-16 pl-0 md:pl-72 transition-all duration-300 ease-in-out">
         
         <?php include __DIR__ . '\includes\header-data.php'; ?>
         <?php include __DIR__ . '\includes\header.php'; ?>
-        <?php include __DIR__ . '\components\dashboard.php'; ?>                
+        <?php include __DIR__ . '/dashboard.php'; ?>                
               
     </main>
 
@@ -324,8 +315,141 @@ $currentPage = 'home';
         });
     </script>
 
-    <?php include __DIR__ . '/includes/index-footer.php'; ?>
+    <script>
+        // Function to update the top navigation header dynamically
+        function updateHeaderData(userData) {
+            const headerStreak = document.getElementById('header-streak-count');
+            const headerProfileImg = document.getElementById('header-profile-img');
 
+            // 1. Update Streak Count Display Node smoothly
+            if (headerStreak) {
+                headerStreak.textContent = userData.currentStreak + (userData.currentStreak === 1 ? ' Day' : ' Days');
+            }
+
+            // 2. Update Image Path Assets dynamically
+            if (headerProfileImg && userData.profileImageUrl) {
+                headerProfileImg.src = userData.profileImageUrl;
+            }
+        }
+        </script>
+
+        <script>
+            /**
+         * Global Dashboard Manager Module
+         * Coordinates active dynamic interface state tracking for MemPulse
+         */
+        const MemPulseDashboard = {
+            // 1. Core State Updater Method
+            updateAll(appPayload) {
+                if (!appPayload) return;
+
+                this.syncHeader(appPayload.user);
+                this.syncSidebarProfile(appPayload.user);
+                this.syncDatabaseMetrics(appPayload.stats);
+                this.syncStreakMetrics(appPayload.stats);
+            },
+
+            // 2. Synchronize Top Fixed Navigation Header Elements
+            syncHeader(user) {
+                if (!user) return;
+                const headerStreak = document.getElementById('header-streak-count');
+                const headerImg = document.getElementById('header-profile-img');
+
+                if (headerStreak) {
+                    headerStreak.textContent = user.currentStreak + (user.currentStreak === 1 ? ' Day' : ' Days');
+                }
+                if (headerImg && user.profileImageUrl) {
+                    headerImg.src = user.profileImageUrl;
+                }
+            },
+
+            // 3. Synchronize Bottom Expanded/Collapsed Sidebar Components
+            syncSidebarProfile(user) {
+                if (!user) return;
+                const sidebarName = document.getElementById('sidebar-profile-name');
+                const sidebarRole = document.getElementById('sidebar-profile-role');
+                const sidebarImg = document.getElementById('sidebar-profile-img');
+
+                if (sidebarName) sidebarName.textContent = user.displayName;
+                if (sidebarRole) sidebarRole.textContent = user.displayRole;
+                if (sidebarImg && user.profileImageUrl) {
+                    sidebarImg.src = user.profileImageUrl;
+                }
+            },
+
+            // 4. Update the Spaced-Repetition Core Database Analytics Rows
+            syncDatabaseMetrics(stats) {
+                if (!stats) return;
+                const cardsDue = document.getElementById('stat-cards-due');
+                const mastered = document.getElementById('stat-mastered');
+                const accuracy = document.getElementById('stat-accuracy');
+                const tough = document.getElementById('stat-tough');
+
+                if (cardsDue) cardsDue.textContent = stats.cardsDue ?? '--';
+                if (mastered) mastered.textContent = stats.masteredCards ?? '--';
+                if (accuracy) accuracy.textContent = (stats.lifetimeAccuracy !== undefined) ? `${stats.lifetimeAccuracy}%` : '--%';
+                if (tough) tough.textContent = stats.toughCards ?? '--';
+            },
+
+            // 5. Update Streak and Performance Calculation Cards
+            syncStreakMetrics(stats) {
+                if (!stats) return;
+                const currentStreak = document.getElementById('stat-current-streak');
+                const bestStreak = document.getElementById('stat-best-streak');
+                const streakAccuracy = document.getElementById('stat-streak-accuracy');
+
+                if (currentStreak) currentStreak.textContent = stats.currentStreak ?? '--';
+                if (bestStreak) bestStreak.textContent = stats.bestStreak ?? '--';
+                if (streakAccuracy) streakAccuracy.textContent = stats.streakAccuracy ?? '--';
+            }
+        };
+
+        // ─── INITIALIZATION / LIVE SQL DATABASE RUNNER ───
+        document.addEventListener("DOMContentLoaded", () => {
+            // This section at the bottom of your file now instantly matches your dynamic PHP calculations!
+            const incomingAppPayload = {
+                user: {
+                    displayName: <?php echo json_encode($display_name); ?>,
+                    displayRole: "User",
+                    currentStreak: <?php echo intval($current_streak); ?>,
+                    profileImageUrl: "./assets/images/profile-picture.webp.jpg" 
+                },
+                stats: {
+                    cardsDue: <?php echo intval($cards_due); ?>,
+                    masteredCards: <?php echo intval($mastered_cards); ?>,
+                    lifetimeAccuracy: <?php echo floatval($avg_accuracy); ?>,
+                    toughCards: <?php echo intval($tough_cards); ?>,
+                    currentStreak: <?php echo intval($current_streak); ?>,
+                    bestStreak: <?php echo intval($best_streak); ?>,
+                    streakAccuracy: <?php echo floatval($streak_accuracy); ?>
+                }
+            };
+
+            // Default the heatmap to the most recent study days
+            document.addEventListener("DOMContentLoaded", () => {
+            const heatmapScroller = document.getElementById("heatmap-scroll");
+
+            if (heatmapScroller) {
+                requestAnimationFrame(() => {
+                    heatmapScroller.scrollLeft =
+                        heatmapScroller.scrollWidth - heatmapScroller.clientWidth;
+                    });
+            }
+            });
+
+            document.querySelectorAll("#heatmap-scroll .heatmap-cell").forEach(cell => {
+                cell.addEventListener("mouseenter", () => {
+                    const rect = cell.getBoundingClientRect();
+
+                    cell.style.setProperty("--tooltip-left", `${rect.left + rect.width / 2}px`);
+                    cell.style.setProperty("--tooltip-top", `${rect.top - 8}px`);
+                });
+            });
+
+            // Run deep script synchronization across Header, Sidebar, and Stats Row
+            MemPulseDashboard.updateAll(incomingAppPayload);
+        });
+    </script>
     </body>
 
 </html>
