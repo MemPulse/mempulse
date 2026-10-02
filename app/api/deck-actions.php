@@ -102,9 +102,8 @@ if (!$deck_id || $deck_id < 1) {
     respond(400, ['error' => 'Invalid deck.']);
 }
 
-// The deck must belong to the logged-in user and not already be deleted.
-$check = mysqli_prepare($conn, "SELECT id FROM decks WHERE id = ? AND user_id = ? AND deleted_at IS NULL");
-mysqli_stmt_bind_param($check, "ii", $deck_id, $user_id);
+// The deck must belong to the logged-in user (whether active or archived).
+$check = mysqli_prepare($conn, "SELECT id FROM decks WHERE id = ? AND user_id = ?");mysqli_stmt_bind_param($check, "ii", $deck_id, $user_id);
 mysqli_stmt_execute($check);
 mysqli_stmt_store_result($check);
 $owns_deck = mysqli_stmt_num_rows($check) === 1;
@@ -142,46 +141,64 @@ try {
         respond(200, ['ok' => true, 'title' => $title]);
     }
 
-    // Delete Deck
-    if ($action === 'delete') {
-        // Soft delete the deck and its cards together so dashboard metrics
-        // (due, mastered, tough cards) stop counting them.
+    if ($action === 'archive') {
         mysqli_begin_transaction($conn);
         
+        // Soft-delete (archive) deck
         $stmt = mysqli_prepare($conn, "UPDATE decks SET deleted_at = NOW() WHERE id = ? AND user_id = ? AND deleted_at IS NULL");
         mysqli_stmt_bind_param($stmt, "ii", $deck_id, $user_id);
         mysqli_stmt_execute($stmt);
         mysqli_stmt_close($stmt);
         
+        // Soft-delete (archive) associated cards
         $stmt = mysqli_prepare($conn, "UPDATE flashcards SET deleted_at = NOW() WHERE deck_id = ? AND deleted_at IS NULL");
         mysqli_stmt_bind_param($stmt, "i", $deck_id);
         mysqli_stmt_execute($stmt);
         mysqli_stmt_close($stmt);
         
         mysqli_commit($conn);
-        
         respond(200, ['ok' => true]);
-        }
-        
-        // Add Card
-        if ($action === 'add_card') {
-            $front = trim((string) ($input['front'] ?? ''));
-            $back  = trim((string) ($input['back'] ?? ''));
-            
-            if ($front === '' || $back === '') {
-                respond(422, ['error' => 'Both the front and back of the card are required.']);
-                }
-                if (mb_strlen($front, 'UTF-8') > 5000 || mb_strlen($back, 'UTF-8') > 5000) {
-                    respond(422, ['error' => 'Each side must be 5000 characters or fewer.']);
-                    }
-                    
-    $stmt = mysqli_prepare($conn, "INSERT INTO flashcards (deck_id, front, back) VALUES (?, ?, ?)");
-    mysqli_stmt_bind_param($stmt, "iss", $deck_id, $front, $back);
-    mysqli_stmt_execute($stmt);
-    mysqli_stmt_close($stmt);
+    }
 
-    respond(200, ['ok' => true]);
-}
+    // Restore archived deck action
+    if ($action === 'restore') {
+        mysqli_begin_transaction($conn);
+        
+        // Un-archive deck
+        $stmt = mysqli_prepare($conn, "UPDATE decks SET deleted_at = NULL WHERE id = ? AND user_id = ? AND deleted_at IS NOT NULL");
+        mysqli_stmt_bind_param($stmt, "ii", $deck_id, $user_id);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+        
+        // Un-archive cards
+        $stmt = mysqli_prepare($conn, "UPDATE flashcards SET deleted_at = NULL WHERE deck_id = ?");
+        mysqli_stmt_bind_param($stmt, "i", $deck_id);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+        
+        mysqli_commit($conn);
+        respond(200, ['ok' => true]);
+    }
+        
+    // Add Card
+    if ($action === 'add_card') {
+        $front = trim((string) ($input['front'] ?? ''));
+        $back  = trim((string) ($input['back'] ?? ''));
+        
+        if ($front === '' || $back === '') {
+            respond(422, ['error' => 'Both the front and back of the card are required.']);
+            }
+            if (mb_strlen($front, 'UTF-8') > 5000 || mb_strlen($back, 'UTF-8') > 5000) {
+                respond(422, ['error' => 'Each side must be 5000 characters or fewer.']);
+                }
+                
+        $stmt = mysqli_prepare($conn, "INSERT INTO flashcards (deck_id, front, back) VALUES (?, ?, ?)");
+        mysqli_stmt_bind_param($stmt, "iss", $deck_id, $front, $back);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+
+        respond(200, ['ok' => true]);
+    }
 
     respond(400, ['error' => 'Unknown action.']);
 } catch (Throwable $e) {

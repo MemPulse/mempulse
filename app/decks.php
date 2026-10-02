@@ -67,8 +67,32 @@ function due_label(int $dueCount, int $cardCount, ?string $nextDue): string
     return 'Due in under 1 hr';
 }
 
+// Formats a timestamp into relative time ("2 hrs ago", "Yesterday", etc.)
+function last_reviewed_label(?string $lastReviewed): string
+{
+    if ($lastReviewed === null) {
+        return 'Never reviewed';
+    }
+    $reviewedDate = new DateTime($lastReviewed);
+    $now = new DateTime();
+    $diff = $now->diff($reviewedDate);
+
+    if ($diff->days === 0) {
+        if ($diff->h === 0) {
+            return $diff->i <= 1 ? 'Reviewed just now' : 'Reviewed ' . $diff->i . ' mins ago';
+        }
+        return 'Reviewed ' . $diff->h . ($diff->h === 1 ? ' hr ago' : ' hrs ago');
+    }
+    if ($diff->days === 1) {
+        return 'Reviewed yesterday';
+    }
+    if ($diff->days < 30) {
+        return 'Reviewed ' . $diff->days . ' days ago';
+    }
+    return 'Reviewed ' . $reviewedDate->format('M j, Y');
+}
 // ---------------------------------------------------------------------------
-// Load this user's decks with card count, due count, next due time and accuracy
+// Load this user's decks with card count, due count, next due time, review sessions and accuracy
 // ---------------------------------------------------------------------------
 $sql = "SELECT d.id,
                d.title,
@@ -79,6 +103,9 @@ $sql = "SELECT d.id,
                    AND f.next_review_at <= NOW()) AS due_count,
                (SELECT MIN(f.next_review_at) FROM flashcards f
                  WHERE f.deck_id = d.id AND f.deleted_at IS NULL) AS next_due,
+               (SELECT MAX(rs.ended_at) FROM review_sessions rs
+                 WHERE rs.deck_id = d.id AND rs.user_id = d.user_id
+                   AND rs.ended_at IS NOT NULL) AS last_reviewed,
                (SELECT SUM(rs.remembered_count) FROM review_sessions rs
                  WHERE rs.deck_id = d.id AND rs.user_id = d.user_id
                    AND rs.ended_at IS NOT NULL) AS remembered,
@@ -94,6 +121,34 @@ mysqli_stmt_bind_param($stmt, "i", $user_id);
 mysqli_stmt_execute($stmt);
 $result = mysqli_stmt_get_result($stmt);
 
+// ---------------------------------------------------------------------------
+// Load Archived Decks
+// ---------------------------------------------------------------------------
+$sql_archived = "SELECT d.id,
+               d.title,
+               d.deleted_at AS archive_date,
+               (SELECT COUNT(*) FROM flashcards f WHERE f.deck_id = d.id) AS card_count,
+               (SELECT MAX(rs.ended_at) FROM review_sessions rs WHERE rs.deck_id = d.id AND rs.user_id = d.user_id) AS last_reviewed,
+               (SELECT SUM(rs.remembered_count) FROM review_sessions rs WHERE rs.deck_id = d.id AND rs.user_id = d.user_id) AS remembered,
+               (SELECT SUM(rs.total_reviewed) FROM review_sessions rs WHERE rs.deck_id = d.id AND rs.user_id = d.user_id) AS reviewed
+        FROM decks d
+        WHERE d.user_id = ? AND d.deleted_at IS NOT NULL
+        ORDER BY d.deleted_at DESC";
+
+$stmt_archived = mysqli_prepare($conn, $sql_archived);
+mysqli_stmt_bind_param($stmt_archived, "i", $user_id);
+mysqli_stmt_execute($stmt_archived);
+$result_archived = mysqli_stmt_get_result($stmt_archived);
+
+$archived_decks = [];
+while ($row = mysqli_fetch_assoc($result_archived)) {
+    $reviewed = (int) $row['reviewed'];
+    $accuracy = $reviewed > 0 ? (int) round(((int) $row['remembered'] / $reviewed) * 100) : null;
+    $row['accuracy'] = $accuracy;
+    $archived_decks[] = $row;
+}
+mysqli_stmt_close($stmt_archived);
+
 $decks = [];
 while ($row = mysqli_fetch_assoc($result)) {
     $card_count = (int) $row['card_count'];
@@ -101,16 +156,16 @@ while ($row = mysqli_fetch_assoc($result)) {
     $accuracy   = $reviewed > 0 ? (int) round(((int) $row['remembered'] / $reviewed) * 100) : null;
     $hue        = ((int) $row['id'] * 47) % 360;
 
-    $decks[] = [
-        'id'          => (int) $row['id'],
-        'title'       => $row['title'],
-        'card_count'  => $card_count,
-        'due_count'   => (int) $row['due_count'],
-        'accuracy'    => $accuracy,
-        'theme'       => accuracy_theme($accuracy),
-        'due_text'    => due_label((int) $row['due_count'], $card_count, $row['next_due']),
-        // Decks have no cover image column yet, so each one gets a gradient based on its id.
-        'cover_style' => "background: linear-gradient(135deg, hsl({$hue} 65% 45%), hsl(" . (($hue + 45) % 360) . " 65% 28%));",
+   $decks[] = [
+        'id'                  => (int) $row['id'],
+        'title'               => $row['title'],
+        'card_count'          => $card_count,
+        'due_count'           => (int) $row['due_count'],
+        'accuracy'            => $accuracy,
+        'theme'               => accuracy_theme($accuracy),
+        'due_text'            => due_label((int) $row['due_count'], $card_count, $row['next_due']),
+        'last_reviewed_text'  => last_reviewed_label($row['last_reviewed']),
+        'cover_style'         => "background: linear-gradient(135deg, hsl({$hue} 65% 45%), hsl(" . (($hue + 45) % 360) . " 65% 28%));",
     ];
 }
 mysqli_stmt_close($stmt);
@@ -119,6 +174,13 @@ $deck_total = count($decks);
 
 $pageTitle = "Decks";
 $currentPage = "decks";
+
+$cards_due = $cards_due ?? 0;
+$mastered_cards = $mastered_cards ?? 0;
+$avg_accuracy = $avg_accuracy ?? 0;
+$tough_cards = $tough_cards ?? 0;
+$best_streak = $best_streak ?? 0;
+$streak_accuracy = $streak_accuracy ?? 0;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -151,16 +213,19 @@ $currentPage = "decks";
                         </div>
 
                         <div class="flex flex-wrap items-center gap-2.5">
-                            <!-- View toggle -->
+                            <!-- View toggles -->
                             <div aria-label="View toggle" class="inline-flex items-center p-1 rounded-xl bg-surface-container border border-outline-variant/30 text-on-surface-variant" role="group">
-                                <button aria-pressed="true" class="flex items-center justify-center p-1.5 rounded-lg bg-surface-container-lowest text-primary font-semibold shadow-xs transition-all" id="view-grid-btn" title="Grid View" type="button">
-                                    <span class="material-symbols-outlined text-[20px]">grid_view</span>
-                                </button>
-                                <button aria-pressed="false" class="flex items-center justify-center p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface transition-colors" id="view-list-btn" title="List View" type="button">
-                                    <span class="material-symbols-outlined text-[20px]">view_list</span>
-                                </button>
+                                <button class="p-1.5 rounded-lg bg-surface-container-lowest text-primary" id="view-grid-btn" title="Grid View" type="button"><span class="material-symbols-outlined text-[20px]">grid_view</span></button>
+                                <button class="p-1.5 rounded-lg text-on-surface-variant" id="view-list-btn" title="List View" type="button"><span class="material-symbols-outlined text-[20px]">view_list</span></button>
                             </div>
-                            <button class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md font-semibold shadow-sm hover:shadow transition-all" type="button" id="new-deck-btn">
+
+                            <!-- Archived Decks Button -->
+                            <button type="button" id="open-archived-btn" class="inline-flex items-center gap-2 p-2 sm:px-3 sm:py-2 rounded-xl bg-surface-container border border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all" title="View Archived Decks">
+                                <span class="material-symbols-outlined text-[20px]">inventory_2</span>
+                                <span class="text-sm font-semibold hidden sm:inline">Archived Decks</span>
+                            </button>
+
+                            <button class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-semibold shadow-sm" type="button" id="new-deck-btn">
                                 <span class="material-symbols-outlined text-[18px]">add</span>
                                 <span>New Deck</span>
                             </button>
@@ -168,18 +233,39 @@ $currentPage = "decks";
                     </div>
 
                     <?php if ($deck_total === 0): ?>
-                        <!-- Empty state -->
-                        <div class="border-2 border-dashed border-outline-variant/50 rounded-2xl p-10 flex flex-col items-center justify-center gap-3 text-center bg-surface-container-low/30">
-                            <span class="material-symbols-outlined text-primary text-[40px]">add_circle</span>
-                            <h3 class="font-headline-sm text-[18px] font-bold text-on-surface">No decks yet</h3>
-                            <p class="text-on-surface-variant">Create your first deck to start adding flashcards.</p>
+                    <!-- Grid view empty state -->
+                    <div id="decks-grid-view">
+                        <div id="new-deck-empty-grid" class="border-2 border-dashed border-outline-variant/50 hover:border-primary rounded-2xl p-10 flex flex-col items-center justify-center gap-3 text-center bg-surface-container-low/30 hover:bg-surface-container-low transition-all cursor-pointer group">
+                            <div class="w-14 h-14 rounded-xl bg-surface-container-lowest border border-outline-variant/30 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+                                <span class="material-symbols-outlined text-[28px]">add_circle</span>
+                            </div>
+                            <div>
+                                <h3 class="font-headline-sm text-[18px] font-bold text-on-surface group-hover:text-primary transition-colors">No decks yet</h3>
+                                <p class="text-on-surface-variant text-[14px] mt-0.5">Create your first deck to start adding flashcards.</p>
+                            </div>
                         </div>
-                    <?php else: ?>
+                    </div>
 
-                    <!-- Grid view (hidden by default) -->
+                    <!-- List view empty state -->
+                    <div id="decks-list-view" class="flex flex-col gap-4 hidden">
+                        <div id="new-deck-empty-list" class="border-2 border-dashed border-outline-variant/50 hover:border-primary rounded-2xl p-5 flex items-center justify-between bg-surface-container-low/30 hover:bg-surface-container-low transition-all cursor-pointer group">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-xl bg-surface-container-lowest border border-outline-variant/30 flex items-center justify-center text-primary group-hover:scale-105 transition-transform flex-shrink-0">
+                                    <span class="material-symbols-outlined text-[24px]">add_circle</span>
+                                </div>
+                                <div>
+                                    <h4 class="font-headline-sm text-[16px] font-bold text-on-surface group-hover:text-primary transition-colors">No decks yet</h4>
+                                    <p class="text-on-surface-variant text-[13px]">Create your first deck to start adding flashcards.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                <?php else: ?>
+
+                    <!-- Grid view -->
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 transition-opacity duration-200" id="decks-grid-view">
                         <?php foreach ($decks as $deck): ?>
-                            <div data-deck-card="<?= $deck['id'] ?>" class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-primary-fixed-dim/60 transition-all flex flex-col group">
+                            <div data-deck-card="<?= $deck['id'] ?>" data-deck-id="<?= $deck['id'] ?>" class="deck-card deck-item cursor-grab active:cursor-grabbing bg-surface-container-lowest border border-outline-variant/30 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-primary-fixed-dim/60 transition-all flex flex-col group">
                                 <!-- Cover -->
                                 <div class="relative h-44 w-full overflow-hidden border-b border-outline-variant/20 flex items-center justify-center" style="<?= h($deck['cover_style']) ?>">
                                     <?php if ($deck['due_count'] > 0): ?>
@@ -218,6 +304,7 @@ $currentPage = "decks";
                                             <div class="<?= $deck['theme']['bar'] ?> h-1.5 rounded-full" style="width: <?= (int) ($deck['accuracy'] ?? 0) ?>%"></div>
                                         </div>
 
+                                        <!-- Grid View Action Button -->
                                         <?php if ($deck['due_count'] > 0): ?>
                                             <button
                                                 type="button"
@@ -227,6 +314,15 @@ $currentPage = "decks";
                                             >
                                                 <span class="material-symbols-outlined text-[19px]">play_arrow</span>
                                                 <span>Review <?= $deck['due_count'] ?> Due</span>
+                                            </button>
+                                        <?php elseif ($deck['card_count'] === 0): ?>
+                                            <button
+                                                type="button"
+                                                disabled
+                                                class="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container-high text-on-surface-variant/60 font-label-md text-label-md font-semibold cursor-not-allowed"
+                                            >
+                                                <span class="material-symbols-outlined text-[19px]">inbox</span>
+                                                <span>Empty deck</span>
                                             </button>
                                         <?php else: ?>
                                             <button
@@ -253,10 +349,10 @@ $currentPage = "decks";
                         </div>
                     </div>
 
-                    <!-- List view (default) -->
+                    <!-- List view -->
                     <div class="flex flex-col gap-4 hidden" id="decks-list-view">
                         <?php foreach ($decks as $deck): ?>
-                            <div data-deck-card="<?= $deck['id'] ?>" class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md hover:border-primary-fixed-dim/60 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4 group">
+                            <div data-deck-card="<?= $deck['id'] ?>" data-deck-id="<?= $deck['id'] ?>" class="deck-card deck-item cursor-grab active:cursor-grabbing bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md hover:border-primary-fixed-dim/60 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4 group">
                                 <div class="flex items-center gap-4 min-w-0">
                                     <div class="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center" style="<?= h($deck['cover_style']) ?>">
                                         <span class="material-symbols-outlined text-white/90 text-[26px]">style</span>
@@ -295,21 +391,31 @@ $currentPage = "decks";
                                         </div>
                                     </div>
                                     <div class="flex items-center gap-2 flex-shrink-0">
+                                        <!-- List View Action Button -->
                                         <?php if ($deck['due_count'] > 0): ?>
                                             <button
                                                 type="button"
                                                 data-action="review"
                                                 data-deck-id="<?= $deck['id'] ?>"
-                                                class="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md font-bold shadow-sm hover:shadow-md transition-all"
+                                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md font-bold shadow-sm hover:shadow-md transition-all"
                                             >
                                                 <span class="material-symbols-outlined text-[19px]">play_arrow</span>
                                                 <span>Review</span>
+                                            </button>
+                                        <?php elseif ($deck['card_count'] === 0): ?>
+                                            <button
+                                                type="button"
+                                                disabled
+                                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container-high text-on-surface-variant/60 font-label-md text-label-md font-semibold cursor-not-allowed"
+                                            >
+                                                <span class="material-symbols-outlined text-[19px]">inbox</span>
+                                                <span>Empty deck</span>
                                             </button>
                                         <?php else: ?>
                                             <button
                                                 type="button"
                                                 disabled
-                                                class="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container-high text-on-surface-variant/60 font-label-md text-label-md font-semibold cursor-not-allowed"
+                                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container-high text-on-surface-variant/60 font-label-md text-label-md font-semibold cursor-not-allowed"
                                             >
                                                 <span class="material-symbols-outlined text-[19px]">check_circle</span>
                                                 <span>Reviewed</span>
@@ -346,9 +452,9 @@ $currentPage = "decks";
             <span class="material-symbols-outlined text-[18px]">edit</span>
             <span>Rename</span>
         </button>
-        <button type="button" role="menuitem" data-menu-action="delete" class="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-rose-700 hover:bg-rose-50 transition-colors">
-            <span class="material-symbols-outlined text-[18px]">delete</span>
-            <span>Delete</span>
+        <button type="button" role="menuitem" data-menu-action="archive" class="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-amber-700 hover:bg-amber-50 transition-colors">
+        <span class="material-symbols-outlined text-[18px]">archive</span>
+        <span>Archive</span>
         </button>
         <hr>
         <button type="button" role="menuitem" data-menu-action="add-card" class="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-on-surface hover:bg-surface-container transition-colors">
@@ -373,18 +479,18 @@ $currentPage = "decks";
         </form>
     </dialog>
 
-    <!-- Delete dialog -->
-    <dialog id="delete-dialog" class="rounded-2xl p-0 w-full max-w-md bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
+    <!-- Archive dialog -->
+    <dialog id="archive-dialog" class="rounded-2xl p-0 w-full max-w-md bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
         <div class="p-6 flex flex-col gap-4">
-            <h3 class="font-headline-sm text-[18px] font-bold">Delete deck?</h3>
-            <p class="text-on-surface-variant">
-                <span id="delete-name" class="font-semibold text-on-surface"></span>
-                and all of its cards will be removed from your decks.
+            <h3 class="font-headline-sm text-[18px] font-bold">Archive deck?</h3>
+            <p class="text-on-surface-variant text-[14px]">
+                <span id="archive-name" class="font-semibold text-on-surface"></span>
+                will be hidden from your active decks and review queue. You can restore it anytime from the Archive List.
             </p>
-            <p id="delete-error" class="hidden text-rose-700 text-[13px]" role="alert"></p>
+            <p id="archive-error" class="hidden text-rose-700 text-[13px]" role="alert"></p>
             <div class="flex justify-end gap-2.5">
-                <button type="button" data-close-dialog class="px-4 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold transition-colors">Cancel</button>
-                <button type="button" id="delete-confirm" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold transition-colors disabled:opacity-60">Delete</button>
+                <button type="button" data-close-dialog class="px-4 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-[14px] transition-colors">Cancel</button>
+                <button type="button" id="archive-confirm" class="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-[14px] transition-colors disabled:opacity-60">Archive</button>
             </div>
         </div>
     </dialog>
@@ -434,10 +540,6 @@ $currentPage = "decks";
             </div>
             <p id="card-error" class="hidden text-rose-700 text-[13px]" role="alert"></p>
             <p id="card-success" class="hidden text-emerald-700 text-[13px]" role="status">Card added. Add another, or close when you're done.</p>
-            <!-- <div class="flex justify-end gap-2.5">
-                <button type="button" data-close-dialog class="px-4 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold transition-colors">Close</button>
-                <button type="submit" id="card-save" class="px-4 py-2 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-semibold transition-colors disabled:opacity-60">Add card</button>
-            </div> -->
             <div class="flex items-center justify-between gap-2.5 pt-2 border-t border-outline-variant/20">
                 <span class="text-on-surface-variant/70 text-[12px] font-medium inline-flex items-center gap-1.5">
                     <kbd class="px-1.5 py-0.5 text-[11px] font-mono font-semibold text-on-surface-variant bg-surface-container-high border border-outline-variant/60 rounded-md shadow-2xs">Ctrl</kbd>
@@ -458,8 +560,45 @@ $currentPage = "decks";
         </form>
     </dialog>
 
+    <!-- Archived Decks Modal -->
+    <dialog id="archived-decks-dialog" class="rounded-2xl p-0 w-full max-w-2xl bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
+        <div class="p-6 flex flex-col gap-4 max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center">
+                <h3 class="font-headline-sm text-[18px] font-bold">Archived Decks</h3>
+                <button type="button" data-close-dialog class="text-on-surface-variant hover:text-on-surface transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            
+            <div class="flex flex-col gap-3">
+                <?php if (empty($archived_decks)): ?>
+                    <p class="text-on-surface-variant text-center py-6 text-sm">No archived decks found.</p>
+                <?php else: ?>
+                    <?php foreach ($archived_decks as $ad): ?>
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-outline-variant/40 bg-surface gap-4 hover:border-primary/50 transition-colors">
+                            <div>
+                                <h4 class="font-bold text-on-surface text-[15px]"><?= h($ad['title']) ?></h4>
+                                <div class="text-[13px] text-on-surface-variant mt-1.5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+                                    <span><strong>Cards:</strong> <?= $ad['card_count'] ?></span>
+                                    <span><strong>Accuracy:</strong> <?= $ad['accuracy'] !== null ? $ad['accuracy'] . '%' : 'N/A' ?></span>
+                                    <span><strong>Archived:</strong> <?= date('M j, Y', strtotime($ad['archive_date'])) ?></span>
+                                    <span><strong>Reviewed:</strong> <?= $ad['last_reviewed'] ? last_reviewed_label($ad['last_reviewed']) : 'Never' ?></span>
+                                </div>
+                            </div>
+                            <button type="button" data-restore-deck="<?= $ad['id'] ?>" class="px-4 py-2 rounded-xl bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary text-sm font-semibold transition-colors whitespace-nowrap shadow-sm">
+                                Restore Deck
+                            </button>
+                        </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
+        </div>
+    </dialog>
+
     <script>
+        // ---------------------------------------------------------------
         // View toggle (grid vs list), remembered in localStorage
+        // ---------------------------------------------------------------
         const viewGridBtn = document.getElementById('view-grid-btn');
         const viewListBtn = document.getElementById('view-list-btn');
         const gridView = document.getElementById('decks-grid-view');
@@ -471,12 +610,16 @@ $currentPage = "decks";
 
         function setView(mode) {
             const isGrid = mode !== 'list';
-            gridView.classList.toggle('hidden', !isGrid);
-            listView.classList.toggle('hidden', isGrid);
-            viewGridBtn.className = isGrid ? activeBtn : idleBtn;
-            viewGridBtn.setAttribute('aria-pressed', String(isGrid));
-            viewListBtn.className = isGrid ? idleBtn : activeBtn;
-            viewListBtn.setAttribute('aria-pressed', String(!isGrid));
+            if (gridView) gridView.classList.toggle('hidden', !isGrid);
+            if (listView) listView.classList.toggle('hidden', isGrid);
+            if (viewGridBtn) {
+                viewGridBtn.className = isGrid ? activeBtn : idleBtn;
+                viewGridBtn.setAttribute('aria-pressed', String(isGrid));
+            }
+            if (viewListBtn) {
+                viewListBtn.className = isGrid ? idleBtn : activeBtn;
+                viewListBtn.setAttribute('aria-pressed', String(!isGrid));
+            }
         }
 
         function saveView(mode) {
@@ -493,9 +636,9 @@ $currentPage = "decks";
         }
 
         // ---------------------------------------------------------------
-        // Deck kebab menu: rename and delete
+        // Deck Kebab Menu Handler (Rename & Archive / Delete)
         // ---------------------------------------------------------------
-        const CSRF_TOKEN = <?= json_encode($_SESSION['csrf_token']) ?>;
+        const CSRF_TOKEN = <?= json_encode($_SESSION['csrf_token'] ?? '') ?>;
 
         const deckMenu = document.getElementById('deck-menu');
         const renameDialog = document.getElementById('rename-dialog');
@@ -503,14 +646,46 @@ $currentPage = "decks";
         const renameInput = document.getElementById('rename-input');
         const renameError = document.getElementById('rename-error');
         const renameSave = document.getElementById('rename-save');
-        const deleteDialog = document.getElementById('delete-dialog');
-        const deleteName = document.getElementById('delete-name');
-        const deleteError = document.getElementById('delete-error');
-        const deleteConfirm = document.getElementById('delete-confirm');
+
+        // Archive / Delete Modal Elements
+        const archiveDialog = document.getElementById('archive-dialog') || document.getElementById('delete-dialog');
+        const archiveName = document.getElementById('archive-name') || document.getElementById('delete-name');
+        const archiveError = document.getElementById('archive-error') || document.getElementById('delete-error');
+        const archiveConfirm = document.getElementById('archive-confirm') || document.getElementById('delete-confirm');
         const countBadge = document.getElementById('deck-count-badge');
 
         let activeDeckId = null;
         let menuButton = null;
+
+        // ---------------------------------------------------------------
+        // Archived Decks Modal & Restore Logic
+        // ---------------------------------------------------------------
+        const archivedDecksDialog = document.getElementById('archived-decks-dialog');
+        const openArchivedBtn = document.getElementById('open-archived-btn');
+
+        if (openArchivedBtn && archivedDecksDialog) {
+            openArchivedBtn.addEventListener('click', () => {
+                archivedDecksDialog.showModal();
+            });
+        }
+
+        document.querySelectorAll('[data-restore-deck]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const deckId = btn.getAttribute('data-restore-deck');
+                const originalText = btn.textContent;
+                btn.disabled = true;
+                btn.textContent = "Restoring...";
+                
+                try {
+                    await sendDeckAction({ action: 'restore', deck_id: deckId });
+                    window.location.reload();
+                } catch (err) {
+                    alert("Failed to restore deck: " + err.message);
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                }
+            });
+        });
 
         function getDeckTitle(id) {
             const el = document.querySelector('[data-deck-title="' + id + '"]');
@@ -518,6 +693,7 @@ $currentPage = "decks";
         }
 
         function closeMenu() {
+            if (!deckMenu) return;
             deckMenu.classList.add('hidden');
             if (menuButton) menuButton.setAttribute('aria-expanded', 'false');
             menuButton = null;
@@ -525,6 +701,7 @@ $currentPage = "decks";
 
         function openMenu(btn) {
             closeMenu();
+            if (!deckMenu) return;
             menuButton = btn;
             activeDeckId = btn.dataset.deckId;
             btn.setAttribute('aria-expanded', 'true');
@@ -540,22 +717,28 @@ $currentPage = "decks";
             deckMenu.style.top = Math.max(8, top) + 'px';
         }
 
+        // Global listeners for Kebab Menu toggle & dismiss
         document.addEventListener('click', (e) => {
             const btn = e.target.closest('[data-deck-menu]');
             if (btn) {
                 if (menuButton === btn) closeMenu(); else openMenu(btn);
-            } else if (!deckMenu.contains(e.target)) {
+            } else if (deckMenu && !deckMenu.contains(e.target)) {
                 closeMenu();
             }
         });
+
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
         window.addEventListener('resize', closeMenu);
         window.addEventListener('scroll', closeMenu, true);
 
         document.querySelectorAll('[data-close-dialog]').forEach((b) => {
-            b.addEventListener('click', () => b.closest('dialog').close());
+            b.addEventListener('click', () => {
+                const dlg = b.closest('dialog');
+                if (dlg) dlg.close();
+            });
         });
 
+        // Unified API Fetch Function
         async function sendDeckAction(payload) {
             const res = await fetch('api/deck-actions.php', {
                 method: 'POST',
@@ -572,79 +755,95 @@ $currentPage = "decks";
             return data;
         }
 
-        deckMenu.addEventListener('click', (e) => {
-            const item = e.target.closest('[data-menu-action]');
-            if (!item || !activeDeckId) return;
-            const action = item.dataset.menuAction;
-            closeMenu();
+        // Handle Kebab dropdown item clicks
+        if (deckMenu) {
+            deckMenu.addEventListener('click', (e) => {
+                const item = e.target.closest('[data-menu-action]');
+                if (!item || !activeDeckId) return;
+                const action = item.dataset.menuAction;
+                closeMenu();
 
-            if (action === 'rename') {
-                renameInput.value = getDeckTitle(activeDeckId);
-                renameError.classList.add('hidden');
-                renameDialog.showModal();
-                renameInput.select();
-            } else if (action === 'delete') {
-                deleteName.textContent = '"' + getDeckTitle(activeDeckId) + '"';
-                deleteError.classList.add('hidden');
-                deleteDialog.showModal();
-            } else if (action === 'add-card') {
-                openCardDialog(activeDeckId);
-            }
-        });
-
-        renameForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const title = renameInput.value.trim();
-            if (title === '') {
-                renameError.textContent = 'Deck name cannot be empty.';
-                renameError.classList.remove('hidden');
-                return;
-            }
-            renameSave.disabled = true;
-            try {
-                const data = await sendDeckAction({ action: 'rename', deck_id: activeDeckId, title });
-                document.querySelectorAll('[data-deck-title="' + activeDeckId + '"]').forEach((el) => {
-                    el.textContent = data.title;
-                });
-                renameDialog.close();
-            } catch (err) {
-                showFieldError(renameError, renameInput, err);
-            } finally {
-                renameSave.disabled = false;
-            }
-        });
-
-        deleteConfirm.addEventListener('click', async () => {
-            deleteConfirm.disabled = true;
-            try {
-                await sendDeckAction({ action: 'delete', deck_id: activeDeckId });
-                document.querySelectorAll('[data-deck-card="' + activeDeckId + '"]').forEach((el) => el.remove());
-
-                const deletedDeckOption = cardDeckSelect.querySelector('option[value="' + activeDeckId + '"]');
-                if (deletedDeckOption) deletedDeckOption.remove();
-                if (cardDeckId === Number(activeDeckId)) {
-                    cardDeckId = null;
-                    cardDeckSelect.value = '';
+                if (action === 'rename' && renameDialog) {
+                    if (renameInput) renameInput.value = getDeckTitle(activeDeckId);
+                    if (renameError) renameError.classList.add('hidden');
+                    renameDialog.showModal();
+                    if (renameInput) renameInput.select();
+                } else if ((action === 'delete' || action === 'archive') && archiveDialog) {
+                    if (archiveName) archiveName.textContent = '"' + getDeckTitle(activeDeckId) + '"';
+                    if (archiveError) archiveError.classList.add('hidden');
+                    archiveDialog.showModal();
+                } else if (action === 'add-card') {
+                    openCardDialog(activeDeckId);
                 }
+            });
+        }
 
-                deleteDialog.close();
-
-                const remaining = document.querySelectorAll('#decks-grid-view [data-deck-card]').length;
-                if (remaining === 0) {
-                    window.location.reload(); // shows the empty state
-                } else if (countBadge) {
-                    countBadge.textContent = remaining + (remaining === 1 ? ' Deck' : ' Decks');
+        // Rename Form Submit Handler
+        if (renameForm) {
+            renameForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const title = renameInput ? renameInput.value.trim() : '';
+                if (title === '') {
+                    if (renameError) {
+                        renameError.textContent = 'Deck name cannot be empty.';
+                        renameError.classList.remove('hidden');
+                    }
+                    return;
                 }
-            } catch (err) {
-                deleteError.textContent = err.message;
-                deleteError.classList.remove('hidden');
-            } finally {
-                deleteConfirm.disabled = false;
-            }
-        });
+                if (renameSave) renameSave.disabled = true;
+                try {
+                    const data = await sendDeckAction({ action: 'rename', deck_id: activeDeckId, title });
+                    document.querySelectorAll('[data-deck-title="' + activeDeckId + '"]').forEach((el) => {
+                        el.textContent = data.title;
+                    });
+                    if (renameDialog) renameDialog.close();
+                } catch (err) {
+                    showFieldError(renameError, renameInput, err);
+                } finally {
+                    if (renameSave) renameSave.disabled = false;
+                }
+            });
+        }
+
+        // Archive / Delete Confirm Handler
+        if (archiveConfirm) {
+            archiveConfirm.addEventListener('click', async () => {
+                archiveConfirm.disabled = true;
+                try {
+                    const action = archiveConfirm.id === 'delete-confirm' ? 'delete' : 'archive';
+                    await sendDeckAction({ action, deck_id: activeDeckId });
+                    document.querySelectorAll('[data-deck-card="' + activeDeckId + '"]').forEach((el) => el.remove());
+
+                    if (typeof cardDeckSelect !== 'undefined' && cardDeckSelect) {
+                        const deletedDeckOption = cardDeckSelect.querySelector('option[value="' + activeDeckId + '"]');
+                        if (deletedDeckOption) deletedDeckOption.remove();
+                        if (cardDeckId === Number(activeDeckId)) {
+                            cardDeckId = null;
+                            cardDeckSelect.value = '';
+                        }
+                    }
+
+                    if (archiveDialog) archiveDialog.close();
+
+                    const remaining = document.querySelectorAll('#decks-grid-view [data-deck-card]').length;
+                    if (remaining === 0) {
+                        window.location.reload();
+                    } else if (countBadge) {
+                        countBadge.textContent = remaining + (remaining === 1 ? ' Deck' : ' Decks');
+                    }
+                } catch (err) {
+                    if (archiveError) {
+                        archiveError.textContent = err.message;
+                        archiveError.classList.remove('hidden');
+                    }
+                } finally {
+                    archiveConfirm.disabled = false;
+                }
+            });
+        }
 
         // ---------------------------------------------------------------
-        // Create deck (header button, grid tile, list row)
+        // Create Deck Dialog Handler
         // ---------------------------------------------------------------
         const createDialog = document.getElementById('create-dialog');
         const createForm = document.getElementById('create-form');
@@ -658,66 +857,70 @@ $currentPage = "decks";
         function openCreateDialog(fromCard = false) {
             creatingDeckForCard = fromCard;
 
-            // Do not try to stack two modal dialogs. Close Add Card first and
-            // remember that it needs to be restored after the create flow.
-            if (fromCard && cardDialog.open) {
+            if (fromCard && typeof cardDialog !== 'undefined' && cardDialog && cardDialog.open) {
                 suppressCardResume = true;
                 cardDialog.close();
                 suppressCardResume = false;
             }
 
-            createInput.value = '';
-            createError.classList.add('hidden');
-            createSave.disabled = false;
-            createDialog.showModal();
-            createInput.focus();
+            if (createInput) createInput.value = '';
+            if (createError) createError.classList.add('hidden');
+            if (createSave) createSave.disabled = false;
+            if (createDialog) {
+                createDialog.showModal();
+                if (createInput) createInput.focus();
+            }
         }
 
-        ['new-deck-btn', 'new-deck-tile', 'new-deck-row'].forEach((id) => {
+        ['new-deck-btn', 'new-deck-tile', 'new-deck-row', 'new-deck-empty-grid', 'new-deck-empty-list'].forEach((id) => {
             const el = document.getElementById(id);
             if (el) el.addEventListener('click', () => openCreateDialog(false));
         });
 
-        createForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const title = createInput.value.trim();
-            if (title === '') {
-                createError.textContent = 'Deck name cannot be empty.';
-                createError.classList.remove('hidden');
-                return;
-            }
-            createSave.disabled = true;
-            try {
-                const data = await sendDeckAction({ action: 'create', title });
-
-                if (creatingDeckForCard) {
-                    // Reload the page so the new deck is rendered everywhere:
-                    // grid, list, deck count, and Add Card dropdown.
-                    // The query parameters restore the Add Card workflow.
-                    window.location.href =
-                        'decks.php?add_card=1&deck_id=' + encodeURIComponent(data.id);
-                } else {
-                    window.location.reload();
+        if (createForm) {
+            createForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const title = createInput ? createInput.value.trim() : '';
+                if (title === '') {
+                    if (createError) {
+                        createError.textContent = 'Deck name cannot be empty.';
+                        createError.classList.remove('hidden');
+                    }
+                    return;
                 }
-            } catch (err) {
-                showFieldError(createError, createInput, err);
-                createSave.disabled = false;
-            }
-        });
+                if (createSave) createSave.disabled = true;
+                try {
+                    const data = await sendDeckAction({ action: 'create', title });
 
-        // If the user cancels the Create Deck dialog after reaching it from
-        // Add Card, return them to Add Card with their previous selection.
-        createDialog.addEventListener('close', () => {
-            if (creatingDeckForCard && !suppressCardResume) {
-                creatingDeckForCard = false;
-                cardDeckSelect.value = cardDeckId ? String(cardDeckId) : '';
-                cardDialog.showModal();
-                cardFront.focus();
-            }
-        });
+                    if (creatingDeckForCard) {
+                        window.location.href = 'decks.php?add_card=1&deck_id=' + encodeURIComponent(data.id);
+                    } else {
+                        window.location.reload();
+                    }
+                } catch (err) {
+                    showFieldError(createError, createInput, err);
+                    if (createSave) createSave.disabled = false;
+                }
+            });
+        }
+
+        if (createDialog) {
+            createDialog.addEventListener('close', () => {
+                if (creatingDeckForCard && !suppressCardResume) {
+                    creatingDeckForCard = false;
+                    if (typeof cardDeckSelect !== 'undefined' && cardDeckSelect) {
+                        cardDeckSelect.value = cardDeckId ? String(cardDeckId) : '';
+                    }
+                    if (typeof cardDialog !== 'undefined' && cardDialog) {
+                        cardDialog.showModal();
+                        if (cardFront) cardFront.focus();
+                    }
+                }
+            });
+        }
 
         // ---------------------------------------------------------------
-        // Review due cards
+        // Review button handler
         // ---------------------------------------------------------------
         document.addEventListener('click', (e) => {
             const btn = e.target.closest('[data-action="review"]');
@@ -730,7 +933,7 @@ $currentPage = "decks";
         });
 
         // ---------------------------------------------------------------
-        // Add card (any element with data-action="add-card" data-deck-id="...")
+        // Add Card Modal Handler
         // ---------------------------------------------------------------
         const cardDialog = document.getElementById('card-dialog');
         const cardForm = document.getElementById('card-form');
@@ -744,122 +947,111 @@ $currentPage = "decks";
         let cardDeckId = null;
         let cardsAdded = false;
 
-        function addDeckOption(id, title) {
-            const value = String(id);
-            const existing = Array.from(cardDeckSelect.options).find((option) => option.value === value);
-
-            if (existing) {
-                existing.textContent = title;
-                return;
-            }
-
-            const createOption = cardDeckSelect.querySelector('option[value="__create__"]');
-            const option = document.createElement('option');
-            option.value = value;
-            option.textContent = title;
-
-            if (createOption) {
-                cardDeckSelect.insertBefore(option, createOption);
-            } else {
-                cardDeckSelect.appendChild(option);
-            }
-        }
-
         function openCardDialog(deckId = null) {
+            if (!cardDialog) return;
             const selectedId = Number(deckId);
             cardDeckId = Number.isInteger(selectedId) && selectedId > 0 ? selectedId : null;
             cardsAdded = false;
 
-            cardDeckSelect.value = cardDeckId ? String(cardDeckId) : '';
-            cardFront.value = '';
-            cardBack.value = '';
-            cardError.classList.add('hidden');
-            cardSuccess.classList.add('hidden');
-            cardSave.disabled = false;
+            if (cardDeckSelect) cardDeckSelect.value = cardDeckId ? String(cardDeckId) : '';
+            if (cardFront) cardFront.value = '';
+            if (cardBack) cardBack.value = '';
+            if (cardError) cardError.classList.add('hidden');
+            if (cardSuccess) cardSuccess.classList.add('hidden');
+            if (cardSave) cardSave.disabled = false;
+            
             cardDialog.showModal();
 
-            if (cardDeckId) {
+            if (cardDeckId && cardFront) {
                 cardFront.focus();
-            } else {
+            } else if (cardDeckSelect) {
                 cardDeckSelect.focus();
             }
         }
 
-        cardDeckSelect.addEventListener('change', () => {
-            if (cardDeckSelect.value === '__create__') {
-                // Restore the previous selection before leaving the modal so
-                // cancelling Create Deck does not leave an invalid value.
-                cardDeckSelect.value = cardDeckId ? String(cardDeckId) : '';
-                openCreateDialog(true);
-                return;
-            }
+        if (cardDeckSelect) {
+            cardDeckSelect.addEventListener('change', () => {
+                if (cardDeckSelect.value === '__create__') {
+                    cardDeckSelect.value = cardDeckId ? String(cardDeckId) : '';
+                    openCreateDialog(true);
+                    return;
+                }
 
-            const selectedId = Number(cardDeckSelect.value);
-            cardDeckId = Number.isInteger(selectedId) && selectedId > 0 ? selectedId : null;
-            cardError.classList.add('hidden');
-        });
+                const selectedId = Number(cardDeckSelect.value);
+                cardDeckId = Number.isInteger(selectedId) && selectedId > 0 ? selectedId : null;
+                if (cardError) cardError.classList.add('hidden');
+            });
+        }
 
         document.addEventListener('click', (e) => {
             const btn = e.target.closest('[data-action="add-card"]');
             if (btn) openCardDialog(btn.dataset.deckId);
         });
 
-        // Ctrl/Cmd + Enter saves from either textarea
         [cardFront, cardBack].forEach((field) => {
-            field.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                    e.preventDefault();
-                    cardForm.requestSubmit();
+            if (field) {
+                field.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                        e.preventDefault();
+                        if (cardForm) cardForm.requestSubmit();
+                    }
+                });
+            }
+        });
+
+        if (cardForm) {
+            cardForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const front = cardFront ? cardFront.value.trim() : '';
+                const back = cardBack ? cardBack.value.trim() : '';
+                const selectedDeckId = cardDeckSelect ? Number(cardDeckSelect.value) : null;
+
+                if (cardSuccess) cardSuccess.classList.add('hidden');
+
+                if (!Number.isInteger(selectedDeckId) || selectedDeckId <= 0) {
+                    cardDeckId = null;
+                    if (cardError) {
+                        cardError.textContent = 'Please choose a deck before adding the card.';
+                        cardError.classList.remove('hidden');
+                    }
+                    if (cardDeckSelect) cardDeckSelect.focus();
+                    return;
+                }
+
+                cardDeckId = selectedDeckId;
+
+                if (front === '' || back === '') {
+                    if (cardError) {
+                        cardError.textContent = 'Both the front and back are required.';
+                        cardError.classList.remove('hidden');
+                    }
+                    return;
+                }
+                if (cardError) cardError.classList.add('hidden');
+
+                if (cardSave) cardSave.disabled = true;
+                try {
+                    await sendDeckAction({ action: 'add_card', deck_id: cardDeckId, front, back });
+                    cardsAdded = true;
+                    if (cardFront) cardFront.value = '';
+                    if (cardBack) cardBack.value = '';
+                    if (cardSuccess) cardSuccess.classList.remove('hidden');
+                    if (cardFront) cardFront.focus();
+                } catch (err) {
+                    if (cardError) {
+                        cardError.textContent = err.message;
+                        cardError.classList.remove('hidden');
+                    }
+                } finally {
+                    if (cardSave) cardSave.disabled = false;
                 }
             });
-        });
+        }
 
-        cardForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const front = cardFront.value.trim();
-            const back = cardBack.value.trim();
-            const selectedDeckId = Number(cardDeckSelect.value);
-
-            cardSuccess.classList.add('hidden');
-
-            // Never submit an Add Card request without a real deck selected.
-            if (!Number.isInteger(selectedDeckId) || selectedDeckId <= 0) {
-                cardDeckId = null;
-                cardError.textContent = 'Please choose a deck before adding the card.';
-                cardError.classList.remove('hidden');
-                cardDeckSelect.focus();
-                return;
-            }
-
-            cardDeckId = selectedDeckId;
-
-            if (front === '' || back === '') {
-                cardError.textContent = 'Both the front and back are required.';
-                cardError.classList.remove('hidden');
-                return;
-            }
-            cardError.classList.add('hidden');
-
-            cardSave.disabled = true;
-            try {
-                await sendDeckAction({ action: 'add_card', deck_id: cardDeckId, front, back });
-                cardsAdded = true;
-                cardFront.value = '';
-                cardBack.value = '';
-                cardSuccess.classList.remove('hidden');
-                cardFront.focus();
-            } catch (err) {
-                cardError.textContent = err.message;
-                cardError.classList.remove('hidden');
-            } finally {
-                cardSave.disabled = false;
-            }
-        });
-
-        // Shows an error and, if the server suggested a name, a one-click "Use ..." button.
         function showFieldError(errorEl, input, err) {
+            if (!errorEl) return;
             errorEl.textContent = err.message;
-            if (err.suggestion) {
+            if (err.suggestion && input) {
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'ml-2 underline font-semibold';
@@ -874,36 +1066,120 @@ $currentPage = "decks";
             errorEl.classList.remove('hidden');
         }
 
-        // Refresh counts once the dialog closes (Close button, Esc, or backdrop)
-        cardDialog.addEventListener('close', () => {
-            if (cardsAdded) {
-        // Clean up URL query parameters so the modal doesn't pop up again on reload
-        const cleanUrl = window.location.pathname;
-        window.history.replaceState({}, document.title, cleanUrl);
-        
-        // Reload the page cleanly
-        window.location.reload();
-    }
-        });
+        if (cardDialog) {
+            cardDialog.addEventListener('close', () => {
+                if (cardsAdded) {
+                    const cleanUrl = window.location.pathname;
+                    window.history.replaceState({}, document.title, cleanUrl);
+                    window.location.reload();
+                }
+            });
+        }
 
-        // Allows a general Add Card shortcut (for example from index.php) to
-        // open this same, deck-aware modal without inventing a second flow.
-        const createRequested =
-            <?= isset($_GET['create']) && $_GET['create'] === '1' ? 'true' : 'false' ?>;
-
-        const addCardRequested =
-            <?= isset($_GET['add_card']) && $_GET['add_card'] === '1' ? 'true' : 'false' ?>;
-
-        const requestedDeckId =
-            <?= isset($_GET['deck_id']) && ctype_digit((string) $_GET['deck_id'])
-                ? (int) $_GET['deck_id']
-                : 'null' ?>;
+        // Auto-open modals via URL params (e.g. ?create=1 or ?add_card=1)
+        const createRequested = <?= isset($_GET['create']) && $_GET['create'] === '1' ? 'true' : 'false' ?>;
+        const addCardRequested = <?= isset($_GET['add_card']) && $_GET['add_card'] === '1' ? 'true' : 'false' ?>;
+        const requestedDeckId = <?= isset($_GET['deck_id']) && ctype_digit((string) $_GET['deck_id']) ? (int) $_GET['deck_id'] : 'null' ?>;
 
         if (createRequested) {
             openCreateDialog();
         } else if (addCardRequested) {
             openCardDialog(requestedDeckId);
         }
+
+        // ---------------------------------------------------------------
+        // Custom Deck Reordering via LocalStorage & SortableJS
+        // ---------------------------------------------------------------
+        const ORDER_KEY = 'mempulse_deck_order';
+
+        // Load saved order and sort DOM elements
+        function applySavedDeckOrder(container) {
+            if (!container) return;
+            
+            let savedOrder = null;
+            try {
+                savedOrder = JSON.parse(localStorage.getItem(ORDER_KEY));
+            } catch (_) {}
+
+            if (!Array.isArray(savedOrder) || savedOrder.length === 0) return;
+
+            // Target top-level .deck-card containers explicitly
+            const items = Array.from(container.querySelectorAll('.deck-card[data-deck-id]'));
+            const itemMap = new Map();
+            items.forEach(item => itemMap.set(String(item.dataset.deckId), item));
+
+            // Re-append items in saved order
+            savedOrder.forEach(deckId => {
+                const el = itemMap.get(String(deckId));
+                if (el) {
+                    container.appendChild(el);
+                    itemMap.delete(String(deckId));
+                }
+            });
+
+            // Append any newly created/untracked decks at the end (before creation tile)
+            const createBtn = container.querySelector('#new-deck-tile, #new-deck-row');
+            itemMap.forEach(el => {
+                if (createBtn) {
+                    container.insertBefore(el, createBtn);
+                } else {
+                    container.appendChild(el);
+                }
+            });
+
+            // Keep creation tile at the end
+            if (createBtn) {
+                container.appendChild(createBtn);
+            }
+        }
+
+        // Extract current deck order from DOM and save to localStorage
+        function saveCurrentDeckOrder(container) {
+            if (!container) return;
+            const items = Array.from(container.querySelectorAll('.deck-card[data-deck-id]'));
+            const order = items.map(el => Number(el.dataset.deckId));
+            try {
+                localStorage.setItem(ORDER_KEY, JSON.stringify(order));
+            } catch (_) { /* storage disabled */ }
+        }
+
+        // Initialize Drag & Drop
+        document.addEventListener('DOMContentLoaded', () => {
+            const gridContainer = document.getElementById('decks-grid-view');
+            const listContainer = document.getElementById('decks-list-view');
+
+            // 1. Apply saved position order on load
+            applySavedDeckOrder(gridContainer);
+            applySavedDeckOrder(listContainer);
+
+            // 2. Initialize SortableJS on Grid View
+            if (gridContainer && typeof Sortable !== 'undefined') {
+                new Sortable(gridContainer, {
+                    animation: 150,
+                    draggable: '.deck-card',
+                    filter: '[data-deck-menu], dialog, button, a',
+                    preventOnFilter: false,
+                    onEnd: () => {
+                        saveCurrentDeckOrder(gridContainer);
+                        applySavedDeckOrder(listContainer);
+                    }
+                });
+            }
+
+            // 3. Initialize SortableJS on List View
+            if (listContainer && typeof Sortable !== 'undefined') {
+                new Sortable(listContainer, {
+                    animation: 150,
+                    draggable: '.deck-card',
+                    filter: '[data-deck-menu], dialog, button, a',
+                    preventOnFilter: false,
+                    onEnd: () => {
+                        saveCurrentDeckOrder(listContainer);
+                        applySavedDeckOrder(gridContainer);
+                    }
+                });
+            }
+        });
     </script>
 
     <?php include __DIR__ . '/includes/footer.php'; ?>
