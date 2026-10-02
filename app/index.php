@@ -210,7 +210,6 @@ $currentPage = 'home';
             stats: {
                 cardsDue: <?php echo intval($cards_due); ?>,
                 masteredCards: <?php echo intval($mastered_cards); ?>,
-                lifetimeAccuracy: <?php echo floatval($avg_accuracy); ?>,
                 toughCards: <?php echo intval($tough_cards); ?>,
                 currentStreak: <?php echo intval($current_streak); ?>,
                 bestStreak: <?php echo intval($best_streak); ?>,
@@ -262,12 +261,10 @@ $currentPage = 'home';
                 if (!stats) return;
                 const cardsDue = document.getElementById('stat-cards-due');
                 const mastered = document.getElementById('stat-mastered');
-                const accuracy = document.getElementById('stat-accuracy');
                 const tough = document.getElementById('stat-tough');
 
                 if (cardsDue) cardsDue.textContent = stats.cardsDue ?? '--';
                 if (mastered) mastered.textContent = stats.masteredCards ?? '--';
-                if (accuracy) accuracy.textContent = (stats.lifetimeAccuracy !== undefined) ? `${stats.lifetimeAccuracy}%` : '--%';
                 if (tough) tough.textContent = stats.toughCards ?? '--';
             },
 
