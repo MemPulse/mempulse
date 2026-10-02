@@ -35,7 +35,7 @@ if ($recent_stmt) {
 }
 ?>
 
-<div class="w-full px-2 sm:px-6 lg:px-8 py-4 sm:py-6 md:py-8 overflow-hidden">
+<div class="w-full px-2 sm:px-6 lg:px-8 py-4 sm:py-6 md:py-8 overflow-visible">
     <div class="flex flex-col w-full gap-4 sm:gap-6">
 
         <!-- TOP ROW: Core Metrics & Carousel -->
@@ -274,8 +274,8 @@ if ($recent_stmt) {
         <!-- BOTTOM ROW: Streak Heatmap & Recent Sessions -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 w-full items-stretch mt-2">
             
-            <!-- Streak Heatmap (Scrolls horizontally inside card on mobile) -->
-            <div class="lg:col-span-6 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col justify-between min-h-[290px] min-w-0">
+            <!-- Streak Heatmap Card Container -->
+            <div class="lg:col-span-6 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col justify-between min-h-[320px] min-w-0 overflow-visible">
                 
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <div>
@@ -284,7 +284,7 @@ if ($recent_stmt) {
                             <h3 class="font-headline-sm text-base font-semibold text-on-surface m-0">Streak Heatmap</h3>
                         </div>
                         <p class="text-[11px] text-on-surface-variant mt-1 ml-7">
-                            Last 120 days • <span class="font-semibold text-on-surface"><?php echo $study_days ?? 0; ?> / 120</span> study days
+                            Last 365 days • <span class="font-semibold text-on-surface"><?php echo $study_days ?? 0; ?> / 365</span> study days
                         </p>
                     </div>
 
@@ -299,11 +299,12 @@ if ($recent_stmt) {
                     </div>
                 </div>
 
-                <div id="heatmap-scroll" class="flex-1 flex items-center overflow-x-auto py-2 w-full max-w-full">
-                    <div class="w-max grid"
-                        style="--cell: 20px; gap: 4px;
-                                grid-template-columns: auto repeat(<?php echo $heatmap_week_count ?? 17; ?>, var(--cell));
-                                grid-template-rows: auto repeat(7, var(--cell));">
+                <!-- Heatmap Scroll / Container Area -->
+                <div id="heatmap-scroll" class="flex-1 flex items-center py-4 w-full overflow-x-auto">
+                    <div class="w-max grid justify-start"
+                        style="--cell: 16px; gap: 3px;
+                            grid-template-columns: auto repeat(53, var(--cell));
+                            grid-template-rows: auto repeat(7, var(--cell));">
 
                         <?php foreach ([3 => 'Mon', 5 => 'Wed', 7 => 'Fri'] as $row => $name): ?>
                             <span class="flex items-center pr-2 text-[10px] leading-none whitespace-nowrap text-on-surface-variant select-none"
@@ -315,14 +316,14 @@ if ($recent_stmt) {
                         <?php
                         if (isset($heatmap_calendar_start)) {
                             $week_start = clone $heatmap_calendar_start;
-                            for ($w = 0; $w < $heatmap_week_count; $w++) {
+                            for ($w = 0; $w < 53; $w++) {
                                 for ($d = 0; $d < 7; $d++) {
                                     $date = clone $week_start;
                                     $date->modify('+' . $d . ' days');
 
                                     if ($date < $heatmap_start || $date > $heatmap_end) continue;
 
-                                    if ($date->format('j') === '1' && $w <= $heatmap_week_count - 2) {
+                                    if ($date->format('j') === '1' && $w <= 51) {
                                         echo '<div class="text-[10px] leading-none font-medium whitespace-nowrap text-on-surface-variant" style="grid-row: 1; grid-column: ' . ($w + 2) . ' / span 3;">' . htmlspecialchars($date->format('M')) . '</div>';
                                     }
 

@@ -4,10 +4,18 @@
     body {
         margin: 0;
         padding: 0;
+        height: 100%;
+        overflow-y: auto !important;
+        overscroll-behavior-y: auto;
     }
 
     body {
         overscroll-behavior: none;
+    }
+
+    main {
+        min-height: 100vh;
+        overflow-y: auto !important;
     }
 
     main>:first-child {
@@ -97,6 +105,10 @@ main::-webkit-scrollbar {
     -webkit-tap-highlight-color: transparent;
 }
 
+#heatmap-scroll .heatmap-cell:hover {
+    z-index: 100;
+}
+
 /* Tooltip box */
 #heatmap-scroll .heatmap-cell::after {
     content: attr(data-tooltip);
@@ -130,7 +142,7 @@ main::-webkit-scrollbar {
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.15s ease;
-    z-index: 9999;
+    z-index: 101;
 }
 
 #heatmap-scroll .heatmap-cell:hover::after,
@@ -138,15 +150,15 @@ main::-webkit-scrollbar {
     opacity: 1;
 }
 
-/* --- Responsive Scrollbar Rules --- */
-/* Show scrollbar on mobile view (< 768px) */
+/* --- Universal Heatmap Scrollbar Rules (Visible in All Views) --- */
 #heatmap-scroll {
+    overflow-x: auto !important;
     scrollbar-width: thin;
     scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
 }
 
 #heatmap-scroll::-webkit-scrollbar {
-    display: block;
+    display: block !important;
     height: 6px;
 }
 
@@ -159,14 +171,6 @@ main::-webkit-scrollbar {
     border-radius: 999px;
 }
 
-/* Hide scrollbar completely on desktop view (>= 768px) */
-@media (min-width: 768px) {
-    #heatmap-scroll {
-        scrollbar-width: none;
-        -ms-overflow-style: none;
-    }
-
-    #heatmap-scroll::-webkit-scrollbar {
-        display: none;
-    }
+#heatmap-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 116, 139, 0.6);
 }
