@@ -8,118 +8,27 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || !isset(
     exit;
 }
 
-// 3. Connect to database layout module
-require_once __DIR__ . '/../config/db.php'; 
+// 3. Connect to database module and load business service
+require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/classes/DashboardService.php';
 
-$user_id =$_SESSION['user_id'];
+$userId = (int) $_SESSION['user_id'];
 
-// --- EXTRACTION: LIVE USER PROFILE DETAILS ---
-$user_sql  = "SELECT first_name, last_name FROM users WHERE id = ? AND deleted_at IS NULL";
-$user_stmt = mysqli_prepare($conn,$user_sql);
-mysqli_stmt_bind_param($user_stmt, "i", $user_id);
-mysqli_stmt_execute($user_stmt);
-mysqli_stmt_bind_result($user_stmt, $first_name,$last_name);
-mysqli_stmt_fetch($user_stmt);
-mysqli_stmt_close($user_stmt);
+// --- DATA ORCHESTRATION ---
+$profileData    = DashboardService::getUserProfile($conn, $userId);
+$metricsData    = DashboardService::getMetrics($conn, $userId);
+$streakData     = DashboardService::getStreakAndHeatmapData($conn, $userId);
+$recentSessions = DashboardService::getRecentSessions($conn, $userId, 4);
 
-// Handle display fallback strings defensively
-$display_name = trim(($first_name ?? '') . ' ' . ($last_name ?? ''));
-if (empty($display_name)) {$display_name = "Active Learner";
-}
+// Extracted variables for template includes
+$displayName    = $profileData['displayName'];
+$current_streak  = $streakData['currentStreak'];
+$pageTitle      = "Home Dashboard";
+$currentPage    = 'home';
 
-// --- METRIC 1: CARDS DUE TODAY ---
-$due_sql = "SELECT COUNT(*) FROM flashcards f 
-            JOIN decks d ON f.deck_id = d.id 
-            WHERE d.user_id = ? AND f.deleted_at IS NULL AND f.next_review_at <= NOW()";
-$due_stmt = mysqli_prepare($conn,$due_sql);
-mysqli_stmt_bind_param($due_stmt, "i", $user_id);
-mysqli_stmt_execute($due_stmt);
-mysqli_stmt_bind_result($due_stmt,$cards_due);
-mysqli_stmt_fetch($due_stmt);
-mysqli_stmt_close($due_stmt);
-
-// --- METRIC 2: MASTERED CARDS (Interval days >= 21) ---
-$mastered_sql = "SELECT COUNT(*) FROM flashcards f 
-                 JOIN decks d ON f.deck_id = d.id 
-                 WHERE d.user_id = ? AND f.deleted_at IS NULL AND f.interval_days >= 21";
-$mastered_stmt = mysqli_prepare($conn,$mastered_sql);
-mysqli_stmt_bind_param($mastered_stmt, "i", $user_id);
-mysqli_stmt_execute($mastered_stmt);
-mysqli_stmt_bind_result($mastered_stmt,$mastered_cards);
-mysqli_stmt_fetch($mastered_stmt);
-mysqli_stmt_close($mastered_stmt);
-
-// --- METRIC 3: LIFETIME ACCURACY ---
-$accuracy_sql = "SELECT AVG(accuracy_percentage) FROM review_sessions WHERE user_id = ? AND ended_at IS NOT NULL";
-$acc_stmt = mysqli_prepare($conn,$accuracy_sql);
-mysqli_stmt_bind_param($acc_stmt, "i", $user_id);
-mysqli_stmt_execute($acc_stmt);
-mysqli_stmt_bind_result($acc_stmt,$avg_accuracy);
-mysqli_stmt_fetch($acc_stmt);
-mysqli_stmt_close($acc_stmt);$avg_accuracy = $avg_accuracy !== null ? round($avg_accuracy, 1) : 0.0;
-
-// --- METRIC 4: TOUGH CARDS / LEECHES (Lapses >= 8) ---
-$tough_sql = "SELECT COUNT(*) FROM flashcards f 
-              JOIN decks d ON f.deck_id = d.id 
-              WHERE d.user_id = ? AND f.deleted_at IS NULL AND f.lapses >= 8";
-$tough_stmt = mysqli_prepare($conn,$tough_sql);
-mysqli_stmt_bind_param($tough_stmt, "i", $user_id);
-mysqli_stmt_execute($tough_stmt);
-mysqli_stmt_bind_result($tough_stmt,$tough_cards);
-mysqli_stmt_fetch($tough_stmt);
-mysqli_stmt_close($tough_stmt);
-
-// --- COMPUTE STREAKS FROM REVIEW SESSIONS HISTORIES ---
-$current_streak = 0;
-$best_streak = 0;
-$streak_accuracy = 0.0;
-
-$session_sql = "SELECT DATE(started_at) as session_date, 
-                       SUM(remembered_count) as total_remembered, 
-                       SUM(total_reviewed) as total_reviewed
-                FROM review_sessions 
-                WHERE user_id = ? 
-                  AND ended_at IS NOT NULL
-                GROUP BY DATE(started_at)
-                HAVING SUM(total_reviewed) > 0
-                ORDER BY session_date DESC";
-
-$session_stmt = mysqli_prepare($conn,$session_sql);
-mysqli_stmt_bind_param($session_stmt, "i", $user_id);
-mysqli_stmt_execute($session_stmt);
-$result = mysqli_stmt_get_result($session_stmt);
-
-$activity_history = [];
-while ($row = mysqli_fetch_assoc($result)) {
-    $activity_history[$row['session_date']] = [
-        'remembered' => intval($row['total_remembered']),
-        'reviewed' => intval($row['total_reviewed'])
-    ];
-}
-mysqli_stmt_close($session_stmt);
-
-// --- STREAK HEATMAP: LAST 365 DAYS ---
-$heatmap_end = new DateTime('today');
-$heatmap_start = (clone$heatmap_end)->modify('-364 days');
-$heatmap_data = [];$study_days = 0;
-
-foreach ($activity_history as $date_str =>$metrics) {
-    $activity_date = DateTime::createFromFormat('!Y-m-d',$date_str);
-    if (!$activity_date) {
-        continue;
-    }
-
-    if ($activity_date >= $heatmap_start &&$activity_date <= $heatmap_end &&$metrics['reviewed'] > 0) {
-        $heatmap_data[$date_str] = $metrics['reviewed'];$study_days++;
-    }
-}
-
-// Align visual grid to Monday-Sunday
-$heatmap_calendar_start = clone$heatmap_start;
-$heatmap_calendar_start->modify('monday this week');
-$heatmap_calendar_end = clone$heatmap_end;
-$heatmap_calendar_end->modify('sunday this week');$heatmap_week_count = (int) floor(($heatmap_calendar_end->diff($heatmap_calendar_start)->days + 1) / 7);
-
+/**
+ * Helper function for Heatmap grid CSS class matching review intensity.
+ */
 if (!function_exists('heatmap_level_class')) {
     function heatmap_level_class(int $reviews): string {
         if ($reviews <= 0) return 'bg-surface-container-high';
@@ -129,106 +38,52 @@ if (!function_exists('heatmap_level_class')) {
         return 'bg-primary';
     }
 }
-
-if (!empty($activity_history)) {
-    $today_str = date('Y-m-d');$yesterday_str = date('Y-m-d', strtotime('-1 day'));
-    
-    $tracking_date = current(array_keys($activity_history));
-    
-    if ($tracking_date === $today_str || $tracking_date === $yesterday_str) {$check_date = new DateTime($tracking_date);$streak_remembered = 0;
-        $streak_reviewed = 0;
-
-        while (true) {
-            $date_str =$check_date->format('Y-m-d');
-            if (isset($activity_history[$date_str])) {
-                $current_streak++;$streak_remembered += $activity_history[$date_str]['remembered'];
-                $streak_reviewed +=$activity_history[$date_str]['reviewed'];$check_date->modify('-1 day');
-            } else {
-                break;
-            }
-        }
-        
-        if ($streak_reviewed > 0) {$streak_accuracy = round(($streak_remembered / $streak_reviewed) * 100, 1);
-        }
-    }
-
-    $temp_streak = 0;
-    $expected_date = null;
-
-    foreach (array_reverse(array_keys($activity_history)) as$date_str) {
-        $current_date = new DateTime($date_str);
-        
-        if ($expected_date === null || $current_date == $expected_date) {$temp_streak++;
-        } else {
-            if ($temp_streak >$best_streak) {
-                $best_streak =$temp_streak;
-            }
-            $temp_streak = 1;
-        }
-        
-        $expected_date = clone$current_date;
-        $expected_date->modify('+1 day');
-    }
-    
-    if ($temp_streak >$best_streak) {
-        $best_streak =$temp_streak;
-    }
-} else {
-    $best_streak = 0;
-    $current_streak = 0;
-    $streak_accuracy = 0.0;
-}
-
-$pageTitle = "Home Dashboard";
-$currentPage = 'home';
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 
-<?php include __DIR__ . '/includes/head.php';?>
+<?php include __DIR__ . '/includes/head.php'; ?>
 
+<!-- BODY: Main App Background & Styling Root -->
 <body class="bg-background font-body-md text-on-surface antialiased min-h-screen selection:bg-primary-fixed selection:text-on-primary-fixed">
 
     <?php include __DIR__ . '/includes/sidebar.php'; ?>
 
+    <!-- MAIN: Viewport Shell Offset for Mobile/Desktop Navigation Bar -->
     <main class="pt-16 pl-0 md:pl-72 transition-all duration-300 ease-in-out">
-        <?php include __DIR__ . '/includes/header-data.php'; ?>
         <?php include __DIR__ . '/includes/header.php'; ?>
         <?php include __DIR__ . '/dashboard.php'; ?>                
     </main>
 
-    <!-- Consolidated and Clean Footer Scripts -->
+    <!-- 1. DATA INJECTION: Server-side PHP metrics passed safely to client-side JS -->
     <script>
         window.MemPulseHomeData = {
             user: {
-                displayName: <?php echo json_encode($display_name); ?>,
+                displayName: <?php echo json_encode($displayName); ?>,
                 displayRole: "User",
-                currentStreak: <?php echo intval($current_streak); ?>,
+                currentStreak: <?php echo (int) $current_streak; ?>,
                 profileImageUrl: "./assets/images/profile-picture.webp.jpg" 
             },
             stats: {
-                cardsDue: <?php echo intval($cards_due); ?>,
-                masteredCards: <?php echo intval($mastered_cards); ?>,
-                toughCards: <?php echo intval($tough_cards); ?>,
-                currentStreak: <?php echo intval($current_streak); ?>,
-                bestStreak: <?php echo intval($best_streak); ?>,
-                streakAccuracy: <?php echo floatval($streak_accuracy); ?>
+                cardsDue: <?php echo (int) $metricsData['cardsDue']; ?>,
+                masteredCards: <?php echo (int) $metricsData['masteredCards']; ?>,
+                toughCards: <?php echo (int) $metricsData['toughCards']; ?>,
+                currentStreak: <?php echo (int) $streakData['currentStreak']; ?>,
+                bestStreak: <?php echo (int) $streakData['bestStreak']; ?>,
+                streakAccuracy: <?php echo (float) $streakData['streakAccuracy']; ?>
             }
         };
 
         /**
-         * Global Dashboard Manager Module
-         * Coordinates active dynamic interface state tracking for MemPulse
+         * Global Dashboard UI Manager
+         * Synchronizes dynamic metrics across header, sidebar, and metric panels.
          */
         const MemPulseDashboard = {
-            updateAll(appPayload) {
-                if (!appPayload) return;
-
-                this.syncHeader(appPayload.user);
-                this.syncSidebarProfile(appPayload.user);
-                this.syncDatabaseMetrics(appPayload.stats);
-                this.syncStreakMetrics(appPayload.stats);
+            updateAll(payload) {
+                if (!payload) return;
+                this.syncHeader(payload.user);
+                this.syncSidebarProfile(payload.user);
+                this.syncMetrics(payload.stats);
             },
 
             syncHeader(user) {
@@ -257,35 +112,25 @@ $currentPage = 'home';
                 }
             },
 
-            syncDatabaseMetrics(stats) {
+            syncMetrics(stats) {
                 if (!stats) return;
-                const cardsDue = document.getElementById('stat-cards-due');
-                const mastered = document.getElementById('stat-mastered');
-                const tough = document.getElementById('stat-tough');
-
-                if (cardsDue) cardsDue.textContent = stats.cardsDue ?? '--';
-                if (mastered) mastered.textContent = stats.masteredCards ?? '--';
-                if (tough) tough.textContent = stats.toughCards ?? '--';
+                this.setElText('stat-cards-due', stats.cardsDue);
+                this.setElText('stat-mastered', stats.masteredCards);
+                this.setElText('stat-tough', stats.toughCards);
+                this.setElText('stat-current-streak', stats.currentStreak);
+                this.setElText('stat-best-streak', stats.bestStreak);
+                this.setElText('stat-streak-accuracy', stats.streakAccuracy);
             },
 
-            syncStreakMetrics(stats) {
-                if (!stats) return;
-                const currentStreak = document.getElementById('stat-current-streak');
-                const bestStreak = document.getElementById('stat-best-streak');
-                const streakAccuracy = document.getElementById('stat-streak-accuracy');
-
-                if (currentStreak) currentStreak.textContent = stats.currentStreak ?? '--';
-                if (bestStreak) bestStreak.textContent = stats.bestStreak ?? '--';
-                if (streakAccuracy) streakAccuracy.textContent = stats.streakAccuracy ?? '--';
+            setElText(id, value) {
+                const el = document.getElementById(id);
+                if (el) el.textContent = value ?? '--';
             }
         };
 
-        // ─── INITIALIZATION / LIVE SQL DATABASE RUNNER ───
         document.addEventListener("DOMContentLoaded", () => {
-            // Run deep script synchronization across Header, Sidebar, and Stats Row
             MemPulseDashboard.updateAll(window.MemPulseHomeData);
 
-            // Optional mobile-only scroll helper (prevents desktop layout distortion)
             const heatmapScroller = document.getElementById("heatmap-scroll");
             if (heatmapScroller) {
                 requestAnimationFrame(() => {
@@ -294,5 +139,8 @@ $currentPage = 'home';
             }
         });
     </script>
+
+    <!-- 2. CLIENT-SIDE ASSET IMPORTS: Separated standalone JavaScript modules -->
+    <script src="./assets/js/hero-carousel.js" defer></script>
 </body>
 </html>
