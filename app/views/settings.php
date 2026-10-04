@@ -6,12 +6,12 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || !isset(
     exit;
 }
 
-require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../../config/db.php';
 
 $user_id = $_SESSION['user_id'];
 
-$pageTitle = "Science"; 
-$currentPage = "science";
+$pageTitle = "Settings"; 
+$currentPage = "settings";
 ?>
 <!DOCTYPE html>
 <html lang="en">

@@ -47,7 +47,7 @@ $currentPage = $currentPage ?? '';
         <a aria-current="<?= $currentPage === 'review' ? 'page' : 'false' ?>"
            class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group <?= $currentPage === 'review' ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm' : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface' ?>"
            data-path="review"
-           href="<?php echo BASE_URL; ?>review.php">
+           href="<?php echo BASE_URL; ?>views/review.php">
             <div class="flex items-center gap-3">
                 <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">pace</span>
                 <span class="sidebar-text transition-opacity duration-200">Review</span>
@@ -58,7 +58,7 @@ $currentPage = $currentPage ?? '';
         <a aria-current="<?= $currentPage === 'reports' ? 'page' : 'false' ?>"
            class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group <?= $currentPage === 'reports' ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm' : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface' ?>"
            data-path="reports"
-           href="<?php echo BASE_URL; ?>reports.php">
+           href="<?php echo BASE_URL; ?>views/reports.php">
             <div class="flex items-center gap-3">
                 <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">monitoring</span>
                 <span class="sidebar-text transition-opacity duration-200">Reports</span>
@@ -69,7 +69,7 @@ $currentPage = $currentPage ?? '';
         <a aria-current="<?= $currentPage === 'science' ? 'page' : 'false' ?>"
            class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group <?= $currentPage === 'science' ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm' : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface' ?>"
            data-path="science"
-           href="<?php echo BASE_URL; ?>science.php">
+           href="<?php echo BASE_URL; ?>views/science.php">
             <div class="flex items-center gap-3">
                 <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">psychology</span>
                 <span class="sidebar-text transition-opacity duration-200">Science</span>
@@ -83,7 +83,7 @@ $currentPage = $currentPage ?? '';
             <a aria-current="<?= $currentPage === 'settings' ? 'page' : 'false' ?>"
                class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group <?= $currentPage === 'settings' ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm' : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface' ?>"
                data-path="settings"
-               href="<?php echo BASE_URL; ?>settings.php">
+               href="<?php echo BASE_URL; ?>views/settings.php">
                 <div class="flex items-center gap-3">
                     <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">settings</span>
                     <span class="sidebar-text transition-opacity duration-200">Settings</span>

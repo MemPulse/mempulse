@@ -32,7 +32,8 @@
             <span class="material-symbols-outlined text-amber-500 text-[16px]" aria-hidden="true">local_fire_department</span>
             <!-- SPAN: Dynamic Active Streak Counter Output -->
             <span id="header-streak-count" class="font-label-sm text-label-sm font-semibold tracking-wide">
-                <?php echo htmlspecialchars((string) ($current_streak ?? 0), ENT_QUOTES, 'UTF-8'); ?>
+                <?php echo htmlspecialchars((string) ($current_streak ?? 0), ENT_QUOTES, 'UTF-8'); ?> 
+                <?php echo ($current_streak ?? 0) == 1 ? ' Day' : ' Days'; ?>
             </span>
         </div>
 

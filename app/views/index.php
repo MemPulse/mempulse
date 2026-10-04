@@ -53,18 +53,12 @@ if (!function_exists('heatmap_level_class')) {
     <main class="pt-16 pl-0 md:pl-72 transition-all duration-300 ease-in-out">
         <?php include __DIR__ . '/../includes/header-data.php'; ?>    
         <?php include __DIR__ . '/../includes/header.php'; ?>
-        <?php include __DIR__ . '/../dashboard.php'; ?>                
+        <?php include __DIR__ . '/dashboard.php'; ?>                
     </main>
 
     <!-- 1. DATA INJECTION: Server-side PHP metrics passed safely to client-side JS -->
     <script>
         window.MemPulseHomeData = {
-            user: {
-                displayName: <?php echo json_encode($displayName); ?>,
-                displayRole: "User",
-                currentStreak: <?php echo (int) $current_streak; ?>,
-                profileImageUrl: "/mempulse/app/assets/images/profile-picture.webp.jpg" 
-            },
             stats: {
                 cardsDue: <?php echo (int) $metricsData['cardsDue']; ?>,
                 masteredCards: <?php echo (int) $metricsData['masteredCards']; ?>,
@@ -85,32 +79,6 @@ if (!function_exists('heatmap_level_class')) {
                 this.syncHeader(payload.user);
                 this.syncSidebarProfile(payload.user);
                 this.syncMetrics(payload.stats);
-            },
-
-            syncHeader(user) {
-                if (!user) return;
-                const headerStreak = document.getElementById('header-streak-count');
-                const headerImg = document.getElementById('header-profile-img');
-
-                if (headerStreak) {
-                    headerStreak.textContent = user.currentStreak + (user.currentStreak === 1 ? ' Day' : ' Days');
-                }
-                if (headerImg && user.profileImageUrl) {
-                    headerImg.src = user.profileImageUrl;
-                }
-            },
-
-            syncSidebarProfile(user) {
-                if (!user) return;
-                const sidebarName = document.getElementById('sidebar-profile-name');
-                const sidebarRole = document.getElementById('sidebar-profile-role');
-                const sidebarImg = document.getElementById('sidebar-profile-img');
-
-                if (sidebarName) sidebarName.textContent = user.displayName;
-                if (sidebarRole) sidebarRole.textContent = user.displayRole;
-                if (sidebarImg && user.profileImageUrl) {
-                    sidebarImg.src = user.profileImageUrl;
-                }
             },
 
             syncMetrics(stats) {
