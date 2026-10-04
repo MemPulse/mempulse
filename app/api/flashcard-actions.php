@@ -89,22 +89,25 @@ try {
         $newCardId = mysqli_insert_id($conn);
         mysqli_stmt_close($stmt);
 
+        // Fetch newly created card record with defaults
+        $fetchStmt = mysqli_prepare($conn, "SELECT id, deck_id, front, back, interval_days, next_review_at, review_count, lapses, created_at, updated_at FROM flashcards WHERE id = ?");
+        mysqli_stmt_bind_param($fetchStmt, "i", $newCardId);
+        mysqli_stmt_execute($fetchStmt);
+        $card = mysqli_fetch_assoc(mysqli_stmt_get_result($fetchStmt));
+        mysqli_stmt_close($fetchStmt);
+
         respond(200, [
-            'ok'    => true,
-            'card'  => [
-                'id'      => $newCardId,
-                'deck_id' => $deck_id,
-                'front'   => $front,
-                'back'    => $back
-            ]
+            'ok'   => true,
+            'card' => $card
         ]);
     }
 
     // Action: Update Flashcard
     if ($action === 'update') {
-        $card_id = filter_var($input['card_id'] ?? null, FILTER_VALIDATE_INT);
-        $front   = trim((string) ($input['front'] ?? ''));
-        $back    = trim((string) ($input['back'] ?? ''));
+        $card_id        = filter_var($input['card_id'] ?? null, FILTER_VALIDATE_INT);
+        $front          = trim((string) ($input['front'] ?? ''));
+        $back           = trim((string) ($input['back'] ?? ''));
+        $next_review_at = trim((string) ($input['next_review_at'] ?? ''));
 
         if (!$card_id || $card_id < 1) {
             respond(400, ['error' => 'Invalid card specified.']);
@@ -116,19 +119,37 @@ try {
             respond(422, ['error' => 'Each side must be 5000 characters or fewer.']);
         }
 
-        $stmt = mysqli_prepare($conn, "UPDATE flashcards SET front = ?, back = ? WHERE id = ? AND deck_id = ? AND deleted_at IS NULL");
-        mysqli_stmt_bind_param($stmt, "ssii", $front, $back, $card_id, $deck_id);
+        // Validate and sanitize custom next_review_at if provided
+        $formattedNextReview = null;
+        if ($next_review_at !== '') {
+            $dt = DateTime::createFromFormat('Y-m-d\TH:i', $next_review_at) 
+               ?: DateTime::createFromFormat('Y-m-d H:i:s', $next_review_at);
+            if ($dt !== false) {
+                $formattedNextReview = $dt->format('Y-m-d H:i:s');
+            }
+        }
+
+        if ($formattedNextReview !== null) {
+            $stmt = mysqli_prepare($conn, "UPDATE flashcards SET front = ?, back = ?, next_review_at = ? WHERE id = ? AND deck_id = ? AND deleted_at IS NULL");
+            mysqli_stmt_bind_param($stmt, "sssii", $front, $back, $formattedNextReview, $card_id, $deck_id);
+        } else {
+            $stmt = mysqli_prepare($conn, "UPDATE flashcards SET front = ?, back = ? WHERE id = ? AND deck_id = ? AND deleted_at IS NULL");
+            mysqli_stmt_bind_param($stmt, "ssii", $front, $back, $card_id, $deck_id);
+        }
+
         mysqli_stmt_execute($stmt);
         mysqli_stmt_close($stmt);
 
+        // Fetch refreshed card record
+        $fetchStmt = mysqli_prepare($conn, "SELECT id, deck_id, front, back, interval_days, next_review_at, review_count, lapses, created_at, updated_at FROM flashcards WHERE id = ?");
+        mysqli_stmt_bind_param($fetchStmt, "i", $card_id);
+        mysqli_stmt_execute($fetchStmt);
+        $card = mysqli_fetch_assoc(mysqli_stmt_get_result($fetchStmt));
+        mysqli_stmt_close($fetchStmt);
+
         respond(200, [
             'ok'   => true,
-            'card' => [
-                'id'      => $card_id,
-                'deck_id' => $deck_id,
-                'front'   => $front,
-                'back'    => $back
-            ]
+            'card' => $card
         ]);
     }
 

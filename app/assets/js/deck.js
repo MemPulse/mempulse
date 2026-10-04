@@ -1,6 +1,7 @@
 /**
  * MemPulse Deck Flashcards Module
- * Handles flashcard addition, editing, deletion, and DOM updates via AJAX.
+ * Handles resizable table columns, side editor panel interactions,
+ * card creation, editing, deletion, and DOM sync via AJAX.
  */
 document.addEventListener("DOMContentLoaded", () => {
     const config = window.MemPulseDeckData || {};
@@ -12,24 +13,36 @@ document.addEventListener("DOMContentLoaded", () => {
     // ---------------------------------------------------------------
     // DOM Elements
     // ---------------------------------------------------------------
-    const cardModalDialog = document.getElementById('card-modal-dialog');
-    const cardModalForm = document.getElementById('card-modal-form');
-    const cardModalTitle = document.getElementById('card-modal-title');
-    const cardModalId = document.getElementById('card-modal-id');
-    const cardModalFront = document.getElementById('card-modal-front');
-    const cardModalBack = document.getElementById('card-modal-back');
-    const cardModalError = document.getElementById('card-modal-error');
-    const cardModalSave = document.getElementById('card-modal-save');
+    const tableWrapper = document.getElementById('table-wrapper');
+    const tableScrollContainer = document.getElementById('flashcard-table-scroll-container');
+    const tableBody = document.getElementById('flashcards-table-body');
+    const emptyState = document.getElementById('no-cards-empty-state');
+    const cardCountLabel = document.getElementById('deck-card-count-label');
 
+    // Panel Elements
+    const editorPanel = document.getElementById('card-editor-panel');
+    const editorPanelTitle = document.getElementById('editor-panel-title');
+    const editorPanelForm = document.getElementById('editor-panel-form');
+    const panelCardId = document.getElementById('panel-card-id');
+    const panelCardFront = document.getElementById('panel-card-front');
+    const panelCardBack = document.getElementById('panel-card-back');
+    const panelCardDue = document.getElementById('panel-card-due');
+    const panelMetadataGroup = document.getElementById('panel-metadata-group');
+    const panelError = document.getElementById('editor-panel-error');
+    const panelSaveBtn = document.getElementById('panel-save-btn');
+    const panelResetBtn = document.getElementById('panel-reset-btn');
+
+    // Buttons & Toggles
+    const openAddCardBtn = document.getElementById('open-add-card-btn');
+    const toggleEditorBtn = document.getElementById('toggle-editor-panel-btn');
+    const closeEditorPanelBtn = document.getElementById('close-editor-panel-btn');
+
+    // Delete Dialog Elements
     const deleteCardDialog = document.getElementById('delete-card-dialog');
     const deleteCardError = document.getElementById('delete-card-error');
     const deleteCardConfirm = document.getElementById('delete-card-confirm');
 
-    const openAddCardBtn = document.getElementById('open-add-card-btn');
-    const listContainer = document.getElementById('flashcards-list-container');
-    const emptyState = document.getElementById('no-cards-empty-state');
-    const cardCountLabel = document.getElementById('deck-card-count-label');
-
+    let activeSelectedRow = null;
     let targetDeleteCardId = null;
 
     // ---------------------------------------------------------------
@@ -51,21 +64,41 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function updateCardCountLabel() {
         if (!cardCountLabel) return;
-        const totalCards = document.querySelectorAll('[data-card-item]').length;
+        const totalCards = tableBody ? tableBody.querySelectorAll('tr[data-card-item]').length : 0;
         cardCountLabel.textContent = totalCards + (totalCards === 1 ? ' Card' : ' Cards');
 
-        if (totalCards === 0 && !emptyState) {
-            window.location.reload();
+        if (totalCards === 0) {
+            if (tableScrollContainer) tableScrollContainer.classList.add('hidden');
+            if (emptyState) emptyState.classList.remove('hidden');
+        } else {
+            if (tableScrollContainer) tableScrollContainer.classList.remove('hidden');
+            if (emptyState) emptyState.classList.add('hidden');
         }
     }
 
     function escapeHtml(text) {
         const div = document.createElement('div');
-        div.textContent = text;
+        div.textContent = text || '';
         return div.innerHTML;
     }
 
-    // Close Dialog Buttons
+    function formatDateTimeForInput(dateString) {
+        if (!dateString) return '';
+        const d = new Date(dateString);
+        if (isNaN(d.getTime())) return '';
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    function formatDateTimeDisplay(dateString) {
+        if (!dateString) return '';
+        const d = new Date(dateString);
+        if (isNaN(d.getTime())) return dateString;
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    // Close Dialog Listeners
     document.querySelectorAll('[data-close-dialog]').forEach((btn) => {
         btn.addEventListener('click', () => {
             const dlg = btn.closest('dialog');
@@ -74,132 +107,231 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // ---------------------------------------------------------------
-    // 1. Add / Edit Card Modal Logic
+    // 1. Column Width Resizing Logic
     // ---------------------------------------------------------------
-    function openCardModal(cardId = null, front = '', back = '') {
-        if (!cardModalDialog) return;
+    function initResizableColumns() {
+        const resizers = document.querySelectorAll('.resizer');
+        resizers.forEach((resizer) => {
+            let startX, startWidth, colHeader;
 
-        if (cardModalError) cardModalError.classList.add('hidden');
-        if (cardModalId) cardModalId.value = cardId || '';
-        if (cardModalFront) cardModalFront.value = front;
-        if (cardModalBack) cardModalBack.value = back;
+            resizer.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
 
-        if (cardModalTitle) {
-            cardModalTitle.textContent = cardId ? 'Edit Flashcard' : 'Add Flashcard';
-        }
+                colHeader = resizer.closest('th');
+                startX = e.clientX;
+                startWidth = colHeader.offsetWidth;
 
-        cardModalDialog.showModal();
-        if (cardModalFront) cardModalFront.focus();
-    }
+                resizer.classList.add('resizing');
+                document.body.style.cursor = 'col-resize';
 
-    if (openAddCardBtn) {
-        openAddCardBtn.addEventListener('click', () => openCardModal());
-    }
+                const onPointerMove = (moveEvent) => {
+                    const deltaX = moveEvent.clientX - startX;
+                    const minWidth = parseInt(colHeader.style.minWidth) || 80;
+                    const newWidth = Math.max(minWidth, startWidth + deltaX);
+                    colHeader.style.width = `${newWidth}px`;
+                };
 
-    // Ctrl + Enter Keyboard Shortcut
-    [cardModalFront, cardModalBack].forEach((field) => {
-        if (field) {
-            field.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                    e.preventDefault();
-                    if (cardModalForm) cardModalForm.requestSubmit();
-                }
+                const onPointerUp = () => {
+                    resizer.classList.remove('resizing');
+                    document.body.style.cursor = '';
+                    document.removeEventListener('pointermove', onPointerMove);
+                    document.removeEventListener('pointerup', onPointerUp);
+                };
+
+                document.addEventListener('pointermove', onPointerMove);
+                document.addEventListener('pointerup', onPointerUp);
             });
-        }
-    });
+        });
+    }
+    initResizableColumns();
 
-    // Form Submit (Add or Update)
-    if (cardModalForm) {
-        cardModalForm.addEventListener('submit', async (e) => {
+    // ---------------------------------------------------------------
+    // 2. Editor Side Panel Operations (Create vs Edit Mode)
+    // ---------------------------------------------------------------
+    function openEditorPanel() {
+        if (editorPanel) {
+            editorPanel.classList.remove('collapsed');
+        }
+    }
+
+    function toggleEditorPanel() {
+        if (editorPanel) {
+            editorPanel.classList.toggle('collapsed');
+        }
+    }
+
+    function resetEditorToCreateMode() {
+        if (activeSelectedRow) {
+            activeSelectedRow.classList.remove('selected-row');
+            activeSelectedRow = null;
+        }
+
+        if (editorPanelTitle) editorPanelTitle.textContent = 'Create Flashcard';
+        if (panelCardId) panelCardId.value = '';
+        if (panelCardFront) panelCardFront.value = '';
+        if (panelCardBack) panelCardBack.value = '';
+        if (panelCardDue) panelCardDue.value = formatDateTimeForInput(new Date());
+        if (panelError) panelError.classList.add('hidden');
+        if (panelMetadataGroup) panelMetadataGroup.classList.add('hidden');
+
+        openEditorPanel();
+        if (panelCardFront) panelCardFront.focus();
+    }
+
+    function populateEditorForEditMode(cardRow) {
+        if (!cardRow) return;
+
+        if (activeSelectedRow) {
+            activeSelectedRow.classList.remove('selected-row');
+        }
+        activeSelectedRow = cardRow;
+        activeSelectedRow.classList.add('selected-row');
+
+        const cardId = cardRow.getAttribute('data-card-item');
+        const frontEl = cardRow.querySelector(`[data-card-front="${cardId}"]`);
+        const backEl = cardRow.querySelector(`[data-card-back="${cardId}"]`);
+        const dueEl = cardRow.querySelector(`[data-card-due="${cardId}"]`);
+
+        if (editorPanelTitle) editorPanelTitle.textContent = 'Edit Flashcard';
+        if (panelCardId) panelCardId.value = cardId;
+        if (panelCardFront) panelCardFront.value = frontEl ? frontEl.textContent : '';
+        if (panelCardBack) panelCardBack.value = backEl ? backEl.textContent : '';
+        if (panelCardDue) panelCardDue.value = dueEl ? formatDateTimeForInput(dueEl.textContent) : '';
+        if (panelError) panelError.classList.add('hidden');
+
+        // Populate metadata elements
+        const cells = cardRow.querySelectorAll('td');
+        if (cells.length >= 8) {
+            document.getElementById('meta-interval').textContent = cells[3].textContent.trim();
+            document.getElementById('meta-reviews').textContent = cells[4].textContent.trim();
+            document.getElementById('meta-lapses').textContent = cells[5].textContent.trim();
+            document.getElementById('meta-updated').textContent = cells[7].textContent.trim();
+            if (panelMetadataGroup) panelMetadataGroup.classList.remove('hidden');
+        }
+
+        openEditorPanel();
+    }
+
+    // Toggle Buttons Events
+    if (openAddCardBtn) openAddCardBtn.addEventListener('click', resetEditorToCreateMode);
+    if (panelResetBtn) panelResetBtn.addEventListener('click', resetEditorToCreateMode);
+    if (toggleEditorBtn) toggleEditorBtn.addEventListener('click', toggleEditorPanel);
+    if (closeEditorPanelBtn) closeEditorPanelBtn.addEventListener('click', toggleEditorPanel);
+    if (emptyState) emptyState.addEventListener('click', resetEditorToCreateMode);
+
+    // Row Click Listener (Selecting Row Syncs to Editor)
+    if (tableBody) {
+        tableBody.addEventListener('click', (e) => {
+            const row = e.target.closest('tr[data-card-item]');
+            if (!row) return;
+
+            // Avoid opening row edit if clicking delete button
+            if (e.target.closest('[data-delete-card]')) return;
+
+            populateEditorForEditMode(row);
+        });
+    }
+
+    // Form Submit (Create or Update Card)
+    if (editorPanelForm) {
+        editorPanelForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const cardId = cardModalId ? cardModalId.value.trim() : '';
-            const front = cardModalFront ? cardModalFront.value.trim() : '';
-            const back = cardModalBack ? cardModalBack.value.trim() : '';
+            const cardId = panelCardId ? panelCardId.value.trim() : '';
+            const front = panelCardFront ? panelCardFront.value.trim() : '';
+            const back = panelCardBack ? panelCardBack.value.trim() : '';
+            const nextReviewAt = panelCardDue ? panelCardDue.value.trim() : '';
 
             if (front === '' || back === '') {
-                if (cardModalError) {
-                    cardModalError.textContent = 'Both the front and back of the card are required.';
-                    cardModalError.classList.remove('hidden');
+                if (panelError) {
+                    panelError.textContent = 'Both Front and Back content are required.';
+                    panelError.classList.remove('hidden');
                 }
                 return;
             }
 
-            if (cardModalSave) cardModalSave.disabled = true;
+            if (panelSaveBtn) panelSaveBtn.disabled = true;
 
             try {
                 const action = cardId ? 'update' : 'add';
-                const res = await sendCardAction({ action, card_id: cardId, front, back });
+                const payload = { action, card_id: cardId, front, back, next_review_at: nextReviewAt };
+                const res = await sendCardAction(payload);
+                const card = res.card;
 
                 if (action === 'add') {
-                    // Dynamically append new card item to list
-                    if (emptyState) emptyState.remove();
-
-                    const newCardHTML = `
-                        <div data-card-item="${res.card.id}" class="p-5 rounded-2xl bg-surface-container-lowest border border-outline-variant/30 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-primary/50 transition-colors">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 w-full">
-                                <div>
-                                    <span class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Front</span>
-                                    <p class="text-on-surface font-medium mt-1 whitespace-pre-wrap" data-card-front="${res.card.id}">${escapeHtml(res.card.front)}</p>
+                    // Prepend new table row
+                    const newRowHTML = `
+                        <tr data-card-item="${card.id}" class="hover:bg-surface-container-low/40 transition-colors group cursor-pointer">
+                            <td class="p-4 align-top">
+                                <p class="text-on-surface font-medium whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto" data-card-front="${card.id}">${escapeHtml(card.front)}</p>
+                            </td>
+                            <td class="p-4 align-top">
+                                <p class="text-on-surface-variant whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto" data-card-back="${card.id}">${escapeHtml(card.back)}</p>
+                            </td>
+                            <td class="p-4 align-top text-on-surface font-medium text-[13px] whitespace-nowrap">
+                                <span data-card-due="${card.id}">${formatDateTimeDisplay(card.next_review_at)}</span>
+                            </td>
+                            <td class="p-4 align-top text-on-surface-variant text-[13px] whitespace-nowrap">
+                                <span>${card.interval_days} ${card.interval_days === 1 ? 'day' : 'days'}</span>
+                            </td>
+                            <td class="p-4 align-top text-on-surface-variant text-[13px] whitespace-nowrap">
+                                <span>${card.review_count}</span>
+                            </td>
+                            <td class="p-4 align-top text-on-surface-variant text-[13px] whitespace-nowrap">
+                                <span class="${card.lapses > 0 ? 'text-amber-600 font-semibold' : ''}">${card.lapses}</span>
+                            </td>
+                            <td class="p-4 align-top text-on-surface-variant/80 text-[12px] whitespace-nowrap">
+                                <span>${formatDateTimeDisplay(card.created_at)}</span>
+                            </td>
+                            <td class="p-4 align-top text-on-surface-variant/80 text-[12px] whitespace-nowrap">
+                                <span data-card-updated="${card.id}">${formatDateTimeDisplay(card.updated_at)}</span>
+                            </td>
+                            <td class="p-4 align-top text-center sticky right-0 bg-surface-container-lowest group-hover:bg-surface-container-low/40 transition-colors">
+                                <div class="flex items-center justify-center gap-1">
+                                    <button type="button" data-edit-card="${card.id}" class="p-1.5 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Edit in Panel">
+                                        <span class="material-symbols-outlined text-[18px]">edit</span>
+                                    </button>
+                                    <button type="button" data-delete-card="${card.id}" class="p-1.5 rounded-lg text-rose-700 hover:bg-rose-50 transition-colors" title="Delete Card">
+                                        <span class="material-symbols-outlined text-[18px]">delete</span>
+                                    </button>
                                 </div>
-                                <div>
-                                    <span class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">Back</span>
-                                    <p class="text-on-surface-variant mt-1 whitespace-pre-wrap" data-card-back="${res.card.id}">${escapeHtml(res.card.back)}</p>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
-                                <button type="button" data-edit-card="${res.card.id}" class="p-2 rounded-xl text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Edit Card">
-                                    <span class="material-symbols-outlined text-[20px]">edit</span>
-                                </button>
-                                <button type="button" data-delete-card="${res.card.id}" class="p-2 rounded-xl text-rose-700 hover:bg-rose-50 transition-colors" title="Delete Card">
-                                    <span class="material-symbols-outlined text-[20px]">delete</span>
-                                </button>
-                            </div>
-                        </div>`;
+                            </td>
+                        </tr>`;
 
-                    if (listContainer) {
-                        listContainer.insertAdjacentHTML('afterbegin', newCardHTML);
-                    } else {
-                        window.location.reload();
+                    if (tableBody) {
+                        tableBody.insertAdjacentHTML('afterbegin', newRowHTML);
+                        const newRow = tableBody.querySelector(`tr[data-card-item="${card.id}"]`);
+                        populateEditorForEditMode(newRow);
                     }
                 } else {
-                    // Update existing DOM elements
+                    // Update existing row cells
                     const frontEl = document.querySelector(`[data-card-front="${cardId}"]`);
                     const backEl = document.querySelector(`[data-card-back="${cardId}"]`);
-                    if (frontEl) frontEl.textContent = res.card.front;
-                    if (backEl) backEl.textContent = res.card.back;
+                    const dueEl = document.querySelector(`[data-card-due="${cardId}"]`);
+                    const updatedEl = document.querySelector(`[data-card-updated="${cardId}"]`);
+
+                    if (frontEl) frontEl.textContent = card.front;
+                    if (backEl) backEl.textContent = card.back;
+                    if (dueEl) dueEl.textContent = formatDateTimeDisplay(card.next_review_at);
+                    if (updatedEl) updatedEl.textContent = formatDateTimeDisplay(card.updated_at);
+                    document.getElementById('meta-updated').textContent = formatDateTimeDisplay(card.updated_at);
                 }
 
-                if (cardModalDialog) cardModalDialog.close();
                 updateCardCountLabel();
 
             } catch (err) {
-                if (cardModalError) {
-                    cardModalError.textContent = err.message;
-                    cardModalError.classList.remove('hidden');
+                if (panelError) {
+                    panelError.textContent = err.message;
+                    panelError.classList.remove('hidden');
                 }
             } finally {
-                if (cardModalSave) cardModalSave.disabled = false;
+                if (panelSaveBtn) panelSaveBtn.disabled = false;
             }
         });
     }
 
-    // Delegated Event Handler for Edit Buttons
-    document.addEventListener('click', (e) => {
-        const editBtn = e.target.closest('[data-edit-card]');
-        if (!editBtn) return;
-
-        const cardId = editBtn.getAttribute('data-edit-card');
-        const frontEl = document.querySelector(`[data-card-front="${cardId}"]`);
-        const backEl = document.querySelector(`[data-card-back="${cardId}"]`);
-
-        const front = frontEl ? frontEl.textContent : '';
-        const back = backEl ? backEl.textContent : '';
-
-        openCardModal(cardId, front, back);
-    });
-
     // ---------------------------------------------------------------
-    // 2. Delete Card Logic
+    // 3. Delete Card Logic
     // ---------------------------------------------------------------
     document.addEventListener('click', (e) => {
         const deleteBtn = e.target.closest('[data-delete-card]');
@@ -218,15 +350,17 @@ document.addEventListener("DOMContentLoaded", () => {
             try {
                 await sendCardAction({ action: 'delete', card_id: targetDeleteCardId });
 
-                const itemEl = document.querySelector(`[data-card-item="${targetDeleteCardId}"]`);
+                const itemEl = document.querySelector(`tr[data-card-item="${targetDeleteCardId}"]`);
                 if (itemEl) {
-                    itemEl.style.transition = 'all 0.3s ease';
+                    if (activeSelectedRow === itemEl) {
+                        resetEditorToCreateMode();
+                    }
+                    itemEl.style.transition = 'all 0.2s ease';
                     itemEl.style.opacity = '0';
-                    itemEl.style.transform = 'scale(0.95)';
                     setTimeout(() => {
                         itemEl.remove();
                         updateCardCountLabel();
-                    }, 300);
+                    }, 200);
                 }
 
                 if (deleteCardDialog) deleteCardDialog.close();

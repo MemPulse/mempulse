@@ -63,7 +63,8 @@ class FlashcardService
                        next_review_at, 
                        review_count, 
                        lapses, 
-                       created_at 
+                       created_at,
+                       updated_at 
                   FROM flashcards 
                  WHERE deck_id = ? AND deleted_at IS NULL";
 
@@ -100,6 +101,7 @@ class FlashcardService
                 'review_count'   => (int) $row['review_count'],
                 'lapses'         => (int) $row['lapses'],
                 'created_at'     => $row['created_at'],
+                'updated_at'     => $row['updated_at'],
             ];
         }
         mysqli_stmt_close($stmt);
@@ -117,7 +119,7 @@ class FlashcardService
      */
     public static function getFlashcardById(mysqli $conn, int $cardId, int $userId): ?array
     {
-        $sql = "SELECT f.id, f.deck_id, f.front, f.back 
+        $sql = "SELECT f.id, f.deck_id, f.front, f.back, f.next_review_at, f.interval_days, f.review_count, f.lapses, f.created_at, f.updated_at
                   FROM flashcards f
                   JOIN decks d ON f.deck_id = d.id
                  WHERE f.id = ? AND d.user_id = ? AND f.deleted_at IS NULL AND d.deleted_at IS NULL";

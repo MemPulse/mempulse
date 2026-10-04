@@ -198,3 +198,68 @@ main::-webkit-scrollbar {
     color: currentColor !important;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
+
+/* ==========================================================================
+   Flashcard Table & Resizable Columns
+   ========================================================================== */
+
+/* Resizable Header Cell Handle */
+.resizable-col {
+    position: relative;
+    user-select: none;
+}
+
+.resizer {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    cursor: col-resize;
+    user-select: none;
+    touch-action: none;
+    z-index: 10;
+    transition: background-color 0.15s ease;
+}
+
+.resizer:hover,
+.resizer.resizing {
+    background-color: var(--color-primary, #3b82f6);
+}
+
+/* Selected Row Highlighting */
+#flashcards-table-body tr.selected-row {
+    background-color: rgba(var(--color-primary-rgb, 59, 130, 246), 0.08) !important;
+    border-left: 3px solid var(--color-primary, #3b82f6);
+}
+
+/* Custom Scrollbars for Table Header & Body Cells */
+#flashcard-table-scroll-container {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
+}
+
+#flashcard-table-scroll-container::-webkit-scrollbar {
+    height: 6px;
+}
+
+#flashcard-table-scroll-container::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.35);
+    border-radius: 999px;
+}
+
+/* ==========================================================================
+   Card Editor Panel Drawer
+   ========================================================================== */
+
+#card-editor-panel {
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+        margin 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+        width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform, opacity;
+}
+
+#card-editor-panel.collapsed {
+    display: none !important;
+}
