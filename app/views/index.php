@@ -50,7 +50,7 @@ if (!function_exists('heatmap_level_class')) {
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
     <!-- MAIN: Viewport Shell Offset for Mobile/Desktop Navigation Bar -->
-    <main class="pt-16 pl-0 md:pl-72 transition-all duration-300 ease-in-out">
+    <main class="pt-16 pl-0 md:pl-56 transition-all duration-300 ease-in-out">
         <?php include __DIR__ . '/../includes/header-data.php'; ?>    
         <?php include __DIR__ . '/../includes/header.php'; ?>
         <?php include __DIR__ . '/dashboard.php'; ?>                

@@ -8,8 +8,7 @@ $currentPage = $currentPage ?? '';
 <!-- Mobile Overlay -->
 <div id="mobile-sidebar-overlay" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden transition-opacity opacity-0"></div>
 
-<aside id="sidebar" class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest border-r border-outline-variant/40 z-50 flex flex-col justify-between py-6 px-4 shadow-[0_1px_8px_rgba(0,0,0,0.03)] transition-all duration-300 ease-in-out transform -translate-x-full md:translate-x-0">
-
+<aside id="sidebar" class="fixed left-0 top-0 h-full overflow-y-auto w-72 bg-surface-container-lowest border-r border-outline-variant/40 z-50 flex flex-col justify-between py-6 px-4 shadow-[0_1px_8px_rgba(0,0,0,0.03)] transition-all duration-300 ease-in-out transform -translate-x-full md:translate-x-0">
     <div id="sidebar-header" class="flex items-center justify-between gap-3 px-3 transition-all duration-300">
         <div class="flex items-center gap-3 flex-shrink-0">
             <span class="logo-text font-headline-sm text-headline-sm font-semibold tracking-tight text-on-surface transition-all duration-200">MemPulse</span>
