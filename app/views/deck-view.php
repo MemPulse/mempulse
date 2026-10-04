@@ -17,11 +17,6 @@
 
         <!-- BREADCRUMB NAVIGATION -->
         <nav class="flex items-center gap-2 text-sm text-on-surface-variant font-medium" aria-label="Breadcrumb">
-            <a href="dashboard.php" class="hover:text-primary transition-colors flex items-center gap-1">
-                <span class="material-symbols-outlined text-[18px]">dashboard</span>
-                <span>Dashboard</span>
-            </a>
-            <span class="material-symbols-outlined text-[16px] text-outline">chevron_right</span>
             <a href="decks.php" class="hover:text-primary transition-colors">Decks</a>
             <span class="material-symbols-outlined text-[16px] text-outline">chevron_right</span>
             <span class="text-on-surface font-semibold truncate max-w-[200px] sm:max-w-xs"><?= FlashcardService::h($deck['title']) ?></span>

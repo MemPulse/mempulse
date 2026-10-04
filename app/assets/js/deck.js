@@ -154,8 +154,8 @@ document.addEventListener("DOMContentLoaded", () => {
             resizableColumnFit: false,
             placeholder: "No Flashcards Available",
             columns: [
-                { title: "Front", field: "front", formatter: "plaintext", tooltip: true, minWidth: 220, width: 320 },
-                { title: "Back", field: "back", formatter: "plaintext", tooltip: true, minWidth: 220, width: 320 }, {
+                { title: "Front", field: "front", formatter: "plaintext", tooltip: true, minWidth: 220, width: 250, maxWidth: 400 },
+                { title: "Back", field: "back", formatter: "plaintext", tooltip: true, minWidth: 220, width: 250, maxWidth: 400 }, {
                     title: "Next Review (Due)",
                     field: "next_review_at",
                     minWidth: 160,
@@ -166,21 +166,21 @@ document.addEventListener("DOMContentLoaded", () => {
                     title: "Interval",
                     field: "interval_days",
                     minWidth: 80,
-                    width: 100,
-                    maxWidth: 140,
+                    width: 115,
+                    maxWidth: 180,
                     formatter: (cell) => `${cell.getValue()} ${cell.getValue() === 1 ? 'day' : 'days'}`
                 },
                 {
                     title: "Reviews", field: "review_count",
                     minWidth: 70,
-                    width: 85,
+                    width: 109,
                     maxWidth: 120
                 },
                 {
                     title: "Lapses",
                     field: "lapses",
                     minWidth: 70,
-                    width: 80,
+                    width: 105,
                     maxWidth: 110,
                     formatter: (cell) => cell.getValue() > 0 ? `<span class="text-amber-600 font-semibold">${cell.getValue()}</span>` : cell.getValue()
                 },
