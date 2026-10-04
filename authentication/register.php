@@ -49,7 +49,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     mysqli_stmt_close($insert_stmt);
     mysqli_close($conn);
       // 7. Redirect smoothly to index.php upon success
-        header("Location: ../app/index.php");
+        header("Location: ../app/views/index.php");
         exit;
     } else {
         die("System error occurred during registration.");
