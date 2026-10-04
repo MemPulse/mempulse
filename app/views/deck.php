@@ -14,6 +14,8 @@ require_once __DIR__ . '/../api/FlashcardService.php';
 
 $userId = (int) $_SESSION['user_id'];
 
+ArchiveService::purgeExpired($conn, $userId);
+
 // 4. Validate and sanitize input deck ID parameter
 $deckId = isset($_GET['deck_id']) && ctype_digit((string) $_GET['deck_id']) ? (int) $_GET['deck_id'] : 0;
 
@@ -28,6 +30,7 @@ if (!$deck) {
 
 // 6. Fetch all active flashcards belonging to the deck
 $flashcards = FlashcardService::getDeckFlashcards($conn, $deckId);
+$archivedFlashcards = FlashcardService::getDeckFlashcards($conn, $deckId, '', true);
 
 // 7. CSRF token initialization for card mutation requests (Add / Edit / Delete)
 if (empty($_SESSION['csrf_token'])) {
@@ -58,11 +61,15 @@ $currentPage = "decks";
     <script>
         window.MemPulseDeckData = Object.assign(window.MemPulseDeckData || {}, {
             csrfToken: <?= json_encode($_SESSION['csrf_token'] ?? '') ?>,
-            deckId: <?= $deckId ?>
+            deckId: <?= $deckId ?>,
+            cardCount: <?= (int) $deck['card_count'] ?>,
+            archivedCount: <?= (int) $deck['archived_count'] ?>,
+            retentionDays: <?= ArchiveService::RETENTION_DAYS ?>
         });
     </script>
 
     <!-- 2. CLIENT-SIDE ASSET IMPORTS: Separated standalone JavaScript module -->
+    <script src="../assets/js/archive-ui.js" defer></script>
     <script src="../assets/js/deck.js" defer></script>
 </body>
 </html>

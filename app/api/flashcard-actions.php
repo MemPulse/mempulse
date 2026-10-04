@@ -153,20 +153,68 @@ try {
         ]);
     }
 
-    // Action: Soft Delete Flashcard
-    if ($action === 'delete') {
+        // Actions: Archive / Restore / Permanent delete
+    if (in_array($action, ['archive', 'restore', 'delete_permanent'], true)) {
         $card_id = filter_var($input['card_id'] ?? null, FILTER_VALIDATE_INT);
-
         if (!$card_id || $card_id < 1) {
             respond(400, ['error' => 'Invalid card specified.']);
         }
 
-        $stmt = mysqli_prepare($conn, "UPDATE flashcards SET deleted_at = NOW() WHERE id = ? AND deck_id = ? AND deleted_at IS NULL");
+        if ($action === 'archive') {
+            $ok = ArchiveService::archive($conn, 'flashcards', $card_id, $user_id);
+        } elseif ($action === 'restore') {
+            $ok = ArchiveService::restore($conn, 'flashcards', $card_id, $user_id);
+        } else {
+            $ok = ArchiveService::deletePermanently($conn, 'flashcards', $card_id, $user_id);
+        }
+
+        if (!$ok) {
+            respond(404, ['error' => 'Card not found.']);
+        }
+        respond(200, ['ok' => true, 'card_id' => $card_id]);
+    }
+
+    // Action: Duplicate (copies front/back, fresh progress)
+    if ($action === 'duplicate') {
+        $card_id = filter_var($input['card_id'] ?? null, FILTER_VALIDATE_INT);
+        if (!$card_id || $card_id < 1) {
+            respond(400, ['error' => 'Invalid card specified.']);
+        }
+
+        $stmt = mysqli_prepare($conn, "INSERT INTO flashcards (deck_id, front, back)
+                                       SELECT deck_id, front, back FROM flashcards
+                                        WHERE id = ? AND deck_id = ? AND deleted_at IS NULL");
         mysqli_stmt_bind_param($stmt, "ii", $card_id, $deck_id);
+        mysqli_stmt_execute($stmt);
+        $newCardId = (int) mysqli_insert_id($conn);
+        mysqli_stmt_close($stmt);
+
+        if ($newCardId < 1) {
+            respond(404, ['error' => 'Card not found.']);
+        }
+        respond(200, ['ok' => true, 'card' => FlashcardService::getFlashcardById($conn, $newCardId, $user_id)]);
+    }
+
+    // Action: Reset progress (interval back to the user's initial interval, due now)
+    if ($action === 'reset_progress') {
+        $card_id = filter_var($input['card_id'] ?? null, FILTER_VALIDATE_INT);
+        if (!$card_id || $card_id < 1) {
+            respond(400, ['error' => 'Invalid card specified.']);
+        }
+
+        $stmt = mysqli_prepare($conn, "UPDATE flashcards
+                                          SET interval_days = COALESCE((SELECT initial_interval_days FROM user_settings WHERE user_id = ?), 1),
+                                              next_review_at = NOW()
+                                        WHERE id = ? AND deck_id = ? AND deleted_at IS NULL");
+        mysqli_stmt_bind_param($stmt, "iii", $user_id, $card_id, $deck_id);
         mysqli_stmt_execute($stmt);
         mysqli_stmt_close($stmt);
 
-        respond(200, ['ok' => true, 'card_id' => $card_id]);
+        $card = FlashcardService::getFlashcardById($conn, $card_id, $user_id);
+        if (!$card) {
+            respond(404, ['error' => 'Card not found.']);
+        }
+        respond(200, ['ok' => true, 'card' => $card]);
     }
 
     respond(400, ['error' => 'Unknown action.']);

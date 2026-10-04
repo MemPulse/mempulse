@@ -194,21 +194,27 @@ try {
     // Action: Restore Archived Deck and Associated Cards
     if ($action === 'restore') {
         mysqli_begin_transaction($conn);
-        
+
+        // Only cards archived together with the deck (not ones archived individually earlier)
+        $stmt = mysqli_prepare($conn, "UPDATE flashcards f
+                                        JOIN decks d ON d.id = f.deck_id
+                                        SET f.deleted_at = NULL
+                                        WHERE f.deck_id = ? AND d.user_id = ?
+                                        AND d.deleted_at IS NOT NULL
+                                        AND f.deleted_at >= d.deleted_at");
+        mysqli_stmt_bind_param($stmt, "ii", $deck_id, $user_id);
+        mysqli_stmt_execute($stmt);
+        mysqli_stmt_close($stmt);
+
         $stmt = mysqli_prepare($conn, "UPDATE decks SET deleted_at = NULL WHERE id = ? AND user_id = ? AND deleted_at IS NOT NULL");
         mysqli_stmt_bind_param($stmt, "ii", $deck_id, $user_id);
         mysqli_stmt_execute($stmt);
         mysqli_stmt_close($stmt);
-        
-        $stmt = mysqli_prepare($conn, "UPDATE flashcards SET deleted_at = NULL WHERE deck_id = ?");
-        mysqli_stmt_bind_param($stmt, "i", $deck_id);
-        mysqli_stmt_execute($stmt);
-        mysqli_stmt_close($stmt);
-        
+
         mysqli_commit($conn);
         respond(200, ['ok' => true]);
     }
-
+    
     // Action: Permanent Delete Deck and Flashcards
     if ($action === 'permanent_delete') {
         mysqli_begin_transaction($conn);

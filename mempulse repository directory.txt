@@ -4,10 +4,10 @@ Volume serial number is 8E4B-9250
 C:.
 │   database-design.md
 │   mempulse repository directory.txt
-│   README.md
 │   
 ├───app
 │   ├───api
+│   │       ArchiveService.php
 │   │       DashboardService.php
 │   │       deck-actions.php
 │   │       DeckService.php
@@ -26,6 +26,7 @@ C:.
 │   │   │       profile-picture.webp.jpg
 │   │   │       
 │   │   └───js
+│   │           archive-ui.js
 │   │           deck.js
 │   │           decks.js
 │   │           hero-carousel.js
@@ -64,3 +65,4 @@ C:.
         about.html
         index.html
         style.css
+        

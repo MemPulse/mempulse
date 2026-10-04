@@ -5,6 +5,8 @@
  * Centralized service layer for fetching deck details, managing flashcard 
  * operations, and enforcing data integrity and user authorization.
  */
+require_once __DIR__ . '/ArchiveService.php';
+
 class FlashcardService
 {
     /**
@@ -25,7 +27,10 @@ class FlashcardService
                          WHERE f.deck_id = d.id AND f.deleted_at IS NULL) AS card_count,
                        (SELECT COUNT(*) 
                           FROM flashcards f 
-                         WHERE f.deck_id = d.id AND f.deleted_at IS NULL AND f.next_review_at <= NOW()) AS due_count
+                         WHERE f.deck_id = d.id AND f.deleted_at IS NULL AND f.next_review_at <= NOW()) AS due_count,
+                       (SELECT COUNT(*)
+                          FROM flashcards f
+                         WHERE f.deck_id = d.id AND f.deleted_at IS NOT NULL) AS archived_count
                   FROM decks d
                  WHERE d.id = ? AND d.user_id = ? AND d.deleted_at IS NULL";
 
@@ -51,28 +56,29 @@ class FlashcardService
      * @param string $search Search query to match against front or back content.
      * @return array Array of flashcard records.
      */
-    public static function getDeckFlashcards(mysqli $conn, int $deckId, string $search = ''): array
+        public static function getDeckFlashcards(mysqli $conn, int $deckId, string $search = '', bool $archived = false): array
     {
-        $search = trim($search);
-        
-        $sql = "SELECT id, 
-                       deck_id, 
-                       front, 
-                       back, 
-                       interval_days, 
-                       next_review_at, 
-                       review_count, 
-                       lapses, 
-                       created_at,
-                       updated_at 
-                  FROM flashcards 
-                 WHERE deck_id = ? AND deleted_at IS NULL";
+        $search      = trim($search);
+        $deletedCond = $archived ? 'IS NOT NULL' : 'IS NULL';
+        $orderBy     = $archived ? 'f.deleted_at DESC, f.id DESC' : 'f.id DESC';
+        $retention   = ArchiveService::RETENTION_DAYS;
+
+        $sql = "SELECT f.id, f.deck_id, f.front, f.back, f.interval_days, f.next_review_at,
+                    f.review_count, f.lapses, f.created_at, f.updated_at, f.deleted_at,
+                    GREATEST(0, ? - TIMESTAMPDIFF(DAY, f.deleted_at, NOW())) AS days_left,
+                    (SELECT MAX(l.reviewed_at)
+                        FROM review_logs l WHERE l.card_id = f.id) AS last_reviewed_at,
+                    (SELECT ROUND(100 * SUM(l.rating = 'remembered') / COUNT(*))
+                        FROM review_logs l WHERE l.card_id = f.id) AS accuracy,
+                    (SELECT ROUND(AVG(l.response_time_ms))
+                        FROM review_logs l WHERE l.card_id = f.id) AS avg_response_ms
+                FROM flashcards f
+                WHERE f.deck_id = ? AND f.deleted_at {$deletedCond}";
 
         if ($search !== '') {
-            $sql .= " AND (front LIKE ? OR back LIKE ?)";
+            $sql .= " AND (f.front LIKE ? OR f.back LIKE ?)";
         }
-
-        $sql .= " ORDER BY id DESC";
+        $sql .= " ORDER BY {$orderBy}";
 
         $stmt = mysqli_prepare($conn, $sql);
         if (!$stmt) {
@@ -80,10 +86,10 @@ class FlashcardService
         }
 
         if ($search !== '') {
-            $likeParam = '%' . $search . '%';
-            mysqli_stmt_bind_param($stmt, "iss", $deckId, $likeParam, $likeParam);
+            $like = '%' . $search . '%';
+            mysqli_stmt_bind_param($stmt, "iiss", $retention, $deckId, $like, $like);
         } else {
-            mysqli_stmt_bind_param($stmt, "i", $deckId);
+            mysqli_stmt_bind_param($stmt, "ii", $retention, $deckId);
         }
 
         mysqli_stmt_execute($stmt);
@@ -92,16 +98,21 @@ class FlashcardService
         $cards = [];
         while ($row = mysqli_fetch_assoc($result)) {
             $cards[] = [
-                'id'             => (int) $row['id'],
-                'deck_id'        => (int) $row['deck_id'],
-                'front'          => $row['front'],
-                'back'           => $row['back'],
-                'interval_days'  => (int) $row['interval_days'],
-                'next_review_at' => $row['next_review_at'],
-                'review_count'   => (int) $row['review_count'],
-                'lapses'         => (int) $row['lapses'],
-                'created_at'     => $row['created_at'],
-                'updated_at'     => $row['updated_at'],
+                'id'               => (int) $row['id'],
+                'deck_id'          => (int) $row['deck_id'],
+                'front'            => $row['front'],
+                'back'             => $row['back'],
+                'interval_days'    => (int) $row['interval_days'],
+                'next_review_at'   => $row['next_review_at'],
+                'review_count'     => (int) $row['review_count'],
+                'lapses'           => (int) $row['lapses'],
+                'created_at'       => $row['created_at'],
+                'updated_at'       => $row['updated_at'],
+                'archived_at'      => $row['deleted_at'],
+                'days_left'        => $row['days_left'] !== null ? (int) $row['days_left'] : null,
+                'last_reviewed_at' => $row['last_reviewed_at'],
+                'accuracy'         => $row['accuracy'] !== null ? (int) $row['accuracy'] : null,
+                'avg_response_ms'  => $row['avg_response_ms'] !== null ? (int) $row['avg_response_ms'] : null,
             ];
         }
         mysqli_stmt_close($stmt);

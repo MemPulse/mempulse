@@ -6,6 +6,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const CSRF_TOKEN = config.csrfToken || '';
     const DECK_ID = config.deckId || null;
     const initialFlashcards = Array.isArray(config.flashcards) ? config.flashcards : [];
+    let totalCards = initialFlashcards.length;
+    let archivedCards = Array.isArray(config.archivedFlashcards) ? config.archivedFlashcards.length : 0;
+    let offscreenList = Array.isArray(config.archivedFlashcards) ? config.archivedFlashcards.slice() : [];
+    let viewArchived = false;
+    let menuCardId = null;
+    const Archive = window.MemPulseArchive;
 
     if (!DECK_ID) return;
 
@@ -14,6 +20,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const emptyState = document.getElementById('no-cards-empty-state');
     const cardCountLabel = document.getElementById('deck-card-count-label');
     const openAddCardBtn = document.getElementById('open-add-card-btn');
+    const toggleArchiveBtn = document.getElementById('toggle-archive-btn');
+    const toggleArchiveIcon = document.getElementById('toggle-archive-icon');
+    const toggleArchiveLabel = document.getElementById('toggle-archive-label');
+    const archivedCountLabel = document.getElementById('archived-count-label');
+    const archiveBanner = document.getElementById('archive-banner');
+    const startReviewBtn = document.getElementById('start-review-btn');
+    const emptyTitle = document.getElementById('empty-state-title');
+    const emptyText = document.getElementById('empty-state-text');
+    const actionsMenu = document.getElementById('card-actions-menu');
 
     // Modal Elements
     const cardModal = document.getElementById('card-editor-modal');
@@ -82,11 +97,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function updateCardCountLabel() {
-        if (!cardCountLabel || !tabulatorTable) return;
-        const totalCards = tabulatorTable.getDataCount();
-        cardCountLabel.textContent = totalCards + (totalCards === 1 ? ' Card' : ' Cards');
-        toggleStateVisibility(totalCards > 0);
-        if (totalCards > 0) tabulatorTable.redraw(true);
+        if (cardCountLabel) {
+            cardCountLabel.textContent = totalCards + (totalCards === 1 ? ' Card' : ' Cards');
+        }
+        if (archivedCountLabel) archivedCountLabel.textContent = archivedCards;
+
+        const visibleCount = viewArchived ? archivedCards : totalCards;
+        toggleStateVisibility(visibleCount > 0);
+        if (visibleCount > 0 && tabulatorTable) tabulatorTable.redraw(true);
     }
 
     function formatDateTimeForInput(dateString) {
@@ -104,9 +122,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const pad = (n) => String(n).padStart(2, '0');
         return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
+    //Modal read-only support
+    function setModalReadOnly(readOnly) {
+        [modalCardFront, modalCardBack].forEach((el) => { if (el) el.readOnly = readOnly; });
+        if (modalCardDue) modalCardDue.disabled = readOnly;
+        if (modalSaveBtn) modalSaveBtn.classList.toggle('hidden', readOnly);
+        if (readOnly && modalTitle) modalTitle.textContent = 'Archived Flashcard';
+    }
 
     // Modal Control Handlers
     function openModalForCreate() {
+        if (viewArchived) return;
         if (modalTitle) modalTitle.textContent = 'Create New Flashcard';
         if (modalCardId) modalCardId.value = '';
         if (modalCardFront) modalCardFront.value = '';
@@ -115,6 +141,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (modalError) modalError.classList.add('hidden');
 
         setMinDueDateConstraint();
+        setModalReadOnly(false);
         if (cardModal) cardModal.showModal();
     }
 
@@ -128,6 +155,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (modalError) modalError.classList.add('hidden');
 
         setMinDueDateConstraint();
+        setModalReadOnly(viewArchived);
         if (cardModal) cardModal.showModal();
     }
 
@@ -147,15 +175,15 @@ document.addEventListener("DOMContentLoaded", () => {
         tabulatorTable = new Tabulator("#flashcards-tabulator-grid", {
             data: initialFlashcards,
             layout: "fitDataFill",
-            layout: "fitDataFill",
             maxHeight: "calc(100vh - 300px)",
             responsiveLayout: false,
             selectable: 1,
             resizableColumnFit: false,
             placeholder: "No Flashcards Available",
             columns: [
-                { title: "Front", field: "front", formatter: "plaintext", tooltip: true, minWidth: 220, width: 250, maxWidth: 400 },
-                { title: "Back", field: "back", formatter: "plaintext", tooltip: true, minWidth: 220, width: 250, maxWidth: 400 }, {
+                { title: "Front", field: "front", formatter: "plaintext", tooltip: true, minWidth: 220, width: 320 },
+                { title: "Back", field: "back", formatter: "plaintext", tooltip: true, minWidth: 220, width: 320 },
+                {
                     title: "Next Review (Due)",
                     field: "next_review_at",
                     minWidth: 160,
@@ -163,59 +191,117 @@ document.addEventListener("DOMContentLoaded", () => {
                     formatter: (cell) => formatDateTimeDisplay(cell.getValue())
                 },
                 {
-                    title: "Interval",
-                    field: "interval_days",
-                    minWidth: 80,
-                    width: 115,
-                    maxWidth: 180,
-                    formatter: (cell) => `${cell.getValue()} ${cell.getValue() === 1 ? 'day' : 'days'}`
+                    title: "Purges In",
+                    field: "days_left",
+                    minWidth: 90, width: 110, maxWidth: 140,
+                    hozAlign: "center",
+                    formatter: (cell) => {
+                        const d = cell.getValue();
+                        const cls = d !== null && d <= 3 ? 'text-rose-700' : 'text-on-surface-variant';
+                        return `<span class="font-semibold ${cls}">${Archive.retentionLabel(d)}</span>`;
+                    }
                 },
                 {
-                    title: "Reviews", field: "review_count",
-                    minWidth: 70,
-                    width: 109,
-                    maxWidth: 120
+                    title: "Last Reviewed",
+                    field: "last_reviewed_at",
+                    minWidth: 140, width: 160, maxWidth: 200,
+                    formatter: (cell) => cell.getValue()
+                        ? formatDateTimeDisplay(cell.getValue())
+                        : '<span class="text-on-surface-variant">Never</span>'
                 },
+                {
+                    title: "Accuracy",
+                    field: "accuracy",
+                    minWidth: 90, width: 100, maxWidth: 130,
+                    hozAlign: "center",
+                    formatter: (cell) => {
+                        const v = cell.getValue();
+                        if (v === null || v === undefined) return '—';
+                        const cls = v >= 80 ? 'text-emerald-700' : v >= 50 ? 'text-amber-600' : 'text-rose-700';
+                        return `<span class="font-semibold ${cls}">${v}%</span>`;
+                    }
+                },
+                {
+                    title: "Speed",
+                    field: "avg_response_ms",
+                    minWidth: 80, width: 90, maxWidth: 120,
+                    hozAlign: "center",
+                    formatter: (cell) => {
+                        const v = cell.getValue();
+                        return (v === null || v === undefined) ? '—' : (v / 1000).toFixed(1) + 's';
+                    }
+                },
+                {
+                    title: "Interval",
+                    field: "interval_days",
+                    minWidth: 80, width: 100, maxWidth: 140,
+                    formatter: (cell) => `${cell.getValue()} ${cell.getValue() === 1 ? 'day' : 'days'}`
+                },
+                { title: "Reviews", field: "review_count", minWidth: 70, width: 85, maxWidth: 120 },
                 {
                     title: "Lapses",
                     field: "lapses",
-                    minWidth: 70,
-                    width: 105,
-                    maxWidth: 110,
+                    minWidth: 70, width: 80, maxWidth: 110,
                     formatter: (cell) => cell.getValue() > 0 ? `<span class="text-amber-600 font-semibold">${cell.getValue()}</span>` : cell.getValue()
                 },
                 {
                     title: "Actions",
                     headerSort: false,
                     frozen: true,
-                    width: 90,
-                    minWidth: 90,
-                    maxWidth: 90,
+                    width: 100, minWidth: 100, maxWidth: 100,
                     resizable: false,
                     hozAlign: "center",
                     formatter: (cell) => {
-                        const cardId = cell.getRow().getData().id;
+                        const id = cell.getRow().getData().id;
+                        const btn = 'p-0.5 rounded-lg transition-colors';
+                        if (viewArchived) {
+                            return `
+                    <div class="flex items-center justify-center gap-1">
+                        <button type="button" data-restore-card="${id}" class="${btn} text-emerald-700 hover:bg-emerald-50" title="Restore" aria-label="Restore card">
+                            <span class="material-symbols-outlined text-[18px]">restore_from_trash</span>
+                        </button>
+                        <button type="button" data-purge-card="${id}" class="${btn} text-rose-700 hover:bg-rose-50" title="Delete permanently" aria-label="Delete permanently">
+                            <span class="material-symbols-outlined text-[18px]">delete_forever</span>
+                        </button>
+                    </div>`;
+                        }
                         return `
-                            <div class="flex items-center justify-center gap-1">
-                                <button type="button" data-edit-card="${cardId}" class="p-0.5 rounded-lg text-on-surface-variant hover:text-primary transition-colors" title="View/Edit Card">
-                                    <span class="material-symbols-outlined text-[18px]">visibility</span>
-                                </button>
-                                <button type="button" data-delete-card="${cardId}" class="p-0.5 rounded-lg text-rose-700 hover:bg-rose-50 transition-colors" title="Delete Card">
-                                    <span class="material-symbols-outlined text-[18px]">delete</span>
-                                </button>
-                            </div>
-                        `;
+                <div class="flex items-center justify-center gap-1">
+                    <button type="button" data-edit-card="${id}" class="${btn} text-on-surface-variant hover:text-primary" title="Edit" aria-label="Edit card">
+                        <span class="material-symbols-outlined text-[18px]">edit</span>
+                    </button>
+                    <button type="button" data-archive-card="${id}" class="${btn} text-on-surface-variant hover:text-amber-700" title="Archive" aria-label="Archive card">
+                        <span class="material-symbols-outlined text-[18px]">archive</span>
+                    </button>
+                    <button type="button" data-more-card="${id}" class="${btn} text-on-surface-variant hover:text-primary" title="More" aria-label="More actions">
+                        <span class="material-symbols-outlined text-[18px]">more_vert</span>
+                    </button>
+                </div>`;
                     },
                     cellClick: (e, cell) => {
-                        const editBtn = e.target.closest('[data-edit-card]');
-                        const deleteBtn = e.target.closest('[data-delete-card]');
+                        const t = e.target;
+                        const data = cell.getRow().getData();
+                        const editBtn = t.closest('[data-edit-card]');
+                        const archiveBtn = t.closest('[data-archive-card]');
+                        const moreBtn = t.closest('[data-more-card]');
+                        const restoreBtn = t.closest('[data-restore-card]');
+                        const purgeBtn = t.closest('[data-purge-card]');
 
                         if (editBtn) {
                             e.stopPropagation();
-                            openModalForEdit(cell.getRow().getData());
-                        } else if (deleteBtn) {
+                            openModalForEdit(data);
+                        } else if (archiveBtn) {
                             e.stopPropagation();
-                            targetDeleteCardId = deleteBtn.getAttribute('data-delete-card');
+                            archiveCard(data);
+                        } else if (moreBtn) {
+                            e.stopPropagation();
+                            openActionsMenu(moreBtn, data.id);
+                        } else if (restoreBtn) {
+                            e.stopPropagation();
+                            restoreCard(data.id);
+                        } else if (purgeBtn) {
+                            e.stopPropagation();
+                            targetDeleteCardId = String(data.id);
                             if (deleteCardError) deleteCardError.classList.add('hidden');
                             if (deleteCardDialog) deleteCardDialog.showModal();
                         }
@@ -289,10 +375,11 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!targetDeleteCardId) return;
             deleteCardConfirm.disabled = true;
             try {
-                await sendCardAction({ action: 'delete', card_id: targetDeleteCardId });
+                await sendCardAction({ action: 'delete_permanent', card_id: targetDeleteCardId });
                 if (tabulatorTable) {
                     const row = tabulatorTable.getRow(Number(targetDeleteCardId));
                     if (row) row.delete();
+                    archivedCards--;
                 }
                 updateCardCountLabel();
                 if (deleteCardDialog) deleteCardDialog.close();
@@ -303,6 +390,170 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             } finally {
                 deleteCardConfirm.disabled = false;
+            }
+        });
+    }
+    // ---------------------------------------------------------------------------
+    // Archive: archive / restore / view switching
+    // ---------------------------------------------------------------------------
+    function removeRow(id) {
+        if (!tabulatorTable) return;
+        const row = tabulatorTable.getRow(Number(id));
+        if (row) row.delete();
+    }
+
+    async function archiveCard(card) {
+        try {
+            await sendCardAction({ action: 'archive', card_id: card.id });
+            removeRow(card.id);
+            // keep the off-screen archive list in sync
+            offscreenList.unshift({ ...card, archived_at: new Date().toISOString(), days_left: Archive.RETENTION_DAYS });
+            totalCards--;
+            archivedCards++;
+            updateCardCountLabel();
+            Archive.toast('Card archived', { actionLabel: 'Undo', onAction: () => restoreCard(card.id) });
+        } catch (err) {
+            Archive.toast(err.message, { type: 'error' });
+        }
+    }
+
+    async function restoreCard(cardId) {
+        try {
+            await sendCardAction({ action: 'restore', card_id: cardId });
+            const id = Number(cardId);
+
+            if (viewArchived) {
+                // restoring from the archive view: move the row to the off-screen active list
+                const row = tabulatorTable.getRow(id);
+                const data = row ? row.getData() : null;
+                if (row) row.delete();
+                if (data) offscreenList.unshift({ ...data, archived_at: null, days_left: null });
+                Archive.toast('Card restored');
+            } else {
+                // undo from the active view: pull it back from the off-screen archive list
+                const idx = offscreenList.findIndex((c) => Number(c.id) === id);
+                if (idx !== -1) {
+                    const [data] = offscreenList.splice(idx, 1);
+                    await tabulatorTable.addRow({ ...data, archived_at: null, days_left: null }, true);
+                }
+            }
+
+            totalCards++;
+            archivedCards--;
+            updateCardCountLabel();
+        } catch (err) {
+            Archive.toast(err.message, { type: 'error' });
+        }
+    }
+
+    async function restoreCard(cardId) {
+        try {
+            await sendCardAction({ action: 'restore', card_id: cardId });
+            totalCards++;
+            archivedCards--;
+            if (viewArchived) {
+                removeRow(cardId);
+                Archive.toast('Card restored');
+            } else if (tabulatorTable) {
+                tabulatorTable.setData(); // reload so the restored card reappears
+            }
+            updateCardCountLabel();
+        } catch (err) {
+            Archive.toast(err.message, { type: 'error' });
+        }
+    }
+
+    function setViewMode(archived) {
+        viewArchived = archived;
+        closeActionsMenu();
+
+        if (archiveBanner) archiveBanner.classList.toggle('hidden', !archived);
+        if (openAddCardBtn) openAddCardBtn.classList.toggle('hidden', archived);
+        if (startReviewBtn) startReviewBtn.classList.toggle('hidden', archived);
+        if (toggleArchiveIcon) toggleArchiveIcon.textContent = archived ? 'arrow_back' : 'inventory_2';
+        if (toggleArchiveLabel) toggleArchiveLabel.textContent = archived ? 'Back to cards' : 'Archive';
+        if (toggleArchiveBtn) {
+            const label = archived ? 'Back to cards' : 'View archive';
+            toggleArchiveBtn.title = label;
+            toggleArchiveBtn.setAttribute('aria-label', label);
+            toggleArchiveBtn.setAttribute('aria-pressed', String(archived));
+        }
+        if (emptyTitle) emptyTitle.textContent = archived ? 'Archive is empty' : 'No flashcards yet';
+        if (emptyText) {
+            emptyText.textContent = archived
+                ? `Archived cards appear here for ${Archive.RETENTION_DAYS} days before they are permanently deleted.`
+                : 'Click "Create Card" to add your first card.';
+        }
+
+        if (tabulatorTable) {
+            if (archived) {
+                tabulatorTable.hideColumn('next_review_at');
+                tabulatorTable.showColumn('days_left');
+            } else {
+                tabulatorTable.showColumn('next_review_at');
+                tabulatorTable.hideColumn('days_left');
+            }
+            // swap the on-screen list with the off-screen one (snapshot first so edits aren't lost)
+            const current = tabulatorTable.getData();
+            tabulatorTable.setData(offscreenList);
+            offscreenList = current;
+        }
+        updateCardCountLabel();
+    }
+
+    if (toggleArchiveBtn) toggleArchiveBtn.addEventListener('click', () => setViewMode(!viewArchived));
+
+    // ---------------------------------------------------------------------------
+    // Row overflow menu (Duplicate / Reset progress)
+    // ---------------------------------------------------------------------------
+    function openActionsMenu(btn, cardId) {
+        if (!actionsMenu) return;
+        menuCardId = cardId;
+        const r = btn.getBoundingClientRect();
+        actionsMenu.classList.remove('hidden');
+        const w = actionsMenu.offsetWidth;
+        actionsMenu.style.top = `${r.bottom + 4}px`;
+        actionsMenu.style.left = `${Math.max(8, r.right - w)}px`;
+    }
+
+    function closeActionsMenu() {
+        if (actionsMenu) actionsMenu.classList.add('hidden');
+        menuCardId = null;
+    }
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#card-actions-menu') && !e.target.closest('[data-more-card]')) closeActionsMenu();
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeActionsMenu(); });
+    window.addEventListener('resize', closeActionsMenu);
+    if (tabulatorTable) {
+        tabulatorTable.on('scrollVertical', closeActionsMenu);
+        tabulatorTable.on('scrollHorizontal', closeActionsMenu);
+    }
+
+    if (actionsMenu) {
+        actionsMenu.addEventListener('click', async (e) => {
+            const item = e.target.closest('[data-menu-action]');
+            if (!item || !menuCardId) return;
+            const id = menuCardId;
+            const act = item.dataset.menuAction;
+            closeActionsMenu();
+
+            try {
+                if (act === 'duplicate') {
+                    const res = await sendCardAction({ action: 'duplicate', card_id: id });
+                    if (tabulatorTable) await tabulatorTable.addRow(res.card, true);
+                    totalCards++;
+                    updateCardCountLabel();
+                    Archive.toast('Card duplicated');
+                } else if (act === 'reset') {
+                    const res = await sendCardAction({ action: 'reset_progress', card_id: id });
+                    const row = tabulatorTable ? tabulatorTable.getRow(Number(id)) : null;
+                    if (row) row.update(res.card);
+                    Archive.toast('Progress reset. The card is due now.');
+                }
+            } catch (err) {
+                Archive.toast(err.message, { type: 'error' });
             }
         });
     }

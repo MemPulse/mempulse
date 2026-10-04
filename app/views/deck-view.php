@@ -10,6 +10,7 @@
     window.MemPulseDeckData = window.MemPulseDeckData || {};
     // Normalize $flashcards array indices using array_values()
     window.MemPulseDeckData.flashcards = <?= json_encode(array_values($flashcards ?? []), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+    window.MemPulseDeckData.archivedFlashcards = <?= json_encode(array_values($archivedFlashcards ?? []), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 </script>
 
 <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
@@ -39,8 +40,16 @@
             </div>
 
             <div class="flex items-center gap-2 shrink-0">
+                <button type="button" id="toggle-archive-btn"
+                        title="View archive" aria-label="View archive" aria-pressed="false"
+                        class="inline-flex items-center justify-center gap-2 px-2.5 lg:px-3.5 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-sm transition-colors">
+                    <span id="toggle-archive-icon" class="material-symbols-outlined text-[19px]">inventory_2</span>
+                    <span id="toggle-archive-label" class="hidden lg:inline">Archive</span>
+                    <span id="archived-count-label" class="text-xs px-1.5 py-0.5 rounded-full bg-surface-container-highest"><?= (int) $deck['archived_count'] ?></span>
+                </button>
                 <?php if ($deck['due_count'] > 0): ?>
                     <a href="review.php?deck_id=<?= $deck['id'] ?>"
+                    id="start-review-btn"
                     title="Start Review" aria-label="Start Review"
                     class="inline-flex items-center justify-center gap-2 px-2.5 lg:px-4 py-2 rounded-lg bg-primary hover:bg-primary-container text-on-primary font-semibold text-sm shadow-sm transition-all">
                         <span class="material-symbols-outlined text-[19px]">play_arrow</span>
@@ -57,12 +66,18 @@
             </div>
         </div>
 
+        <!-- ARCHIVE NOTICE (shown only in archive view) -->
+        <div id="archive-banner" class="hidden flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-sm">
+            <span class="material-symbols-outlined text-[18px]">info</span>
+            <span>Archived cards are permanently deleted after <?= ArchiveService::RETENTION_DAYS ?> days. Restore a card to keep it.</span>
+        </div>
+
         <!-- MAIN TABULATOR GRID WORKSPACE -->
         <div id="table-wrapper" class="w-full overflow-hidden rounded-2xl bg-surface-container-lowest border border-outline-variant/30 shadow-xs flex flex-col min-h-[300px]">
             <!-- Empty state displayed when flashcards array is empty -->
             <div id="no-cards-empty-state" class="p-12 flex-col items-center justify-center gap-3 text-center bg-surface-container-low/20 <?= empty($flashcards) ? 'flex' : 'hidden' ?>">
-                <h3 class="font-bold text-on-surface">No flashcards yet</h3>
-                <p class="text-on-surface-variant text-sm">Click "Create Card" to add your first card.</p>
+                <h3 id="empty-state-title" class="font-bold text-on-surface">No flashcards yet</h3>
+                <p id="empty-state-text" class="text-on-surface-variant text-sm">Click "Create Card" to add your first card.</p>
             </div>
 
             <!-- Tabulator table target -->
@@ -124,11 +139,10 @@
     <div class="p-6 flex flex-col gap-4">
         <h3 class="font-headline-sm text-[18px] font-bold text-rose-700 flex items-center gap-2">
             <span class="material-symbols-outlined text-[22px]">warning</span>
-            <span>Delete Flashcard?</span>
+            <span>Delete permanently?</span>
         </h3>
         <p class="text-on-surface-variant text-[14px]">
-            Are you sure you want to delete this flashcard? This action cannot be undone.
-        </p>
+        This card will be permanently deleted. This action cannot be undone.        </p>
         <p id="delete-card-error" class="hidden text-rose-700 text-[13px]" role="alert"></p>
         <div class="flex justify-end gap-2.5">
             <button type="button" data-close-dialog class="px-4 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-[14px] transition-colors">Cancel</button>
@@ -136,3 +150,15 @@
         </div>
     </div>
 </dialog>
+
+<!-- ROW OVERFLOW MENU (positioned by JS) -->
+<div id="card-actions-menu" class="hidden fixed z-50 min-w-[170px] rounded-xl bg-surface-container-lowest border border-outline-variant/40 shadow-xl py-1">
+    <button type="button" data-menu-action="duplicate" class="w-full flex items-center gap-2 px-3 py-2 text-sm text-on-surface hover:bg-surface-container text-left">
+        <span class="material-symbols-outlined text-[18px]">content_copy</span>
+        <span>Duplicate</span>
+    </button>
+    <button type="button" data-menu-action="reset" class="w-full flex items-center gap-2 px-3 py-2 text-sm text-on-surface hover:bg-surface-container text-left">
+        <span class="material-symbols-outlined text-[18px]">restart_alt</span>
+        <span>Reset progress</span>
+    </button>
+</div>
