@@ -392,6 +392,11 @@ main::-webkit-scrollbar {
     /* border-radius: 999px; */
 }
 
+.tabulator .tabulator-header,
+.tabulator .tabulator-tableholder {
+    scrollbar-gutter: stable;
+}
+
 /* Side Editor Panel Collapse State */
 #card-editor-panel.collapsed {
     display: none !important;
