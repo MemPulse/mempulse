@@ -3,16 +3,10 @@ Folder PATH listing
 Volume serial number is 8E4B-9250
 C:.
 │   database-design.md
+│   mempulse repository directory.txt
 │   README.md
-│   sampleData.txt
 │   
 ├───app
-│   │   dashboard.php
-│   │   reports.php
-│   │   review.php
-│   │   science.php
-│   │   settings.php
-│   │   
 │   ├───api
 │   │       DashboardService.php
 │   │       deck-actions.php
@@ -38,8 +32,13 @@ C:.
 │   │       sidebar.php
 │   │       
 │   └───views
+│           dashboard.php
 │           decks.php
 │           index.php
+│           reports.php
+│           review.php
+│           science.php
+│           settings.php
 │           
 ├───authentication
 │       login.php
