@@ -181,8 +181,18 @@ document.addEventListener("DOMContentLoaded", () => {
             resizableColumnFit: false,
             placeholder: "No Flashcards Available",
             columns: [
-                { title: "Front", field: "front", formatter: "plaintext", tooltip: true, minWidth: 220, width: 320 },
-                { title: "Back", field: "back", formatter: "plaintext", tooltip: true, minWidth: 220, width: 320 },
+                {
+                    title: "Front",
+                    field: "front",
+                    formatter: "plaintext",
+                    tooltip: true, minWidth: 220, width: 320
+                },
+                {
+                    title: "Back",
+                    field: "back",
+                    formatter: "plaintext",
+                    tooltip: true, minWidth: 220, width: 320
+                },
                 {
                     title: "Next Review (Due)",
                     field: "next_review_at",
@@ -193,7 +203,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 {
                     title: "Purges In",
                     field: "days_left",
-                    minWidth: 90, width: 110, maxWidth: 140,
+                    minWidth: 90, width: 110, maxWidth: 200,
                     hozAlign: "center",
                     formatter: (cell) => {
                         const d = cell.getValue();
@@ -204,7 +214,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 {
                     title: "Last Reviewed",
                     field: "last_reviewed_at",
-                    minWidth: 140, width: 160, maxWidth: 200,
+                    minWidth: 140, width: 160, maxWidth: 260,
                     formatter: (cell) => cell.getValue()
                         ? formatDateTimeDisplay(cell.getValue())
                         : '<span class="text-on-surface-variant">Never</span>'
@@ -212,7 +222,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 {
                     title: "Accuracy",
                     field: "accuracy",
-                    minWidth: 90, width: 100, maxWidth: 130,
+                    minWidth: 80, width: 100, maxWidth: 180,
                     hozAlign: "center",
                     formatter: (cell) => {
                         const v = cell.getValue();
@@ -224,7 +234,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 {
                     title: "Speed",
                     field: "avg_response_ms",
-                    minWidth: 80, width: 90, maxWidth: 120,
+                    minWidth: 70, width: 90, maxWidth: 180,
                     hozAlign: "center",
                     formatter: (cell) => {
                         const v = cell.getValue();
@@ -234,79 +244,82 @@ document.addEventListener("DOMContentLoaded", () => {
                 {
                     title: "Interval",
                     field: "interval_days",
-                    minWidth: 80, width: 100, maxWidth: 140,
+                    minWidth: 80, width: 100, maxWidth: 220,
                     formatter: (cell) => `${cell.getValue()} ${cell.getValue() === 1 ? 'day' : 'days'}`
                 },
-                { title: "Reviews", field: "review_count", minWidth: 70, width: 85, maxWidth: 120 },
+                {
+                    title: "Reviews", field: "review_count",
+                    minWidth: 70, width: 90, maxWidth: 200
+                },
                 {
                     title: "Lapses",
                     field: "lapses",
-                    minWidth: 70, width: 80, maxWidth: 110,
+                    minWidth: 70, width: 90, maxWidth: 200,
                     formatter: (cell) => cell.getValue() > 0 ? `<span class="text-amber-600 font-semibold">${cell.getValue()}</span>` : cell.getValue()
-                },
-                {
-                    title: "Actions",
-                    headerSort: false,
-                    frozen: true,
-                    width: 100, minWidth: 100, maxWidth: 100,
-                    resizable: false,
-                    hozAlign: "center",
-                    formatter: (cell) => {
-                        const id = cell.getRow().getData().id;
-                        const btn = 'p-0.5 rounded-lg transition-colors';
-                        if (viewArchived) {
-                            return `
-                    <div class="flex items-center justify-center gap-1">
-                        <button type="button" data-restore-card="${id}" class="${btn} text-emerald-700 hover:bg-emerald-50" title="Restore" aria-label="Restore card">
-                            <span class="material-symbols-outlined text-[18px]">restore_from_trash</span>
-                        </button>
-                        <button type="button" data-purge-card="${id}" class="${btn} text-rose-700 hover:bg-rose-50" title="Delete permanently" aria-label="Delete permanently">
-                            <span class="material-symbols-outlined text-[18px]">delete_forever</span>
-                        </button>
-                    </div>`;
-                        }
-                        return `
-                <div class="flex items-center justify-center gap-1">
-                    <button type="button" data-edit-card="${id}" class="${btn} text-on-surface-variant hover:text-primary" title="Edit" aria-label="Edit card">
-                        <span class="material-symbols-outlined text-[18px]">edit</span>
-                    </button>
-                    <button type="button" data-archive-card="${id}" class="${btn} text-on-surface-variant hover:text-amber-700" title="Archive" aria-label="Archive card">
-                        <span class="material-symbols-outlined text-[18px]">archive</span>
-                    </button>
-                    <button type="button" data-more-card="${id}" class="${btn} text-on-surface-variant hover:text-primary" title="More" aria-label="More actions">
-                        <span class="material-symbols-outlined text-[18px]">more_vert</span>
-                    </button>
-                </div>`;
-                    },
-                    cellClick: (e, cell) => {
-                        const t = e.target;
-                        const data = cell.getRow().getData();
-                        const editBtn = t.closest('[data-edit-card]');
-                        const archiveBtn = t.closest('[data-archive-card]');
-                        const moreBtn = t.closest('[data-more-card]');
-                        const restoreBtn = t.closest('[data-restore-card]');
-                        const purgeBtn = t.closest('[data-purge-card]');
-
-                        if (editBtn) {
-                            e.stopPropagation();
-                            openModalForEdit(data);
-                        } else if (archiveBtn) {
-                            e.stopPropagation();
-                            archiveCard(data);
-                        } else if (moreBtn) {
-                            e.stopPropagation();
-                            openActionsMenu(moreBtn, data.id);
-                        } else if (restoreBtn) {
-                            e.stopPropagation();
-                            restoreCard(data.id);
-                        } else if (purgeBtn) {
-                            e.stopPropagation();
-                            targetDeleteCardId = String(data.id);
-                            if (deleteCardError) deleteCardError.classList.add('hidden');
-                            if (deleteCardDialog) deleteCardDialog.showModal();
-                        }
-                    }
                 }
+                // {
+                //     title: "Actions",
+                //     headerSort: false,
+                //     frozen: true,
+                //     width: 100, minWidth: 100, maxWidth: 100,
+                //     resizable: false,
+                //     hozAlign: "center",
+                //     formatter: (cell) => {
+                //         const id = cell.getRow().getData().id;
+                //         const btn = 'p-0.5 rounded-lg transition-colors';
+                //         if (viewArchived) {
+                //             return `
+                //     <div class="flex items-center justify-center gap-1">
+                //         <button type="button" data-restore-card="${id}" class="${btn} text-emerald-700 hover:bg-emerald-50" title="Restore" aria-label="Restore card">
+                //             <span class="material-symbols-outlined text-[18px]">restore_from_trash</span>
+                //         </button>
+                //         <button type="button" data-purge-card="${id}" class="${btn} text-rose-700 hover:bg-rose-50" title="Delete permanently" aria-label="Delete permanently">
+                //             <span class="material-symbols-outlined text-[18px]">delete_forever</span>
+                //         </button>
+                //     </div>`;
+                //         }
+                //         return `
+                // <div class="flex items-center justify-center gap-1">
+                //     <button type="button" data-edit-card="${id}" class="${btn} text-on-surface-variant hover:text-primary" title="Edit" aria-label="Edit card">
+                //         <span class="material-symbols-outlined text-[18px]">edit</span>
+                //     </button>
+                //     <button type="button" data-archive-card="${id}" class="${btn} text-on-surface-variant hover:text-amber-700" title="Archive" aria-label="Archive card">
+                //         <span class="material-symbols-outlined text-[18px]">archive</span>
+                //     </button>
+                //     <button type="button" data-more-card="${id}" class="${btn} text-on-surface-variant hover:text-primary" title="More" aria-label="More actions">
+                //         <span class="material-symbols-outlined text-[18px]">more_vert</span>
+                //     </button>
+                // </div>`;
+                //     },
+                //     cellClick: (e, cell) => {
+                //         const t = e.target;
+                //         const data = cell.getRow().getData();
+                //         const editBtn = t.closest('[data-edit-card]');
+                //         const archiveBtn = t.closest('[data-archive-card]');
+                //         const moreBtn = t.closest('[data-more-card]');
+                //         const restoreBtn = t.closest('[data-restore-card]');
+                //         const purgeBtn = t.closest('[data-purge-card]');
+
+                //         if (editBtn) {
+                //             e.stopPropagation();
+                //             openModalForEdit(data);
+                //         } else if (archiveBtn) {
+                //             e.stopPropagation();
+                //             archiveCard(data);
+                //         } else if (moreBtn) {
+                //             e.stopPropagation();
+                //             openActionsMenu(moreBtn, data.id);
+                //         } else if (restoreBtn) {
+                //             e.stopPropagation();
+                //             restoreCard(data.id);
+                //         } else if (purgeBtn) {
+                //             e.stopPropagation();
+                //             targetDeleteCardId = String(data.id);
+                //             if (deleteCardError) deleteCardError.classList.add('hidden');
+                //             if (deleteCardDialog) deleteCardDialog.showModal();
+                //         }
+                //     }
+                // }
             ]
         });
 

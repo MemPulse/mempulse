@@ -366,14 +366,26 @@ main::-webkit-scrollbar {
     resize: vertical !important;
 }
 
-/* Frozen Actions Column Styling */
+/* Frozen Actions column: opaque, so scrolled content never shows through */
 .tabulator .tabulator-cell.tabulator-frozen {
-    background-color: var(--color-surface-container-lowest, #ffffff) !important;
-    box-shadow: -2px 0 6px rgba(0, 0, 0, 0.04) !important;
+    background-color: #ffffff !important;
+    box-shadow: 2px 0 6px rgba(0, 0, 0, 0.06) !important;
+    z-index: 2;
 }
 
 .tabulator .tabulator-row:hover .tabulator-cell.tabulator-frozen {
-    background-color: rgba(241, 245, 249, 0.6) !important;
+    background-color: #f6f8fb !important;
+}
+
+.tabulator .tabulator-row.tabulator-selected .tabulator-cell.tabulator-frozen {
+    background-color: #eff5fe !important;
+}
+
+.tabulator .tabulator-header .tabulator-col.tabulator-frozen {
+    background-color: #f1f5f9 !important;
+    /* same as the header background */
+    box-shadow: 2px 0 6px rgba(0, 0, 0, 0.06) !important;
+    z-index: 3;
 }
 
 /* Custom Scrollbar for Grid Container */
@@ -392,10 +404,6 @@ main::-webkit-scrollbar {
     /* border-radius: 999px; */
 }
 
-.tabulator .tabulator-header,
-.tabulator .tabulator-tableholder {
-    scrollbar-gutter: stable;
-}
 
 /* Side Editor Panel Collapse State */
 #card-editor-panel.collapsed {
