@@ -104,7 +104,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const visibleCount = viewArchived ? archivedCards : totalCards;
         toggleStateVisibility(visibleCount > 0);
-        if (visibleCount > 0 && tabulatorTable) tabulatorTable.redraw(true);
     }
 
     function formatDateTimeForInput(dateString) {
@@ -171,6 +170,84 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // 1. Tabulator Grid Setup
+    const allColumns = [
+        {
+            title: "Front",
+            field: "front",
+            formatter: "plaintext",
+            tooltip: true, minWidth: 220, width: 320
+        },
+        {
+            title: "Back",
+            field: "back",
+            formatter: "plaintext",
+            tooltip: true, minWidth: 220, width: 320
+        },
+        {
+            title: "Next Review (Due)",
+            field: "next_review_at",
+            minWidth: 160,
+            width: 180,
+            formatter: (cell) => formatDateTimeDisplay(cell.getValue())
+        },
+        {
+            title: "Purges In",
+            field: "days_left",
+            minWidth: 90, width: 110, maxWidth: 200,
+            hozAlign: "center",
+            formatter: (cell) => {
+                const d = cell.getValue();
+                const cls = d !== null && d <= 3 ? 'text-rose-700' : 'text-on-surface-variant';
+                return `<span class="font-semibold ${cls}">${Archive.retentionLabel(d)}</span>`;
+            }
+        },
+        {
+            title: "Last Reviewed",
+            field: "last_reviewed_at",
+            minWidth: 140, width: 160, maxWidth: 260,
+            formatter: (cell) => cell.getValue()
+                ? formatDateTimeDisplay(cell.getValue())
+                : '<span class="text-on-surface-variant">Never</span>'
+        },
+        {
+            title: "Accuracy",
+            field: "accuracy",
+            minWidth: 80, width: 100, maxWidth: 180,
+            hozAlign: "center",
+            formatter: (cell) => {
+                const v = cell.getValue();
+                if (v === null || v === undefined) return '—';
+                const cls = v >= 80 ? 'text-emerald-700' : v >= 50 ? 'text-amber-600' : 'text-rose-700';
+                return `<span class="font-semibold ${cls}">${v}%</span>`;
+            }
+        },
+        {
+            title: "Speed",
+            field: "avg_response_ms",
+            minWidth: 70, width: 90, maxWidth: 180,
+            hozAlign: "center",
+            formatter: (cell) => {
+                const v = cell.getValue();
+                return (v === null || v === undefined) ? '—' : (v / 1000).toFixed(1) + 's';
+            }
+        },
+        {
+            title: "Interval",
+            field: "interval_days",
+            minWidth: 80, width: 100, maxWidth: 220,
+            formatter: (cell) => `${cell.getValue()} ${cell.getValue() === 1 ? 'day' : 'days'}`
+        },
+        {
+            title: "Reviews", field: "review_count",
+            minWidth: 70, width: 90, maxWidth: 200
+        },
+        {
+            title: "Lapses",
+            field: "lapses",
+            minWidth: 70, width: 90, maxWidth: 200,
+            formatter: (cell) => cell.getValue() > 0 ? `<span class="text-amber-600 font-semibold">${cell.getValue()}</span>` : cell.getValue()
+        }
+    ]
     if (gridContainer) {
         tabulatorTable = new Tabulator("#flashcards-tabulator-grid", {
             data: initialFlashcards,
@@ -180,147 +257,7 @@ document.addEventListener("DOMContentLoaded", () => {
             selectable: 1,
             resizableColumnFit: false,
             placeholder: "No Flashcards Available",
-            columns: [
-                {
-                    title: "Front",
-                    field: "front",
-                    formatter: "plaintext",
-                    tooltip: true, minWidth: 220, width: 320
-                },
-                {
-                    title: "Back",
-                    field: "back",
-                    formatter: "plaintext",
-                    tooltip: true, minWidth: 220, width: 320
-                },
-                {
-                    title: "Next Review (Due)",
-                    field: "next_review_at",
-                    minWidth: 160,
-                    width: 180,
-                    formatter: (cell) => formatDateTimeDisplay(cell.getValue())
-                },
-                {
-                    title: "Purges In",
-                    field: "days_left",
-                    minWidth: 90, width: 110, maxWidth: 200,
-                    hozAlign: "center",
-                    formatter: (cell) => {
-                        const d = cell.getValue();
-                        const cls = d !== null && d <= 3 ? 'text-rose-700' : 'text-on-surface-variant';
-                        return `<span class="font-semibold ${cls}">${Archive.retentionLabel(d)}</span>`;
-                    }
-                },
-                {
-                    title: "Last Reviewed",
-                    field: "last_reviewed_at",
-                    minWidth: 140, width: 160, maxWidth: 260,
-                    formatter: (cell) => cell.getValue()
-                        ? formatDateTimeDisplay(cell.getValue())
-                        : '<span class="text-on-surface-variant">Never</span>'
-                },
-                {
-                    title: "Accuracy",
-                    field: "accuracy",
-                    minWidth: 80, width: 100, maxWidth: 180,
-                    hozAlign: "center",
-                    formatter: (cell) => {
-                        const v = cell.getValue();
-                        if (v === null || v === undefined) return '—';
-                        const cls = v >= 80 ? 'text-emerald-700' : v >= 50 ? 'text-amber-600' : 'text-rose-700';
-                        return `<span class="font-semibold ${cls}">${v}%</span>`;
-                    }
-                },
-                {
-                    title: "Speed",
-                    field: "avg_response_ms",
-                    minWidth: 70, width: 90, maxWidth: 180,
-                    hozAlign: "center",
-                    formatter: (cell) => {
-                        const v = cell.getValue();
-                        return (v === null || v === undefined) ? '—' : (v / 1000).toFixed(1) + 's';
-                    }
-                },
-                {
-                    title: "Interval",
-                    field: "interval_days",
-                    minWidth: 80, width: 100, maxWidth: 220,
-                    formatter: (cell) => `${cell.getValue()} ${cell.getValue() === 1 ? 'day' : 'days'}`
-                },
-                {
-                    title: "Reviews", field: "review_count",
-                    minWidth: 70, width: 90, maxWidth: 200
-                },
-                {
-                    title: "Lapses",
-                    field: "lapses",
-                    minWidth: 70, width: 90, maxWidth: 200,
-                    formatter: (cell) => cell.getValue() > 0 ? `<span class="text-amber-600 font-semibold">${cell.getValue()}</span>` : cell.getValue()
-                }
-                // {
-                //     title: "Actions",
-                //     headerSort: false,
-                //     frozen: true,
-                //     width: 100, minWidth: 100, maxWidth: 100,
-                //     resizable: false,
-                //     hozAlign: "center",
-                //     formatter: (cell) => {
-                //         const id = cell.getRow().getData().id;
-                //         const btn = 'p-0.5 rounded-lg transition-colors';
-                //         if (viewArchived) {
-                //             return `
-                //     <div class="flex items-center justify-center gap-1">
-                //         <button type="button" data-restore-card="${id}" class="${btn} text-emerald-700 hover:bg-emerald-50" title="Restore" aria-label="Restore card">
-                //             <span class="material-symbols-outlined text-[18px]">restore_from_trash</span>
-                //         </button>
-                //         <button type="button" data-purge-card="${id}" class="${btn} text-rose-700 hover:bg-rose-50" title="Delete permanently" aria-label="Delete permanently">
-                //             <span class="material-symbols-outlined text-[18px]">delete_forever</span>
-                //         </button>
-                //     </div>`;
-                //         }
-                //         return `
-                // <div class="flex items-center justify-center gap-1">
-                //     <button type="button" data-edit-card="${id}" class="${btn} text-on-surface-variant hover:text-primary" title="Edit" aria-label="Edit card">
-                //         <span class="material-symbols-outlined text-[18px]">edit</span>
-                //     </button>
-                //     <button type="button" data-archive-card="${id}" class="${btn} text-on-surface-variant hover:text-amber-700" title="Archive" aria-label="Archive card">
-                //         <span class="material-symbols-outlined text-[18px]">archive</span>
-                //     </button>
-                //     <button type="button" data-more-card="${id}" class="${btn} text-on-surface-variant hover:text-primary" title="More" aria-label="More actions">
-                //         <span class="material-symbols-outlined text-[18px]">more_vert</span>
-                //     </button>
-                // </div>`;
-                //     },
-                //     cellClick: (e, cell) => {
-                //         const t = e.target;
-                //         const data = cell.getRow().getData();
-                //         const editBtn = t.closest('[data-edit-card]');
-                //         const archiveBtn = t.closest('[data-archive-card]');
-                //         const moreBtn = t.closest('[data-more-card]');
-                //         const restoreBtn = t.closest('[data-restore-card]');
-                //         const purgeBtn = t.closest('[data-purge-card]');
-
-                //         if (editBtn) {
-                //             e.stopPropagation();
-                //             openModalForEdit(data);
-                //         } else if (archiveBtn) {
-                //             e.stopPropagation();
-                //             archiveCard(data);
-                //         } else if (moreBtn) {
-                //             e.stopPropagation();
-                //             openActionsMenu(moreBtn, data.id);
-                //         } else if (restoreBtn) {
-                //             e.stopPropagation();
-                //             restoreCard(data.id);
-                //         } else if (purgeBtn) {
-                //             e.stopPropagation();
-                //             targetDeleteCardId = String(data.id);
-                //             if (deleteCardError) deleteCardError.classList.add('hidden');
-                //             if (deleteCardDialog) deleteCardDialog.showModal();
-                //         }
-                //     }
-                // }
-            ]
+            columns: allColumns.filter((c) => c.field !== 'days_left'),
         });
 
         // Ensure flashcards are properly populated and rendered once Tabulator initializes
@@ -459,23 +396,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    async function restoreCard(cardId) {
-        try {
-            await sendCardAction({ action: 'restore', card_id: cardId });
-            totalCards++;
-            archivedCards--;
-            if (viewArchived) {
-                removeRow(cardId);
-                Archive.toast('Card restored');
-            } else if (tabulatorTable) {
-                tabulatorTable.setData(); // reload so the restored card reappears
-            }
-            updateCardCountLabel();
-        } catch (err) {
-            Archive.toast(err.message, { type: 'error' });
-        }
-    }
-
     function setViewMode(archived) {
         viewArchived = archived;
         closeActionsMenu();
@@ -499,16 +419,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (tabulatorTable) {
-            if (archived) {
-                tabulatorTable.hideColumn('next_review_at');
-                tabulatorTable.showColumn('days_left');
-            } else {
-                tabulatorTable.showColumn('next_review_at');
-                tabulatorTable.hideColumn('days_left');
-            }
+            // rebuild columns for this view (more reliable than hide/show with a frozen column)
+            tabulatorTable.setColumns(
+                allColumns.filter((c) => c.field !== (archived ? 'next_review_at' : 'days_left'))
+            );
+
             // swap the on-screen list with the off-screen one (snapshot first so edits aren't lost)
             const current = tabulatorTable.getData();
-            tabulatorTable.setData(offscreenList);
+            tabulatorTable.setData(offscreenList).then(() => tabulatorTable.redraw(true));
             offscreenList = current;
         }
         updateCardCountLabel();
