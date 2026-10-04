@@ -10,6 +10,9 @@ C:.
 │   ├───api
 │   │       DashboardService.php
 │   │       deck-actions.php
+│   │       DeckService.php
+│   │       flashcard-actions.php
+│   │       FlashcardService.php
 │   │       
 │   ├───assets
 │   │   ├───css
@@ -23,6 +26,8 @@ C:.
 │   │   │       profile-picture.webp.jpg
 │   │   │       
 │   │   └───js
+│   │           deck.js
+│   │           decks.js
 │   │           hero-carousel.js
 │   │           
 │   ├───includes
@@ -33,6 +38,9 @@ C:.
 │   │       
 │   └───views
 │           dashboard.php
+│           deck-view.php
+│           deck.php
+│           decks-view.php
 │           decks.php
 │           index.php
 │           reports.php
@@ -56,4 +64,3 @@ C:.
         about.html
         index.html
         style.css
-        
