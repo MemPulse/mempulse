@@ -179,17 +179,22 @@ main::-webkit-scrollbar {
 @keyframes archivePulse {
     0% {
         transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(var(--color-primary, 59, 130, 246), 0.7);
     }
 
     50% {
-        transform: scale(1.08);
+        transform: scale(1.05);
+        box-shadow: 0 0 12px 4px rgba(var(--color-primary, 59, 130, 246), 0.5);
     }
 
     100% {
         transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(var(--color-primary, 59, 130, 246), 0);
     }
 }
 
 .animate-archive-pulse {
-    animation: archivePulse 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) 2;
+    animation: archivePulse 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) 2;
+    color: currentColor !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }

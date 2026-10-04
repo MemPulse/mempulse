@@ -403,8 +403,8 @@
                             <button type="button" data-restore-deck="<?= $ad['id'] ?>" class="px-3.5 py-2 rounded-xl bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary text-sm font-semibold transition-colors whitespace-nowrap shadow-sm">
                                 Restore
                             </button>
-                            <button type="button" data-delete-archived="<?= $ad['id'] ?>" class="p-2 rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 transition-colors" title="Delete Permanently">
-                                <span class="material-symbols-outlined text-[20px]">delete</span>
+                            <button type="button" data-delete-archived="<?= $ad['id'] ?>" class="px-3.5 py-2 rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 text-sm font-semibold transition-colors whitespace-nowrap" title="Delete Permanently">
+                                Delete
                             </button>
                         </div>
                     </div>
@@ -415,7 +415,8 @@
 </dialog>
 
 <!-- Permanent Delete Confirmation Dialog -->
-<dialog id="permanent-delete-dialog" class="m-auto rounded-2xl p-0 w-full max-w-md bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">    <div class="p-6 flex flex-col gap-4">
+<dialog id="permanent-delete-dialog" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[60] m-0 rounded-2xl p-0 w-full max-w-md bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-2xl backdrop:bg-black/50">
+    <div class="p-6 flex flex-col gap-4">
         <h3 class="font-headline-sm text-[18px] font-bold text-rose-700 flex items-center gap-2">
             <span class="material-symbols-outlined text-[22px]">warning</span>
             <span>Permanently Delete Deck?</span>

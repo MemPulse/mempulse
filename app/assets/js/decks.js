@@ -306,13 +306,30 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ---------------------------------------------------------------
-    // 3. Inline Archiving Action (Animates Card Out & Pulses Archive Button)
+    // 3. Inline Archiving Action (Animates Card Out & Updates Archive List)
     // ---------------------------------------------------------------
     if (archiveConfirm) {
         archiveConfirm.addEventListener('click', async () => {
             archiveConfirm.disabled = true;
             try {
                 const action = archiveConfirm.id === 'delete-confirm' ? 'delete' : 'archive';
+                const deckTitle = getDeckTitle(activeDeckId) || 'Deck';
+
+                // Get metadata from active card element
+                const activeCard = document.querySelector(`[data-deck-card="${activeDeckId}"]`);
+                let cardCount = '0';
+                let accuracy = 'N/A';
+
+                if (activeCard) {
+                    const cardCountEl = activeCard.querySelector('.font-semibold.text-on-surface');
+                    if (cardCountEl) cardCount = cardCountEl.textContent.trim();
+
+                    // Safely find the accuracy badge element without invalid query selector syntax
+                    const accEl = activeCard.querySelector('[class*="badge"]') ||
+                        Array.from(activeCard.querySelectorAll('span')).find(el => el.textContent.includes('%'));
+                    if (accEl) accuracy = accEl.textContent.trim();
+                }
+
                 await sendDeckAction({ action, deck_id: activeDeckId });
 
                 if (archiveDialog) archiveDialog.close();
@@ -325,6 +342,36 @@ document.addEventListener("DOMContentLoaded", () => {
                     card.style.transform = 'scale(0.95)';
                     setTimeout(() => card.remove(), 300);
                 });
+
+                // Dynamically insert into Archived Decks Modal
+                const listContainer = document.getElementById('archived-decks-list-container');
+                if (listContainer) {
+                    const noMsg = document.getElementById('no-archived-msg');
+                    if (noMsg) noMsg.remove();
+
+                    const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    const newItemHTML = `
+                        <div data-archived-item="${activeDeckId}" class="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-outline-variant/40 bg-surface gap-4 hover:border-primary/50 transition-colors">
+                            <div>
+                                <h4 class="font-bold text-on-surface text-[15px]" data-archived-title="${activeDeckId}">${deckTitle}</h4>
+                                <div class="text-[13px] text-on-surface-variant mt-1.5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+                                    <span><strong>Cards:</strong> ${cardCount}</span>
+                                    <span><strong>Accuracy:</strong> ${accuracy}</span>
+                                    <span><strong>Archived:</strong> ${today}</span>
+                                    <span><strong>Reviewed:</strong> Just now</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 flex-shrink-0">
+                                <button type="button" data-restore-deck="${activeDeckId}" class="px-3.5 py-2 rounded-xl bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary text-sm font-semibold transition-colors whitespace-nowrap shadow-sm">
+                                    Restore
+                                </button>
+                                <button type="button" data-delete-archived="${activeDeckId}" class="px-3.5 py-2 rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 text-sm font-semibold transition-colors whitespace-nowrap" title="Delete Permanently">
+                                    Delete
+                                </button>
+                            </div>
+                        </div>`;
+                    listContainer.insertAdjacentHTML('afterbegin', newItemHTML);
+                }
 
                 // Trigger Archive Button Highlight Animation
                 triggerArchiveButtonPulse();
