@@ -5,7 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const config = window.MemPulseDeckData || {};
     const CSRF_TOKEN = config.csrfToken || '';
     const DECK_ID = config.deckId || null;
-    const initialFlashcards = config.flashcards || [];
+    const initialFlashcards = Array.isArray(config.flashcards) ? config.flashcards : [];
 
     if (!DECK_ID) return;
 
@@ -46,6 +46,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
     setMinDueDateConstraint();
 
+    // Toggle grid vs empty state container visibility
+    function toggleStateVisibility(hasCards) {
+        if (hasCards) {
+            if (gridContainer) gridContainer.classList.remove('hidden');
+            if (emptyState) emptyState.classList.add('hidden');
+        } else {
+            if (gridContainer) gridContainer.classList.add('hidden');
+            if (emptyState) emptyState.classList.remove('hidden');
+        }
+    }
+
+    // Synchronize initial layout visibility
+    toggleStateVisibility(initialFlashcards.length > 0);
+
     // API Helper with Database Connectivity Verification
     async function sendCardAction(payload) {
         try {
@@ -71,14 +85,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!cardCountLabel || !tabulatorTable) return;
         const totalCards = tabulatorTable.getDataCount();
         cardCountLabel.textContent = totalCards + (totalCards === 1 ? ' Card' : ' Cards');
-
-        if (totalCards === 0) {
-            if (gridContainer) gridContainer.classList.add('hidden');
-            if (emptyState) emptyState.classList.remove('hidden');
-        } else {
-            if (gridContainer) gridContainer.classList.remove('hidden');
-            if (emptyState) emptyState.classList.add('hidden');
-        }
+        toggleStateVisibility(totalCards > 0);
+        if (totalCards > 0) tabulatorTable.redraw(true);
     }
 
     function formatDateTimeForInput(dateString) {
@@ -139,14 +147,15 @@ document.addEventListener("DOMContentLoaded", () => {
         tabulatorTable = new Tabulator("#flashcards-tabulator-grid", {
             data: initialFlashcards,
             layout: "fitDataFill",
+            layout: "fitDataFill",
+            maxHeight: "calc(100vh - 300px)",
             responsiveLayout: false,
             selectable: 1,
             resizableColumnFit: false,
             placeholder: "No Flashcards Available",
             columns: [
-                { title: "Front", field: "front", formatter: "textarea", minWidth: 220, width: 320 },
-                { title: "Back", field: "back", formatter: "textarea", minWidth: 220, width: 320 },
-                {
+                { title: "Front", field: "front", formatter: "plaintext", tooltip: true, minWidth: 220, width: 320 },
+                { title: "Back", field: "back", formatter: "plaintext", tooltip: true, minWidth: 220, width: 320 }, {
                     title: "Next Review (Due)",
                     field: "next_review_at",
                     minWidth: 160,
@@ -156,16 +165,23 @@ document.addEventListener("DOMContentLoaded", () => {
                 {
                     title: "Interval",
                     field: "interval_days",
-                    minWidth: 90,
-                    width: 110,
+                    minWidth: 80,
+                    width: 100,
+                    maxWidth: 140,
                     formatter: (cell) => `${cell.getValue()} ${cell.getValue() === 1 ? 'day' : 'days'}`
                 },
-                { title: "Reviews", field: "review_count", minWidth: 80, width: 95 },
+                {
+                    title: "Reviews", field: "review_count",
+                    minWidth: 70,
+                    width: 85,
+                    maxWidth: 120
+                },
                 {
                     title: "Lapses",
                     field: "lapses",
-                    minWidth: 80,
-                    width: 90,
+                    minWidth: 70,
+                    width: 80,
+                    maxWidth: 110,
                     formatter: (cell) => cell.getValue() > 0 ? `<span class="text-amber-600 font-semibold">${cell.getValue()}</span>` : cell.getValue()
                 },
                 {
@@ -173,15 +189,18 @@ document.addEventListener("DOMContentLoaded", () => {
                     headerSort: false,
                     frozen: true,
                     width: 90,
+                    minWidth: 90,
+                    maxWidth: 90,
+                    resizable: false,
                     hozAlign: "center",
                     formatter: (cell) => {
                         const cardId = cell.getRow().getData().id;
                         return `
                             <div class="flex items-center justify-center gap-1">
-                                <button type="button" data-edit-card="${cardId}" class="p-1 rounded-lg text-on-surface-variant hover:text-primary transition-colors" title="View/Edit Card">
+                                <button type="button" data-edit-card="${cardId}" class="p-0.5 rounded-lg text-on-surface-variant hover:text-primary transition-colors" title="View/Edit Card">
                                     <span class="material-symbols-outlined text-[18px]">visibility</span>
                                 </button>
-                                <button type="button" data-delete-card="${cardId}" class="p-1 rounded-lg text-rose-700 hover:bg-rose-50 transition-colors" title="Delete Card">
+                                <button type="button" data-delete-card="${cardId}" class="p-0.5 rounded-lg text-rose-700 hover:bg-rose-50 transition-colors" title="Delete Card">
                                     <span class="material-symbols-outlined text-[18px]">delete</span>
                                 </button>
                             </div>
@@ -203,6 +222,14 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                 }
             ]
+        });
+
+        // Ensure flashcards are properly populated and rendered once Tabulator initializes
+        tabulatorTable.on("tableBuilt", () => {
+            if (initialFlashcards.length > 0) {
+                toggleStateVisibility(true);
+                tabulatorTable.setData(initialFlashcards);
+            }
         });
 
         // Open modal when clicking any row
@@ -238,7 +265,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (tabulatorTable) await tabulatorTable.addRow(res.card, true);
                 } else {
                     if (tabulatorTable) {
-                        const row = tabulatorTable.getRow(res.card.id);
+                        const row = tabulatorTable.getRow(Number(res.card.id));
                         if (row) row.update(res.card);
                     }
                 }
@@ -264,7 +291,7 @@ document.addEventListener("DOMContentLoaded", () => {
             try {
                 await sendCardAction({ action: 'delete', card_id: targetDeleteCardId });
                 if (tabulatorTable) {
-                    const row = tabulatorTable.getRow(targetDeleteCardId);
+                    const row = tabulatorTable.getRow(Number(targetDeleteCardId));
                     if (row) row.delete();
                 }
                 updateCardCountLabel();

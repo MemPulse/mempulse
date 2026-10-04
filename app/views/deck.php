@@ -56,10 +56,10 @@ $currentPage = "decks";
 
     <!-- 1. DATA INJECTION: Server-side PHP variables passed safely to client-side JS -->
     <script>
-        window.MemPulseDeckData = {
+        window.MemPulseDeckData = Object.assign(window.MemPulseDeckData || {}, {
             csrfToken: <?= json_encode($_SESSION['csrf_token'] ?? '') ?>,
             deckId: <?= $deckId ?>
-        };
+        });
     </script>
 
     <!-- 2. CLIENT-SIDE ASSET IMPORTS: Separated standalone JavaScript module -->

@@ -8,7 +8,8 @@
 
 <script>
     window.MemPulseDeckData = window.MemPulseDeckData || {};
-    window.MemPulseDeckData.flashcards = <?= json_encode($flashcards, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+    // Normalize $flashcards array indices using array_values()
+    window.MemPulseDeckData.flashcards = <?= json_encode(array_values($flashcards ?? []), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 </script>
 
 <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
@@ -26,49 +27,50 @@
             <span class="text-on-surface font-semibold truncate max-w-[200px] sm:max-w-xs"><?= FlashcardService::h($deck['title']) ?></span>
         </nav>
 
-        <!-- DECK HEADER BANNER -->
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-2xl bg-surface-container-lowest border border-outline-variant/30 shadow-xs">
-            <div class="flex flex-col gap-1">
-                <h1 class="font-headline-md text-headline-md font-bold tracking-tight text-on-surface">
+        <!-- DECK HEADER BAR (single row) -->
+        <div class="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-surface-container-lowest border border-outline-variant/30 shadow-xs">
+            <div class="flex items-center gap-3 min-w-0 text-sm text-on-surface-variant">
+                <h1 class="font-headline-sm text-headline-sm font-bold tracking-tight text-on-surface truncate"
+                    title="<?= FlashcardService::h($deck['title']) ?>">
                     <?= FlashcardService::h($deck['title']) ?>
                 </h1>
-                <div class="flex items-center gap-3 text-sm text-on-surface-variant">
-                    <span class="inline-flex items-center gap-1 font-semibold text-on-surface">
-                        <span class="material-symbols-outlined text-primary text-[18px]">style</span>
-                        <span id="deck-card-count-label"><?= $deck['card_count'] ?> <?= $deck['card_count'] === 1 ? 'Card' : 'Cards' ?></span>
-                    </span>
-                    <span>•</span>
-                    <span class="text-primary font-semibold"><?= $deck['due_count'] ?> Due Now</span>
-                </div>
+                <span class="text-outline">•</span>
+                <span class="inline-flex items-center gap-1 font-semibold text-on-surface whitespace-nowrap">
+                    <span class="material-symbols-outlined text-primary text-[18px]">style</span>
+                    <span id="deck-card-count-label"><?= $deck['card_count'] ?> <?= $deck['card_count'] === 1 ? 'Card' : 'Cards' ?></span>
+                </span>
+                <span class="text-outline">•</span>
+                <span class="text-primary font-semibold whitespace-nowrap"><?= $deck['due_count'] ?> Due<span class="hidden sm:inline"> Now</span></span>
             </div>
 
-            <div class="flex flex-wrap items-center gap-2.5">
+            <div class="flex items-center gap-2 shrink-0">
                 <?php if ($deck['due_count'] > 0): ?>
-                    <a href="review.php?deck_id=<?= $deck['id'] ?>" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-semibold shadow-sm transition-all">
+                    <a href="review.php?deck_id=<?= $deck['id'] ?>"
+                    title="Start Review" aria-label="Start Review"
+                    class="inline-flex items-center justify-center gap-2 px-2.5 lg:px-4 py-2 rounded-lg bg-primary hover:bg-primary-container text-on-primary font-semibold text-sm shadow-sm transition-all">
                         <span class="material-symbols-outlined text-[19px]">play_arrow</span>
-                        <span>Start Review</span>
+                        <span class="hidden lg:inline">Start Review</span>
                     </a>
                 <?php endif; ?>
-                
-                <button type="button" id="open-add-card-btn" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-semibold transition-all shadow-xs">
+
+                <button type="button" id="open-add-card-btn"
+                        title="Create Card" aria-label="Create Card"
+                        class="inline-flex items-center justify-center gap-2 px-2.5 lg:px-4 py-2 rounded-lg bg-primary hover:bg-primary-container text-on-primary font-semibold text-sm transition-all shadow-xs">
                     <span class="material-symbols-outlined text-[19px]">add</span>
-                    <span>Create Card</span>
+                    <span class="hidden lg:inline">Create Card</span>
                 </button>
             </div>
         </div>
 
         <!-- MAIN TABULATOR GRID WORKSPACE -->
-        <div id="table-wrapper" class="w-full overflow-hidden rounded-2xl bg-surface-container-lowest border border-outline-variant/30 shadow-xs flex flex-col">
-            <div id="no-cards-empty-state" class="p-12 flex-col items-center justify-center gap-3 text-center bg-surface-container-low/20 transition-all cursor-pointer group <?= empty($flashcards) ? 'flex' : 'hidden' ?>">
-                <div class="w-14 h-14 rounded-xl bg-surface-container-lowest border border-outline-variant/30 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
-                    <span class="material-symbols-outlined text-[28px]">note_add</span>
-                </div>
-                <div>
-                    <h3 class="font-headline-sm text-[18px] font-bold text-on-surface group-hover:text-primary transition-colors">No flashcards yet</h3>
-                    <p class="text-on-surface-variant text-[14px] mt-0.5">Click here to create your first flashcard.</p>
-                </div>
+        <div id="table-wrapper" class="w-full overflow-hidden rounded-2xl bg-surface-container-lowest border border-outline-variant/30 shadow-xs flex flex-col min-h-[300px]">
+            <!-- Empty state displayed when flashcards array is empty -->
+            <div id="no-cards-empty-state" class="p-12 flex-col items-center justify-center gap-3 text-center bg-surface-container-low/20 <?= empty($flashcards) ? 'flex' : 'hidden' ?>">
+                <h3 class="font-bold text-on-surface">No flashcards yet</h3>
+                <p class="text-on-surface-variant text-sm">Click "Create Card" to add your first card.</p>
             </div>
 
+            <!-- Tabulator table target -->
             <div id="flashcards-tabulator-grid" class="w-full <?= empty($flashcards) ? 'hidden' : '' ?>"></div>
         </div>
     </div>

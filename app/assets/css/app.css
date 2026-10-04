@@ -292,7 +292,7 @@ main::-webkit-scrollbar {
 .tabulator .tabulator-header .tabulator-col {
     background-color: transparent !important;
     border-right: 1px solid rgba(148, 163, 184, 0.15) !important;
-    padding: 12px 16px !important;
+    padding: 8px 12px !important;
 }
 
 .tabulator .tabulator-header .tabulator-col-content {
@@ -319,7 +319,7 @@ main::-webkit-scrollbar {
     border-bottom: 1px solid rgba(148, 163, 184, 0.2) !important;
     color: var(--color-on-surface, #0f172a) !important;
     transition: background-color 0.15s ease;
-    min-height: 52px !important;
+    min-height: 36px !important;
 }
 
 /* Alternate Row Hover */
@@ -336,14 +336,14 @@ main::-webkit-scrollbar {
 
 /* Cell Padding & Alignment */
 .tabulator .tabulator-cell {
-    padding: 12px 16px !important;
+    padding: 6px 12px !important;
     border-right: 1px solid rgba(148, 163, 184, 0.12) !important;
-    display: inline-flex !important;
-    align-items: flex-start !important;
-    white-space: pre-wrap !important;
-    /* Preserves multiline formatting */
-    word-break: break-word !important;
-    line-height: 1.5 !important;
+    display: inline-block !important;
+    vertical-align: middle !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    line-height: 24px !important;
 }
 
 /* Cell Editing Focus State */
@@ -383,8 +383,8 @@ main::-webkit-scrollbar {
 }
 
 .tabulator .tabulator-tableholder::-webkit-scrollbar {
-    height: 6px;
-    width: 6px;
+    height: 8px;
+    width: 8px;
 }
 
 .tabulator .tabulator-tableholder::-webkit-scrollbar-thumb {
