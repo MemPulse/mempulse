@@ -254,15 +254,15 @@
     </div>
 </div>
 
-<!-- Shared kebab menu (positioned by JS so card overflow can't clip it) -->
+<!-- Shared kebab menu -->
 <div id="deck-menu" class="hidden fixed z-50 w-44 rounded-xl bg-surface-container-lowest border border-outline-variant/30 shadow-lg py-1" role="menu">
     <button type="button" role="menuitem" data-menu-action="rename" class="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-on-surface hover:bg-surface-container transition-colors">
         <span class="material-symbols-outlined text-[18px]">edit</span>
         <span>Rename</span>
     </button>
     <button type="button" role="menuitem" data-menu-action="archive" class="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-amber-700 hover:bg-amber-50 transition-colors">
-    <span class="material-symbols-outlined text-[18px]">archive</span>
-    <span>Archive</span>
+        <span class="material-symbols-outlined text-[18px]">archive</span>
+        <span>Archive</span>
     </button>
     <hr>
     <button type="button" role="menuitem" data-menu-action="add-card" class="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-on-surface hover:bg-surface-container transition-colors">
@@ -272,7 +272,7 @@
 </div>
 
 <!-- Rename dialog -->
-<dialog id="rename-dialog" class="rounded-2xl p-0 w-full max-w-md bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
+<dialog id="rename-dialog" class="m-auto rounded-2xl p-0 w-full max-w-md bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
     <form id="rename-form" class="p-6 flex flex-col gap-4" novalidate>
         <h3 class="font-headline-sm text-[18px] font-bold">Rename deck</h3>
         <div class="flex flex-col gap-1.5">
@@ -288,7 +288,7 @@
 </dialog>
 
 <!-- Archive dialog -->
-<dialog id="archive-dialog" class="rounded-2xl p-0 w-full max-w-md bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
+<dialog id="archive-dialog" class="m-auto rounded-2xl p-0 w-full max-w-md bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
     <div class="p-6 flex flex-col gap-4">
         <h3 class="font-headline-sm text-[18px] font-bold">Archive deck?</h3>
         <p class="text-on-surface-variant text-[14px]">
@@ -304,7 +304,7 @@
 </dialog>
 
 <!-- Create deck dialog -->
-<dialog id="create-dialog" class="rounded-2xl p-0 w-full max-w-md bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
+<dialog id="create-dialog" class="m-auto rounded-2xl p-0 w-full max-w-md bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
     <form id="create-form" class="p-6 flex flex-col gap-4" novalidate>
         <h3 class="font-headline-sm text-[18px] font-bold">New deck</h3>
         <div class="flex flex-col gap-1.5">
@@ -320,7 +320,7 @@
 </dialog>
 
 <!-- Add card dialog -->
-<dialog id="card-dialog" class="rounded-2xl p-0 w-full max-w-lg bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
+<dialog id="card-dialog" class="m-auto rounded-2xl p-0 w-full max-w-lg bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
     <form id="card-form" class="p-6 flex flex-col gap-4" novalidate>
         <div>
             <h3 class="font-headline-sm text-[18px] font-bold">Add card</h3>
@@ -368,8 +368,8 @@
     </form>
 </dialog>
 
-<!-- Archived Decks Modal -->
-<dialog id="archived-decks-dialog" class="rounded-2xl p-0 w-full max-w-2xl bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
+<!-- Archived Decks Modal (Center-aligned using m-auto) -->
+<dialog id="archived-decks-dialog" class="m-auto rounded-2xl p-0 w-full max-w-2xl bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
     <div class="p-6 flex flex-col gap-4 max-h-[80vh] overflow-y-auto">
         <div class="flex justify-between items-center">
             <h3 class="font-headline-sm text-[18px] font-bold">Archived Decks</h3>
@@ -377,15 +377,21 @@
                 <span class="material-symbols-outlined">close</span>
             </button>
         </div>
+
+        <!-- Toast Feedback Bar -->
+        <div id="archived-toast" class="hidden px-4 py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-between">
+            <span id="archived-toast-message"></span>
+            <button type="button" onclick="document.getElementById('archived-toast').classList.add('hidden')" class="text-xs underline ml-4">Dismiss</button>
+        </div>
         
-        <div class="flex flex-col gap-3">
+        <div class="flex flex-col gap-3" id="archived-decks-list-container">
             <?php if (empty($archivedDecks)): ?>
-                <p class="text-on-surface-variant text-center py-6 text-sm">No archived decks found.</p>
+                <p id="no-archived-msg" class="text-on-surface-variant text-center py-6 text-sm">No archived decks found.</p>
             <?php else: ?>
                 <?php foreach ($archivedDecks as $ad): ?>
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-outline-variant/40 bg-surface gap-4 hover:border-primary/50 transition-colors">
+                    <div data-archived-item="<?= $ad['id'] ?>" class="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-outline-variant/40 bg-surface gap-4 hover:border-primary/50 transition-colors">
                         <div>
-                            <h4 class="font-bold text-on-surface text-[15px]"><?= DeckService::h($ad['title']) ?></h4>
+                            <h4 class="font-bold text-on-surface text-[15px]" data-archived-title="<?= $ad['id'] ?>"><?= DeckService::h($ad['title']) ?></h4>
                             <div class="text-[13px] text-on-surface-variant mt-1.5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
                                 <span><strong>Cards:</strong> <?= $ad['card_count'] ?></span>
                                 <span><strong>Accuracy:</strong> <?= $ad['accuracy'] !== null ? $ad['accuracy'] . '%' : 'N/A' ?></span>
@@ -393,12 +399,35 @@
                                 <span><strong>Reviewed:</strong> <?= $ad['last_reviewed'] ? DeckService::lastReviewedLabel($ad['last_reviewed']) : 'Never' ?></span>
                             </div>
                         </div>
-                        <button type="button" data-restore-deck="<?= $ad['id'] ?>" class="px-4 py-2 rounded-xl bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary text-sm font-semibold transition-colors whitespace-nowrap shadow-sm">
-                            Restore Deck
-                        </button>
+                        <div class="flex items-center gap-2 flex-shrink-0">
+                            <button type="button" data-restore-deck="<?= $ad['id'] ?>" class="px-3.5 py-2 rounded-xl bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary text-sm font-semibold transition-colors whitespace-nowrap shadow-sm">
+                                Restore
+                            </button>
+                            <button type="button" data-delete-archived="<?= $ad['id'] ?>" class="p-2 rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 transition-colors" title="Delete Permanently">
+                                <span class="material-symbols-outlined text-[20px]">delete</span>
+                            </button>
+                        </div>
                     </div>
                 <?php endforeach; ?>
             <?php endif; ?>
+        </div>
+    </div>
+</dialog>
+
+<!-- Permanent Delete Confirmation Dialog -->
+<dialog id="permanent-delete-dialog" class="m-auto rounded-2xl p-0 w-full max-w-md bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">    <div class="p-6 flex flex-col gap-4">
+        <h3 class="font-headline-sm text-[18px] font-bold text-rose-700 flex items-center gap-2">
+            <span class="material-symbols-outlined text-[22px]">warning</span>
+            <span>Permanently Delete Deck?</span>
+        </h3>
+        <p class="text-on-surface-variant text-[14px]">
+            Are you sure you want to permanently delete <span id="perm-delete-name" class="font-semibold text-on-surface"></span>?
+            This will permanently erase the deck and all associated flashcards. This action cannot be undone.
+        </p>
+        <p id="perm-delete-error" class="hidden text-rose-700 text-[13px]" role="alert"></p>
+        <div class="flex justify-end gap-2.5">
+            <button type="button" data-close-dialog class="px-4 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-[14px] transition-colors">Cancel</button>
+            <button type="button" id="perm-delete-confirm" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-[14px] transition-colors disabled:opacity-60">Delete Permanently</button>
         </div>
     </div>
 </dialog>

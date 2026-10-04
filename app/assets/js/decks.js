@@ -46,6 +46,32 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ---------------------------------------------------------------
+    // Helper: Toast Notifications inside Archived Modal
+    // ---------------------------------------------------------------
+    const archivedToast = document.getElementById('archived-toast');
+    const archivedToastMsg = document.getElementById('archived-toast-message');
+
+    function showArchivedToast(message, isSuccess = true) {
+        if (!archivedToast || !archivedToastMsg) return;
+        archivedToastMsg.textContent = message;
+        archivedToast.className = isSuccess
+            ? "px-4 py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-between bg-emerald-50 text-emerald-800 border border-emerald-200"
+            : "px-4 py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-between bg-rose-50 text-rose-800 border border-rose-200";
+        archivedToast.classList.remove('hidden');
+    }
+
+    // Trigger pulse highlight animation on Archived Decks button
+    function triggerArchiveButtonPulse() {
+        const btn = document.getElementById('open-archived-btn');
+        if (!btn) return;
+
+        btn.classList.add('animate-archive-pulse', 'bg-primary-container', 'text-on-primary-container', 'ring-2', 'ring-primary/40');
+        setTimeout(() => {
+            btn.classList.remove('animate-archive-pulse', 'bg-primary-container', 'text-on-primary-container', 'ring-2', 'ring-primary/40');
+        }, 1500);
+    }
+
+    // ---------------------------------------------------------------
     // 2. Deck Kebab Menu & Modals Logic
     // ---------------------------------------------------------------
     const deckMenu = document.getElementById('deck-menu');
@@ -64,7 +90,6 @@ document.addEventListener("DOMContentLoaded", () => {
     let activeDeckId = null;
     let menuButton = null;
 
-    // Archived Decks Modal
     const archivedDecksDialog = document.getElementById('archived-decks-dialog');
     const openArchivedBtn = document.getElementById('open-archived-btn');
 
@@ -74,23 +99,97 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    document.querySelectorAll('[data-restore-deck]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const deckId = btn.getAttribute('data-restore-deck');
-            const originalText = btn.textContent;
-            btn.disabled = true;
-            btn.textContent = "Restoring...";
+    // Restore Deck Action Handler
+    document.addEventListener('click', async (e) => {
+        const restoreBtn = e.target.closest('[data-restore-deck]');
+        if (!restoreBtn) return;
 
+        const deckId = restoreBtn.getAttribute('data-restore-deck');
+        const itemEl = document.querySelector(`[data-archived-item="${deckId}"]`);
+        const deckTitleEl = document.querySelector(`[data-archived-title="${deckId}"]`);
+        const deckTitle = deckTitleEl ? deckTitleEl.textContent.trim() : 'Deck';
+
+        restoreBtn.disabled = true;
+        restoreBtn.textContent = "Restoring...";
+
+        try {
+            await sendDeckAction({ action: 'restore', deck_id: deckId });
+
+            if (itemEl) itemEl.remove();
+
+            const listContainer = document.getElementById('archived-decks-list-container');
+            if (listContainer && listContainer.children.length === 0) {
+                listContainer.innerHTML = '<p id="no-archived-msg" class="text-on-surface-variant text-center py-6 text-sm">No archived decks found.</p>';
+            }
+
+            showArchivedToast(`"${deckTitle}" has been restored to active decks.`, true);
+            window.needMainReload = true;
+        } catch (err) {
+            showArchivedToast("Failed to restore deck: " + err.message, false);
+            restoreBtn.disabled = false;
+            restoreBtn.textContent = "Restore";
+        }
+    });
+
+    // Permanent Delete Handler for Archived Decks
+    const permDeleteDialog = document.getElementById('permanent-delete-dialog');
+    const permDeleteName = document.getElementById('perm-delete-name');
+    const permDeleteError = document.getElementById('perm-delete-error');
+    const permDeleteConfirm = document.getElementById('perm-delete-confirm');
+    let targetDeleteDeckId = null;
+
+    document.addEventListener('click', (e) => {
+        const deleteBtn = e.target.closest('[data-delete-archived]');
+        if (!deleteBtn) return;
+
+        targetDeleteDeckId = deleteBtn.getAttribute('data-delete-archived');
+        const deckTitleEl = document.querySelector(`[data-archived-title="${targetDeleteDeckId}"]`);
+        const deckTitle = deckTitleEl ? deckTitleEl.textContent.trim() : 'Deck';
+
+        if (permDeleteName) permDeleteName.textContent = `"${deckTitle}"`;
+        if (permDeleteError) permDeleteError.classList.add('hidden');
+        if (permDeleteDialog) permDeleteDialog.showModal();
+    });
+
+    if (permDeleteConfirm) {
+        permDeleteConfirm.addEventListener('click', async () => {
+            if (!targetDeleteDeckId) return;
+
+            permDeleteConfirm.disabled = true;
             try {
-                await sendDeckAction({ action: 'restore', deck_id: deckId });
-                window.location.reload();
+                const deckTitleEl = document.querySelector(`[data-archived-title="${targetDeleteDeckId}"]`);
+                const deckTitle = deckTitleEl ? deckTitleEl.textContent.trim() : 'Deck';
+
+                await sendDeckAction({ action: 'permanent_delete', deck_id: targetDeleteDeckId });
+
+                const itemEl = document.querySelector(`[data-archived-item="${targetDeleteDeckId}"]`);
+                if (itemEl) itemEl.remove();
+
+                const listContainer = document.getElementById('archived-decks-list-container');
+                if (listContainer && listContainer.children.length === 0) {
+                    listContainer.innerHTML = '<p id="no-archived-msg" class="text-on-surface-variant text-center py-6 text-sm">No archived decks found.</p>';
+                }
+
+                if (permDeleteDialog) permDeleteDialog.close();
+                showArchivedToast(`"${deckTitle}" has been permanently deleted.`, false);
             } catch (err) {
-                alert("Failed to restore deck: " + err.message);
-                btn.disabled = false;
-                btn.textContent = originalText;
+                if (permDeleteError) {
+                    permDeleteError.textContent = err.message;
+                    permDeleteError.classList.remove('hidden');
+                }
+            } finally {
+                permDeleteConfirm.disabled = false;
             }
         });
-    });
+    }
+
+    if (archivedDecksDialog) {
+        archivedDecksDialog.addEventListener('close', () => {
+            if (window.needMainReload) {
+                window.location.reload();
+            }
+        });
+    }
 
     function getDeckTitle(id) {
         const el = document.querySelector('[data-deck-title="' + id + '"]');
@@ -122,7 +221,6 @@ document.addEventListener("DOMContentLoaded", () => {
         deckMenu.style.top = Math.max(8, top) + 'px';
     }
 
-    // Global listeners for Kebab Menu
     document.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-deck-menu]');
         if (btn) {
@@ -143,7 +241,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    // Unified API Fetch Function
     async function sendDeckAction(payload) {
         const res = await fetch('../api/deck-actions.php', {
             method: 'POST',
@@ -160,7 +257,6 @@ document.addEventListener("DOMContentLoaded", () => {
         return data;
     }
 
-    // Handle Kebab dropdown clicks
     if (deckMenu) {
         deckMenu.addEventListener('click', (e) => {
             const item = e.target.closest('[data-menu-action]');
@@ -183,7 +279,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Rename Form Handler
     if (renameForm) {
         renameForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -210,7 +305,9 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Archive Confirm Handler
+    // ---------------------------------------------------------------
+    // 3. Inline Archiving Action (Animates Card Out & Pulses Archive Button)
+    // ---------------------------------------------------------------
     if (archiveConfirm) {
         archiveConfirm.addEventListener('click', async () => {
             archiveConfirm.disabled = true;
@@ -220,20 +317,41 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 if (archiveDialog) archiveDialog.close();
 
-                // Reload page so PHP re-fetches archived decks list & updates the modal
-                window.location.reload();
+                // Fade out card elements in grid & list view
+                const cardsToRemove = document.querySelectorAll(`[data-deck-card="${activeDeckId}"]`);
+                cardsToRemove.forEach(card => {
+                    card.style.transition = 'all 0.3s ease';
+                    card.style.opacity = '0';
+                    card.style.transform = 'scale(0.95)';
+                    setTimeout(() => card.remove(), 300);
+                });
+
+                // Trigger Archive Button Highlight Animation
+                triggerArchiveButtonPulse();
+
+                // Update remaining deck badge count
+                setTimeout(() => {
+                    const remaining = document.querySelectorAll('#decks-grid-view [data-deck-card]').length;
+                    if (remaining === 0) {
+                        window.location.reload();
+                    } else if (countBadge) {
+                        countBadge.textContent = remaining + (remaining === 1 ? ' Deck' : ' Decks');
+                    }
+                }, 350);
+
             } catch (err) {
                 if (archiveError) {
                     archiveError.textContent = err.message;
                     archiveError.classList.remove('hidden');
                 }
+            } finally {
                 archiveConfirm.disabled = false;
             }
         });
     }
 
     // ---------------------------------------------------------------
-    // 3. Create Deck Dialog Handler
+    // 4. Create Deck Dialog Handler
     // ---------------------------------------------------------------
     const createDialog = document.getElementById('create-dialog');
     const createForm = document.getElementById('create-form');
@@ -310,7 +428,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ---------------------------------------------------------------
-    // 4. Review Button Handler
+    // 5. Review Button Handler
     // ---------------------------------------------------------------
     document.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-action="review"]');
@@ -323,7 +441,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // ---------------------------------------------------------------
-    // 5. Add Card Modal Handler
+    // 6. Add Card Modal Handler
     // ---------------------------------------------------------------
     const cardDialog = document.getElementById('card-dialog');
     const cardForm = document.getElementById('card-form');
@@ -474,7 +592,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ---------------------------------------------------------------
-    // 6. Custom Deck Reordering via LocalStorage & SortableJS
+    // 7. Custom Deck Reordering via LocalStorage & SortableJS
     // ---------------------------------------------------------------
     const ORDER_KEY = 'mempulse_deck_order';
 
@@ -550,8 +668,8 @@ document.addEventListener("DOMContentLoaded", () => {
             filter: '[data-deck-menu], dialog, button, a',
             preventOnFilter: false,
             onEnd: () => {
-                saveCurrentDeckOrder(listContainer);
-                applySavedDeckOrder(gridContainer);
+                saveCurrentDeckOrder(gridContainer);
+                applySavedDeckOrder(listContainer);
             }
         });
     }
