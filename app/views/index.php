@@ -51,6 +51,7 @@ if (!function_exists('heatmap_level_class')) {
 
     <!-- MAIN: Viewport Shell Offset for Mobile/Desktop Navigation Bar -->
     <main class="pt-16 pl-0 md:pl-72 transition-all duration-300 ease-in-out">
+        <?php include __DIR__ . '/../includes/header-data.php'; ?>    
         <?php include __DIR__ . '/../includes/header.php'; ?>
         <?php include __DIR__ . '/../dashboard.php'; ?>                
     </main>
@@ -62,7 +63,7 @@ if (!function_exists('heatmap_level_class')) {
                 displayName: <?php echo json_encode($displayName); ?>,
                 displayRole: "User",
                 currentStreak: <?php echo (int) $current_streak; ?>,
-                profileImageUrl: "../assets/images/profile-picture.webp.jpg" 
+                profileImageUrl: "/mempulse/app/assets/images/profile-picture.webp.jpg" 
             },
             stats: {
                 cardsDue: <?php echo (int) $metricsData['cardsDue']; ?>,
@@ -141,6 +142,6 @@ if (!function_exists('heatmap_level_class')) {
     </script>
 
     <!-- 2. CLIENT-SIDE ASSET IMPORTS: Separated standalone JavaScript modules -->
-    <script src="./assets/js/hero-carousel.js" defer></script>
+    <script src="../assets/js/hero-carousel.js" defer></script>
 </body>
 </html>

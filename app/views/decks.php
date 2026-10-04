@@ -2,11 +2,11 @@
 session_start();
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || !isset($_SESSION['user_id'])) {
-    header("Location: ../authentication/login.php");
+    header("Location: ../../authentication/login.php");
     exit;
 }
 
-require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../../config/db.php';
 
 $user_id = (int) $_SESSION['user_id'];
 
@@ -172,6 +172,7 @@ mysqli_stmt_close($stmt);
 
 $deck_total = count($decks);
 
+
 $pageTitle = "Decks";
 $currentPage = "decks";
 
@@ -182,17 +183,18 @@ $tough_cards = $tough_cards ?? 0;
 $best_streak = $best_streak ?? 0;
 $streak_accuracy = $streak_accuracy ?? 0;
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
-<?php include __DIR__ . '/includes/head.php'; ?>
+<?php include __DIR__ . '/../includes/head.php'; ?>
 
 <body class="bg-background font-body-md text-on-surface antialiased min-h-screen selection:bg-primary-fixed selection:text-on-primary-fixed">
 
-    <?php include __DIR__ . '/includes/sidebar.php'; ?>
+    <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
     <main class="pl-0 md:pl-72 pt-16 md:pt-12 transition-all duration-300 ease-in-out">
-        <?php include __DIR__ . '/includes/header-data.php'; ?>
-        <?php include __DIR__ . '/includes/header.php'; ?>
+            <?php include __DIR__ . '/../includes/header-data.php'; ?>
+        <?php include __DIR__ . '/../includes/header.php'; ?>
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
             <div class="flex flex-col w-full gap-8">

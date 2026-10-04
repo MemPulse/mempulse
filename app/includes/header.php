@@ -39,7 +39,7 @@
         <!-- ANCHOR: User Account Dashboard Profile Link -->
         <a class="flex items-center gap-2" data-path="user-account" href="account.php" title="View Account Details">
             <!-- IMG: User Avatar Display Thumbnail -->
-            <img id="header-profile-img" alt="User Profile Avatar" class="w-7 h-7 md:w-8 md:h-8 rounded-full object-cover ring-2 ring-primary-fixed flex-shrink-0" src="./assets/images/profile-picture.webp.jpg">
+            <img id="header-profile-img" alt="User Profile Avatar" class="w-7 h-7 md:w-8 md:h-8 rounded-full object-cover ring-2 ring-primary-fixed flex-shrink-0" src="../assets/images/profile-picture.webp.jpg">
             
             <!-- DIV: Profile Description Wrapper -->
             <div class="flex flex-col min-w-0">
