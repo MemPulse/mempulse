@@ -15,18 +15,19 @@ $currentPage = "settings";
 ?>
 <!DOCTYPE html>
 <html lang="en">
-    <?php include __DIR__ . '/includes/head.php';?>
+
+<?php include __DIR__ . '/../includes/head.php'; ?>
 
 <body class="bg-background font-body-md text-on-surface antialiased min-h-screen selection:bg-primary-fixed selection:text-on-primary-fixed">
 
-    <?php include __DIR__ . '\includes\sidebar.php'; ?>
+    <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
-     <main class="pl-72 pt-12 transition-all duration-300 ease-in-out">
+    <main class="pt-16 pl-0 md:pl-72 transition-all duration-300 ease-in-out">
+        <?php include __DIR__ . '/../includes/header-data.php'; ?>    
+        <?php include __DIR__ . '/../includes/header.php'; ?>
         
-        <?php include __DIR__ . '\includes\header-data.php'; ?>
-        <?php include __DIR__ . '\includes\header.php'; ?>
+        <!-- Page-specific content goes here -->
     </main>
-    <?php include __DIR__ . '/includes/footer.php'; ?>
 
 </body>
 </html>

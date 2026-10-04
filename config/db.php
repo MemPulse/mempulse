@@ -1,15 +1,20 @@
 <?php
-//Step 1: Define connection credentials
+//Connection credentials
 $host = "localhost";
 $user = "root";
 $password = "";
 $database = "mempulse_db";
 
-//Step 2: Create connection object
+//Connection object
 $conn = mysqli_connect($host, $user, $password, $database);
 
-//step 3: check for connection errors
+//Checking connection
 if (!$conn) {
     die("Connection failed: " . mysqli_connect_error());
+}
+
+//Defining base url
+if (!defined('BASE_URL')) {
+    define('BASE_URL', '/mempulse/app/');
 }
 ?>

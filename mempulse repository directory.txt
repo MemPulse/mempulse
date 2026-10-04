@@ -1,0 +1,60 @@
+PS C:\xampp\htdocs\mempulse> tree /f
+Folder PATH listing
+Volume serial number is 8E4B-9250
+C:.
+│   database-design.md
+│   README.md
+│   sampleData.txt
+│   
+├───app
+│   │   dashboard.php
+│   │   reports.php
+│   │   review.php
+│   │   science.php
+│   │   settings.php
+│   │   
+│   ├───api
+│   │       DashboardService.php
+│   │       deck-actions.php
+│   │       
+│   ├───assets
+│   │   ├───css
+│   │   │       app.css
+│   │   │       
+│   │   ├───images
+│   │   │       decks-hero-icon.png
+│   │   │       flashcards-hero-icon.png
+│   │   │       forgetting-curve-hero-image.webp
+│   │   │       mempulse-logo.png
+│   │   │       profile-picture.webp.jpg
+│   │   │       
+│   │   └───js
+│   │           hero-carousel.js
+│   │           
+│   ├───includes
+│   │       head.php
+│   │       header-data.php
+│   │       header.php
+│   │       sidebar.php
+│   │       
+│   └───views
+│           decks.php
+│           index.php
+│           
+├───authentication
+│       login.php
+│       logout.php
+│       privacy-policy.html
+│       register.php
+│       script.js
+│       styles.css
+│       terms.html
+│       
+├───config
+│       db.php
+│       
+└───landing-page
+        about.html
+        index.html
+        style.css
+        
