@@ -405,7 +405,9 @@ main::-webkit-scrollbar {
 }
 
 
-/* Side Editor Panel Collapse State */
-#card-editor-panel.collapsed {
+/* ==========================================================================
+   Sidebar Card Editor Collapse State
+   ========================================================================== */
+#card-editor-sidebar.collapsed #sidebar-content-wrapper {
     display: none !important;
 }

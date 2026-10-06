@@ -1,6 +1,6 @@
 <?php
 /**
- * Deck View Template with Tabulator Data Grid & Card View Modal
+ * Deck View Template with Tabulator Data Grid & Persistent Sidebar Card Editor / Mobile Modal
  */
 ?>
 <link href="https://unpkg.com/tabulator-tables@5.5.0/dist/css/tabulator_simple.min.css" rel="stylesheet">
@@ -8,10 +8,87 @@
 
 <script>
     window.MemPulseDeckData = window.MemPulseDeckData || {};
-    // Normalize $flashcards array indices using array_values()
     window.MemPulseDeckData.flashcards = <?= json_encode(array_values($flashcards ?? []), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
     window.MemPulseDeckData.archivedFlashcards = <?= json_encode(array_values($archivedFlashcards ?? []), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 </script>
+<style>
+:root{
+  --mp-g1:#4f46e5; --mp-g2:#7c3aed; --mp-g3:#d946ef;   /* change these 3 to re-theme */
+  --mp-pane-h:clamp(440px, calc(100vh - 17rem), 780px); /* grid + editor height */
+}
+@supports (height:100dvh){ :root{ --mp-pane-h:clamp(440px, calc(100dvh - 17rem), 780px); } }
+
+/* Layout: editor column exists on desktop only */
+.mp-workspace{display:grid;grid-template-columns:minmax(0,1fr);gap:1.5rem;align-items:stretch}
+@media (min-width:1024px){
+  .mp-workspace{grid-template-columns:minmax(0,1fr) clamp(340px,30vw,440px)}
+  .mp-workspace.editor-collapsed{grid-template-columns:minmax(0,1fr)}
+}
+.mp-pane{height:var(--mp-pane-h);min-height:0}
+.mp-table-pane{display:flex;flex-direction:column;overflow:hidden;border-radius:1rem}
+.mp-grid-fill{flex:1 1 0;min-height:0}
+.mp-editor{display:none}
+@media (min-width:1024px){ .mp-editor{display:flex} }
+.mp-editor.mp-collapsed{display:none!important}
+.mp-footer[hidden],.mp-footer [hidden],.mp-peek[hidden]{display:none!important}
+
+/* Gradient shell (editor + modal) */
+.mp-shell{padding:1.5px;border-radius:1.125rem;
+  background:linear-gradient(135deg,var(--mp-g1),var(--mp-g2) 50%,var(--mp-g3));
+  box-shadow:0 18px 40px -18px rgba(99,102,241,.55),0 6px 16px -8px rgba(0,0,0,.18)}
+.mp-shell-inner{display:flex;flex-direction:column;height:100%;min-height:0;overflow:hidden;border-radius:calc(1.125rem - 1.5px)}
+.mp-head{position:relative;display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.9rem 1rem;color:#fff;
+  background:linear-gradient(135deg,var(--mp-g1) 0%,var(--mp-g2) 55%,var(--mp-g3) 100%)}
+.mp-head::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(120% 140% at 100% 0%,rgba(255,255,255,.25),transparent 55%)}
+.mp-head>*{position:relative;z-index:1}
+.mp-head-btn{width:2rem;height:2rem;display:inline-flex;align-items:center;justify-content:center;border-radius:.6rem;
+  background:rgba(255,255,255,.16);color:#fff;transition:background .15s}
+.mp-head-btn:hover{background:rgba(255,255,255,.3)}
+.mp-body{flex:1 1 auto;min-height:0;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:1rem}
+.mp-foot{display:flex;justify-content:flex-end;gap:.5rem;padding:.75rem 1rem;border-top:1px solid rgba(124,58,237,.15);background:rgba(124,58,237,.04)}
+.mp-field:focus{outline:none;border-color:var(--mp-g2);box-shadow:0 0 0 3px rgba(124,58,237,.18)}
+
+/* Buttons */
+.mp-btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem .9rem;border-radius:.75rem;font-size:.8125rem;font-weight:600;transition:transform .15s,box-shadow .15s,opacity .15s}
+.mp-btn-icon{padding:.45rem}
+.mp-btn-gradient{color:#fff;background:linear-gradient(135deg,var(--mp-g1),var(--mp-g2) 55%,var(--mp-g3));box-shadow:0 6px 16px -6px rgba(124,58,237,.7)}
+.mp-btn-gradient:hover{transform:translateY(-1px);box-shadow:0 10px 20px -8px rgba(124,58,237,.8)}
+.mp-btn-gradient:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.mp-btn-ghost{color:var(--mp-g2);border:1px solid rgba(124,58,237,.3);background:transparent}
+.mp-btn-ghost:hover{background:rgba(124,58,237,.08)}
+.mp-spin{animation:mp-spin 1s linear infinite}
+@keyframes mp-spin{to{transform:rotate(360deg)}}
+
+/* Lazy-load footer */
+.mp-footer{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.625rem .875rem;
+  border-top:1px solid rgba(124,58,237,.18);background:linear-gradient(90deg,rgba(79,70,229,.06),rgba(217,70,239,.06))}
+.mp-footer-info{display:flex;flex-direction:column;gap:.35rem;min-width:0;flex:1}
+.mp-progress{height:4px;max-width:260px;border-radius:999px;background:rgba(124,58,237,.15);overflow:hidden}
+.mp-progress>span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--mp-g1),var(--mp-g3));transition:width .3s ease}
+
+/* Peek tab (collapsed editor, desktop only) */
+.mp-peek{position:fixed;right:0;top:50%;z-index:40;transform:translate(8px,-50%);display:flex;flex-direction:column;align-items:center;gap:.5rem;
+  padding:.9rem .55rem;border-radius:.9rem 0 0 .9rem;color:#fff;font-weight:700;font-size:.75rem;letter-spacing:.08em;
+  background:linear-gradient(180deg,var(--mp-g1),var(--mp-g2) 55%,var(--mp-g3));box-shadow:-8px 8px 24px -8px rgba(99,102,241,.6);transition:transform .2s}
+.mp-peek:hover,.mp-peek:focus-visible{transform:translate(0,-50%)}
+.mp-peek-label{writing-mode:vertical-rl;text-transform:uppercase}
+@media (max-width:1023.98px){ .mp-peek{display:none!important} }
+
+/* Modal (mobile + tablet) */
+dialog.mp-modal{position:fixed;inset:0;margin:auto;padding:0;border:0;background:transparent;color:inherit;
+  width:min(94vw,38rem);max-width:none;max-height:92vh;max-height:92dvh;overflow:visible}
+dialog.mp-modal::backdrop{background:rgba(15,23,42,.6);backdrop-filter:blur(6px)}
+dialog.mp-modal[open]{animation:mp-pop .18s ease-out}
+dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dvh - 3px)}
+@keyframes mp-pop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+
+/* Grid: view-only look */
+#flashcards-tabulator-grid .tabulator-row{cursor:pointer}
+#flashcards-tabulator-grid .tabulator-row.tabulator-selected,
+#flashcards-tabulator-grid .tabulator-row.tabulator-selected:hover{
+  background:linear-gradient(90deg,rgba(99,102,241,.22),rgba(217,70,239,.10))!important;box-shadow:inset 3px 0 0 var(--mp-g2)}
+</style>
 
 <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
     <div class="flex flex-col w-full gap-6">
@@ -23,8 +100,8 @@
             <span class="text-on-surface font-semibold truncate max-w-[200px] sm:max-w-xs"><?= FlashcardService::h($deck['title']) ?></span>
         </nav>
 
-        <!-- DECK HEADER BAR (single row) -->
-        <div class="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-surface-container-lowest border border-outline-variant/30 shadow-xs">
+        <!-- DECK HEADER BAR -->
+        <div class="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-surface-container-lowest border border-outline-variant/30 shadow-xs">
             <div class="flex items-center gap-3 min-w-0 text-sm text-on-surface-variant">
                 <h1 class="font-headline-sm text-headline-sm font-bold tracking-tight text-on-surface truncate"
                     title="<?= FlashcardService::h($deck['title']) ?>">
@@ -66,93 +143,191 @@
             </div>
         </div>
 
-        <!-- ARCHIVE NOTICE (shown only in archive view) -->
-        <div id="archive-banner" class="hidden flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-sm">
+        <!-- ARCHIVE NOTICE -->
+        <div id="archive-banner" class="hidden flex items-center gap-2 px-4 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm">
             <span class="material-symbols-outlined text-[18px]">info</span>
             <span>Archived cards are permanently deleted after <?= ArchiveService::RETENTION_DAYS ?> days. Restore a card to keep it.</span>
         </div>
 
-        <!-- MAIN TABULATOR GRID WORKSPACE -->
-        <div id="table-wrapper" class="w-full overflow-hidden rounded-2xl bg-surface-container-lowest border border-outline-variant/30 shadow-xs flex flex-col min-h-[300px]">
-            <!-- Empty state displayed when flashcards array is empty -->
-            <div id="no-cards-empty-state" class="p-12 flex-col items-center justify-center gap-3 text-center bg-surface-container-low/20 <?= empty($flashcards) ? 'flex' : 'hidden' ?>">
-                <h3 id="empty-state-title" class="font-bold text-on-surface">No flashcards yet</h3>
-                <p id="empty-state-text" class="text-on-surface-variant text-sm">Click "Create Card" to add your first card.</p>
+        <!-- MAIN WORKSPACE: view-only grid + desktop-only card editor -->
+        <div id="mp-workspace" class="mp-workspace">
+
+            <!-- LEFT: VIEW-ONLY TABULATOR GRID -->
+            <div id="table-wrapper" class="mp-pane mp-table-pane bg-surface-container-lowest border border-outline-variant/30 shadow-xs">
+                <div id="no-cards-empty-state" class="flex-1 p-12 flex-col items-center justify-center gap-3 text-center bg-surface-container-low/20 <?= empty($flashcards) ? 'flex' : 'hidden' ?>">
+                    <h3 id="empty-state-title" class="font-bold text-on-surface">No flashcards yet</h3>
+                    <p id="empty-state-text" class="text-on-surface-variant text-sm">Click "Create Card" to add your first card.</p>
+                </div>
+
+                <div id="flashcards-tabulator-grid" class="mp-grid-fill w-full <?= empty($flashcards) ? 'hidden' : '' ?>"></div>
+
+                <!-- Lazy-load footer: progress + wayfinding -->
+                <div id="grid-footer" class="mp-footer" <?= empty($flashcards) ? 'hidden' : '' ?>>
+                    <div class="mp-footer-info">
+                        <span id="grid-range-label" class="text-xs font-semibold text-on-surface-variant">Showing cards…</span>
+                        <div class="mp-progress"><span id="grid-progress-bar" style="width:0%"></span></div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" id="grid-top-btn" class="mp-btn mp-btn-ghost mp-btn-icon" title="Back to top" aria-label="Back to top" hidden>
+                            <span class="material-symbols-outlined text-[18px]">vertical_align_top</span>
+                        </button>
+                        <button type="button" id="grid-load-more-btn" class="mp-btn mp-btn-gradient">
+                            <span id="grid-load-more-icon" class="material-symbols-outlined text-[18px]">expand_more</span>
+                            <span id="grid-load-more-label">Load 50 more</span>
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            <!-- Tabulator table target -->
-            <div id="flashcards-tabulator-grid" class="w-full <?= empty($flashcards) ? 'hidden' : '' ?>"></div>
+            <!-- RIGHT: CARD EDITOR (desktop only, hidden below 1024px via CSS) -->
+            <aside id="card-editor-sidebar" class="mp-editor mp-pane mp-shell" aria-label="Card editor">
+                <div class="mp-shell-inner bg-surface-container-lowest">
+
+                    <div class="mp-head">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <span class="material-symbols-outlined text-[24px]">edit_note</span>
+                            <div class="min-w-0">
+                                <h3 id="sidebar-title" class="text-[15px] font-bold leading-tight truncate">Card Editor</h3>
+                                <p id="sidebar-position" class="text-[11px] text-white/80 leading-tight truncate">Use ↑ ↓ to browse</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <button type="button" id="sidebar-prev-btn" class="mp-head-btn" title="Previous card (↑)" aria-label="Previous card">
+                                <span class="material-symbols-outlined text-[20px]">keyboard_arrow_up</span>
+                            </button>
+                            <button type="button" id="sidebar-next-btn" class="mp-head-btn" title="Next card (↓)" aria-label="Next card">
+                                <span class="material-symbols-outlined text-[20px]">keyboard_arrow_down</span>
+                            </button>
+                            <button type="button" id="toggle-sidebar-collapse" class="mp-head-btn" title="Collapse editor" aria-label="Collapse editor">
+                                <span id="toggle-sidebar-icon" class="material-symbols-outlined text-[20px]">chevron_right</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="sidebar-content-wrapper" class="flex flex-col flex-1 min-h-0">
+                        <form id="sidebar-card-form" class="flex flex-col flex-1 min-h-0" novalidate>
+                            <div class="mp-body">
+                                <input type="hidden" id="sidebar-card-id" value="">
+
+                                <div class="flex flex-col gap-1.5">
+                                    <label for="sidebar-card-front" class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Front Content</label>
+                                    <textarea id="sidebar-card-front" rows="4" maxlength="5000" placeholder="Select a card to edit..." class="mp-field w-full p-3 rounded-xl border border-outline-variant/50 bg-surface text-on-surface text-base font-medium resize-y transition-colors"></textarea>
+                                </div>
+
+                                <div class="flex flex-col gap-1.5">
+                                    <label for="sidebar-card-back" class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Back Content</label>
+                                    <textarea id="sidebar-card-back" rows="4" maxlength="5000" placeholder="Select a card to edit..." class="mp-field w-full p-3 rounded-xl border border-outline-variant/50 bg-surface text-on-surface text-base font-medium resize-y transition-colors"></textarea>
+                                </div>
+
+                                <div class="flex flex-col gap-1.5">
+                                    <label for="sidebar-card-due" class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Next Review Date (Due)</label>
+                                    <input type="datetime-local" id="sidebar-card-due" class="mp-field w-full p-2.5 rounded-xl border border-outline-variant/50 bg-surface text-on-surface text-sm transition-colors">
+                                </div>
+
+                                <p id="sidebar-card-error" class="hidden text-rose-700 text-[13px]" role="alert"></p>
+
+                                <div id="sidebar-card-details" class="flex flex-col gap-2 pt-3 border-t border-outline-variant/20 text-xs text-on-surface-variant">
+                                    <span class="font-bold uppercase tracking-wider text-[10px] text-on-surface">Card Details</span>
+                                    <div class="grid grid-cols-2 gap-2 bg-surface-container-low p-3 rounded-xl border border-outline-variant/20">
+                                        <div><span class="text-outline">Last Reviewed:</span> <span id="det-last-reviewed" class="font-semibold text-on-surface">Never</span></div>
+                                        <div><span class="text-outline">Accuracy:</span> <span id="det-accuracy" class="font-semibold text-on-surface">—</span></div>
+                                        <div><span class="text-outline">Speed:</span> <span id="det-speed" class="font-semibold text-on-surface">—</span></div>
+                                        <div><span class="text-outline">Interval:</span> <span id="det-interval" class="font-semibold text-on-surface">—</span></div>
+                                        <div><span class="text-outline">Reviews:</span> <span id="det-reviews" class="font-semibold text-on-surface">0</span></div>
+                                        <div><span class="text-outline">Lapses:</span> <span id="det-lapses" class="font-semibold text-on-surface">0</span></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mp-foot">
+                                <button type="submit" id="sidebar-save-btn" class="mp-btn mp-btn-gradient disabled:opacity-60">
+                                    <span class="material-symbols-outlined text-[18px]">save</span>
+                                    <span>Save Changes</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </aside>
         </div>
+
+        <!-- Peek tab: shown only when the editor is collapsed (desktop) -->
+        <button type="button" id="editor-peek-tab" class="mp-peek" hidden title="Open card editor" aria-label="Open card editor">
+            <span class="material-symbols-outlined text-[20px]">edit_note</span>
+            <span class="mp-peek-label">Card Editor</span>
+            <span class="material-symbols-outlined text-[18px]">chevron_left</span>
+        </button>
     </div>
 </div>
 
-<!-- FLASHCARD VIEW / EDIT MODAL DIALOG -->
-<dialog id="card-editor-modal" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 m-0 rounded-2xl p-0 w-full max-w-xl bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-2xl backdrop:bg-black/50">
-    <div class="p-6 flex flex-col gap-5 relative">
-        
-        <!-- Modal Header with Right-Aligned 'x' Icon -->
-        <div class="flex items-center justify-between border-b border-outline-variant/20 pb-3 pr-8">
-            <h3 id="modal-title" class="font-headline-sm text-[18px] font-bold text-on-surface">View / Edit Flashcard</h3>
-            <button type="button" id="close-modal-btn" class="absolute top-5 right-5 p-1 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container transition-colors" title="Close">
-                <span class="material-symbols-outlined text-[22px]">close</span>
-            </button>
-        </div>
-
-        <!-- Form Body -->
-        <form id="modal-card-form" class="flex flex-col gap-4" novalidate>
-            <input type="hidden" id="modal-card-id" value="">
-
-            <!-- Front Textarea -->
-            <div class="flex flex-col gap-1.5">
-                <label for="modal-card-front" class="text-[12px] font-bold uppercase tracking-wider text-on-surface-variant">Front Content</label>
-                <textarea id="modal-card-front" rows="3" maxlength="5000" placeholder="Type or click to edit front side content..." class="w-full p-3 rounded-xl border border-outline-variant/50 bg-surface text-on-surface focus:outline-none focus:border-primary text-sm resize-y transition-colors"></textarea>
-            </div>
-
-            <!-- Back Textarea -->
-            <div class="flex flex-col gap-1.5">
-                <label for="modal-card-back" class="text-[12px] font-bold uppercase tracking-wider text-on-surface-variant">Back Content</label>
-                <textarea id="modal-card-back" rows="3" maxlength="5000" placeholder="Type or click to edit back side content..." class="w-full p-3 rounded-xl border border-outline-variant/50 bg-surface text-on-surface focus:outline-none focus:border-primary text-sm resize-y transition-colors"></textarea>
-            </div>
-
-            <!-- Due Date Input (Today + Future Calendar Constraint) -->
-            <div class="flex flex-col gap-1.5">
-                <label for="modal-card-due" class="text-[12px] font-bold uppercase tracking-wider text-on-surface-variant">Next Review Date (Due)</label>
-                <input type="datetime-local" id="modal-card-due" class="w-full p-2.5 rounded-xl border border-outline-variant/50 bg-surface text-on-surface focus:outline-none focus:border-primary text-sm transition-colors">
-            </div>
-
-            <p id="modal-card-error" class="hidden text-rose-700 text-[13px]" role="alert"></p>
-
-            <!-- Save Action Button -->
-            <div class="flex items-center justify-end gap-2 pt-3 border-t border-outline-variant/20">
-                <button type="button" data-close-dialog class="px-4 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-xs transition-colors">Cancel</button>
-                <button type="submit" id="modal-save-btn" class="px-5 py-2 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-semibold text-xs transition-colors disabled:opacity-60 flex items-center gap-1.5 shadow-xs">
-                    <span class="material-symbols-outlined text-[16px]">save</span>
-                    <span>Save</span>
+<!-- CARD MODAL (mobile + tablet) -->
+<dialog id="card-editor-modal" class="mp-modal">
+    <div class="mp-shell">
+        <div class="mp-shell-inner bg-surface-container-lowest">
+            <div class="mp-head">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <span class="material-symbols-outlined text-[24px]">style</span>
+                    <h3 id="modal-title" class="text-[17px] font-bold truncate">View / Edit Flashcard</h3>
+                </div>
+                <button type="button" id="close-modal-btn" class="mp-head-btn" title="Close" aria-label="Close">
+                    <span class="material-symbols-outlined text-[22px]">close</span>
                 </button>
             </div>
-        </form>
+
+            <form id="modal-card-form" class="flex flex-col flex-1 min-h-0" novalidate>
+                <div class="mp-body">
+                    <input type="hidden" id="modal-card-id" value="">
+
+                    <div class="flex flex-col gap-1.5">
+                        <label for="modal-card-front" class="text-[12px] font-bold uppercase tracking-wider text-on-surface-variant">Front Content</label>
+                        <textarea id="modal-card-front" rows="4" maxlength="5000" placeholder="Type front side content..." class="mp-field w-full p-3 rounded-xl border border-outline-variant/50 bg-surface text-on-surface text-base font-medium resize-y transition-colors"></textarea>
+                    </div>
+
+                    <div class="flex flex-col gap-1.5">
+                        <label for="modal-card-back" class="text-[12px] font-bold uppercase tracking-wider text-on-surface-variant">Back Content</label>
+                        <textarea id="modal-card-back" rows="4" maxlength="5000" placeholder="Type back side content..." class="mp-field w-full p-3 rounded-xl border border-outline-variant/50 bg-surface text-on-surface text-base font-medium resize-y transition-colors"></textarea>
+                    </div>
+
+                    <div class="flex flex-col gap-1.5">
+                        <label for="modal-card-due" class="text-[12px] font-bold uppercase tracking-wider text-on-surface-variant">Next Review Date (Due)</label>
+                        <input type="datetime-local" id="modal-card-due" class="mp-field w-full p-2.5 rounded-xl border border-outline-variant/50 bg-surface text-on-surface text-sm transition-colors">
+                    </div>
+
+                    <p id="modal-card-error" class="hidden text-rose-700 text-[13px]" role="alert"></p>
+                </div>
+
+                <div class="mp-foot">
+                    <button type="button" data-close-dialog class="mp-btn mp-btn-ghost">Cancel</button>
+                    <button type="submit" id="modal-save-btn" class="mp-btn mp-btn-gradient">
+                        <span class="material-symbols-outlined text-[18px]">save</span>
+                        <span>Save</span>
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 </dialog>
 
 <!-- DELETE CONFIRMATION DIALOG -->
-<dialog id="delete-card-dialog" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 m-0 rounded-2xl p-0 w-full max-w-md bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
+<dialog id="delete-card-dialog" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 m-0 rounded-lg p-0 w-full max-w-md bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
     <div class="p-6 flex flex-col gap-4">
         <h3 class="font-headline-sm text-[18px] font-bold text-rose-700 flex items-center gap-2">
             <span class="material-symbols-outlined text-[22px]">warning</span>
             <span>Delete permanently?</span>
         </h3>
         <p class="text-on-surface-variant text-[14px]">
-        This card will be permanently deleted. This action cannot be undone.        </p>
+            This card will be permanently deleted. This action cannot be undone.
+        </p>
         <p id="delete-card-error" class="hidden text-rose-700 text-[13px]" role="alert"></p>
         <div class="flex justify-end gap-2.5">
-            <button type="button" data-close-dialog class="px-4 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-[14px] transition-colors">Cancel</button>
-            <button type="button" id="delete-card-confirm" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-[14px] transition-colors disabled:opacity-60">Delete Card</button>
+            <button type="button" data-close-dialog class="px-4 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-[14px] transition-colors">Cancel</button>
+            <button type="button" id="delete-card-confirm" class="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold text-[14px] transition-colors disabled:opacity-60">Delete Card</button>
         </div>
     </div>
 </dialog>
 
-<!-- ROW OVERFLOW MENU (positioned by JS) -->
-<div id="card-actions-menu" class="hidden fixed z-50 min-w-[170px] rounded-xl bg-surface-container-lowest border border-outline-variant/40 shadow-xl py-1">
+<!-- ROW OVERFLOW MENU -->
+<div id="card-actions-menu" class="hidden fixed z-50 min-w-[170px] rounded-lg bg-surface-container-lowest border border-outline-variant/40 shadow-xl py-1">
     <button type="button" data-menu-action="duplicate" class="w-full flex items-center gap-2 px-3 py-2 text-sm text-on-surface hover:bg-surface-container text-left">
         <span class="material-symbols-outlined text-[18px]">content_copy</span>
         <span>Duplicate</span>
