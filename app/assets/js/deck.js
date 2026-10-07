@@ -225,7 +225,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (isSidebarCollapsed && expand) setSidebarCollapsed(false);
     }
 
-    // Row Navigation Function (Up / Down)
     async function navigateSidebarRow(direction, { expand = true } = {}) {
         if (!tabulatorTable) return;
         let rows = tabulatorTable.getRows();
@@ -245,6 +244,9 @@ document.addEventListener("DOMContentLoaded", () => {
             target = rows[idx - 1];
         }
         if (!target) return;                                   // already at first/last card
+
+        // Explicitly remove highlighting from previously navigated rows
+        tabulatorTable.getSelectedRows().forEach(row => row.deselectRow());
 
         target.select();
         populateSidebar(target.getData(), target, { expand });
@@ -463,7 +465,7 @@ document.addEventListener("DOMContentLoaded", () => {
             layout: "fitDataFill",
             height: "100%",                        // fills .mp-pane (replaces maxHeight)
             responsiveLayout: false,
-            selectable: 1,                         // select-only: the grid has no cell editors
+            selectableRows: 1,                         // select-only: the grid has no cell editors
             resizableColumnFit: false,
             columnDefaults: { headerSort: false }, // sorting 50 of N rows would mislead
             placeholder: "No Flashcards Available",

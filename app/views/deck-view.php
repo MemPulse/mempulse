@@ -36,7 +36,7 @@
 .mp-shell{padding:1.5px;border-radius:1.125rem;
   background:linear-gradient(135deg,var(--mp-g1),var(--mp-g2) 50%,var(--mp-g3));
   box-shadow:0 18px 40px -18px rgba(99,102,241,.55),0 6px 16px -8px rgba(0,0,0,.18)}
-.mp-shell-inner{display:flex;flex-direction:column;height:100%;min-height:0;overflow:hidden;border-radius:calc(1.125rem - 1.5px)}
+.mp-shell-inner{display:flex;flex-direction:column;height:100%;height:100%;min-height:0;overflow:hidden;border-radius:calc(1.125rem - 1.5px)}
 .mp-head{position:relative;display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.9rem 1rem;color:#fff;
   background:linear-gradient(135deg,var(--mp-g1) 0%,var(--mp-g2) 55%,var(--mp-g3) 100%)}
 .mp-head::after{content:"";position:absolute;inset:0;pointer-events:none;
@@ -181,7 +181,7 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
 
             <!-- RIGHT: CARD EDITOR (desktop only, hidden below 1024px via CSS) -->
             <aside id="card-editor-sidebar" class="mp-editor mp-pane mp-shell" aria-label="Card editor">
-                <div class="mp-shell-inner bg-surface-container-lowest">
+                <div class="mp-shell-inner bg-surface-container-lowest w-full flex-1">
 
                     <div class="mp-head">
                         <div class="flex items-center gap-2.5 min-w-0">
