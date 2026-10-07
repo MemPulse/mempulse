@@ -3,6 +3,21 @@ if (!defined('BASE_URL')) {
     define('BASE_URL', '/mempulse/app/');
 }
 $currentPage = $currentPage ?? '';
+
+// Calculate total due cards globally for the sidebar badge
+$sidebarDueCount = 0;
+if (isset($_SESSION['user_id']) && isset($conn)) {
+    $sidebarSql = "SELECT COUNT(*) FROM flashcards f 
+                   JOIN decks d ON f.deck_id = d.id 
+                   WHERE d.user_id = ? AND f.deleted_at IS NULL AND f.next_review_at <= NOW()";
+    if ($sidebarStmt = mysqli_prepare($conn, $sidebarSql)) {
+        mysqli_stmt_bind_param($sidebarStmt, "i", $_SESSION['user_id']);
+        mysqli_stmt_execute($sidebarStmt);
+        mysqli_stmt_bind_result($sidebarStmt, $sidebarDueCount);
+        mysqli_stmt_fetch($sidebarStmt);
+        mysqli_stmt_close($sidebarStmt);
+    }
+}
 ?>
 
 <!-- Mobile Overlay -->
@@ -51,6 +66,14 @@ $currentPage = $currentPage ?? '';
                 <span class="material-symbols-outlined text-[24px] text-on-surface-variant group-hover:text-on-surface transition-colors">pace</span>
                 <span class="sidebar-text transition-opacity duration-200">Review</span>
             </div>
+            
+            <?php if ($sidebarDueCount > 0): ?>
+                <div class="sidebar-text transition-opacity duration-200">
+                    <span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200/50 font-bold text-[11px] shadow-sm">
+                        <?= $sidebarDueCount ?>
+                    </span>
+                </div>
+            <?php endif; ?>
         </a>
 
         <!-- Reports -->
