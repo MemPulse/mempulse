@@ -22,6 +22,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // DOM Elements
     const gridContainer = document.getElementById('flashcards-tabulator-grid');
+    const jumpRail = document.getElementById('grid-jump-rail');
     const tableWrapper = document.getElementById('table-wrapper');
     const emptyState = document.getElementById('no-cards-empty-state');
     const cardCountLabel = document.getElementById('deck-card-count-label');
@@ -195,9 +196,10 @@ document.addEventListener("DOMContentLoaded", () => {
     function updatePositionLabel() {
         if (!positionLabel) return;
         const total = viewArchived ? archivedCards : totalCards;
-        if (!selectedSidebarCardId || !tabulatorTable) { positionLabel.textContent = 'New card'; return; }
+        if (!selectedSidebarCardId || !tabulatorTable) { positionLabel.textContent = 'New card'; highlightJumpRail(-1); return; }
         const idx = tabulatorTable.getRows().findIndex(r => Number(r.getData().id) === selectedSidebarCardId);
         positionLabel.textContent = idx === -1 ? 'Use ↑ ↓ to browse' : `Card ${idx + 1} of ${total} · ↑ ↓ to browse`;
+        highlightJumpRail(idx);
     }
 
     // Populate Sidebar Editor with selected card data & metadata details
@@ -225,32 +227,47 @@ document.addEventListener("DOMContentLoaded", () => {
         if (isSidebarCollapsed && expand) setSidebarCollapsed(false);
     }
 
-    async function navigateSidebarRow(direction, { expand = true } = {}) {
+    function pageStep() {
+        const holder = gridContainer.querySelector('.tabulator-tableholder');
+        const first = tabulatorTable.getRows()[0];
+        const rowH = first ? first.getElement().offsetHeight : 0;
+        if (!holder || !rowH) return 10;
+        return Math.max(1, Math.floor(holder.clientHeight / rowH) - 1);   // one screenful, minus one row of overlap
+    }
+
+    // Make sure row #index (0-based) is rendered, pulling 50 more at a time
+    async function ensureLoaded(index) {
+        while (tabulatorTable.getDataCount() <= index && pending.length) {
+            if (loadingMore) { await new Promise((r) => setTimeout(r, 30)); continue; }
+            await loadMore();
+        }
+    }
+
+    // Single place that makes a row "the" selected row: one highlight, editor in sync
+    function activateRow(row, { expand = true, position = 'nearest' } = {}) {
+        tabulatorTable.deselectRow(tabulatorTable.getSelectedRows());
+        row.select();
+        if (isDesktopView()) populateSidebar(row.getData(), row, { expand });
+        Promise.resolve(row.scrollTo(position, false)).catch(() => { });
+    }
+
+    async function navigateSidebarRow(direction, { expand = true, step = 1 } = {}) {
         if (!tabulatorTable) return;
         let rows = tabulatorTable.getRows();
         if (!rows.length) return;
 
         const idx = rows.findIndex(r => Number(r.getData().id) === selectedSidebarCardId);
-        let target;
-        if (idx === -1) {
-            target = direction === 'next' ? rows[0] : rows[rows.length - 1];
-        } else if (direction === 'next') {
-            if (idx === rows.length - 1 && pending.length) {   // end of loaded slice: pull the next 50
-                await loadMore();
-                rows = tabulatorTable.getRows();
-            }
-            target = rows[idx + 1];
-        } else {
-            target = rows[idx - 1];
+        let targetIdx;
+        if (idx === -1) targetIdx = direction === 'next' ? 0 : rows.length - 1;
+        else targetIdx = direction === 'next' ? idx + step : idx - step;
+
+        if (targetIdx > rows.length - 1) {                 // past the loaded slice: pull more first
+            await ensureLoaded(targetIdx);
+            rows = tabulatorTable.getRows();
         }
-        if (!target) return;                                   // already at first/last card
-
-        // Explicitly remove highlighting from previously navigated rows
-        tabulatorTable.deselectRow(tabulatorTable.getSelectedRows());
-
-        target.select();
-        populateSidebar(target.getData(), target, { expand });
-        Promise.resolve(target.scrollTo('nearest', false)).catch(() => { });
+        targetIdx = Math.max(0, Math.min(targetIdx, rows.length - 1));   // clamp at first/last card
+        if (targetIdx === idx) return;
+        activateRow(rows[targetIdx], { expand });
     }
 
     if (sidebarPrevBtn) {
@@ -261,13 +278,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ↑ / ↓ browse cards on desktop (ignored while typing in a field or when a dialog is open)
+    const NAV_KEYS = {
+        ArrowDown: ['next', false], ArrowUp: ['prev', false],
+        PageDown: ['next', true], PageUp: ['prev', true],
+    };
     document.addEventListener('keydown', (e) => {
-        if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+        const nav = NAV_KEYS[e.key];
+        if (!nav) return;
         if (!isDesktopView() || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
         if (document.querySelector('dialog[open]')) return;
         if (e.target instanceof Element && e.target.closest('input, textarea, select, [contenteditable="true"]')) return;
         e.preventDefault();
-        navigateSidebarRow(e.key === 'ArrowDown' ? 'next' : 'prev', { expand: false });
+        navigateSidebarRow(nav[0], { expand: false, step: nav[1] ? pageStep() : 1 });
     });
 
     // Modal Control Handlers (For Mobile View)
@@ -349,6 +371,7 @@ document.addEventListener("DOMContentLoaded", () => {
         loadMoreBtn.disabled = loadingMore;
         loadMoreIcon.textContent = loadingMore ? 'progress_activity' : 'expand_more';
         loadMoreIcon.classList.toggle('mp-spin', loadingMore);
+        renderJumpRail();
     }
 
     function loadFirstPage(list) {
@@ -378,9 +401,68 @@ document.addEventListener("DOMContentLoaded", () => {
         if (topBtn) topBtn.addEventListener('click', () => holder.scrollTo({ top: 0, behavior: 'smooth' }));
     }
     if (loadMoreBtn) loadMoreBtn.addEventListener('click', loadMore);
+    // ---- Jump rail: clickable record ranges beside the grid ----
+    const MAX_RAIL_BUTTONS = 16;
+    let railStep = PAGE_SIZE;
+    let railTotal = -1;
+
+    function renderJumpRail() {
+        if (!jumpRail) return;
+        const total = tabulatorTable ? tabulatorTable.getDataCount() + pending.length : 0;
+        if (total === railTotal) return;
+        railTotal = total;
+        jumpRail.textContent = '';
+        if (total <= PAGE_SIZE) { jumpRail.hidden = true; return; }
+
+        railStep = PAGE_SIZE * Math.ceil(total / PAGE_SIZE / MAX_RAIL_BUTTONS);
+        for (let start = 0; start < total; start += railStep) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.dataset.start = start;
+            b.textContent = start + 1;
+            b.title = `Jump to card ${start + 1}`;
+            b.setAttribute('aria-label', `Jump to card ${start + 1}`);
+            jumpRail.appendChild(b);
+        }
+        jumpRail.hidden = false;
+        const idx = selectedSidebarCardId
+            ? tabulatorTable.getRows().findIndex(r => Number(r.getData().id) === selectedSidebarCardId)
+            : -1;
+        highlightJumpRail(idx);
+    }
+
+    function highlightJumpRail(idx) {
+        if (!jumpRail || jumpRail.hidden) return;
+        const start = idx < 0 ? -1 : Math.floor(idx / railStep) * railStep;
+        jumpRail.querySelectorAll('button').forEach((b) =>
+            b.classList.toggle('is-active', Number(b.dataset.start) === start));
+    }
+
+    async function jumpToRecord(index) {
+        if (!tabulatorTable) return;
+        await ensureLoaded(index);
+        const row = tabulatorTable.getRows()[index];
+        if (!row) return;
+        activateRow(row, { expand: false, position: 'top' });
+        highlightJumpRail(index);
+    }
+
+    if (jumpRail) jumpRail.addEventListener('click', (e) => {
+        const b = e.target.closest('button[data-start]');
+        if (b) jumpToRecord(Number(b.dataset.start));
+    });
 
     // 1. Tabulator Grid Setup
     const allColumns = [
+        {
+            title: "#",
+            formatter: "rownum",
+            hozAlign: "center", headerHozAlign: "center",
+            width: 56, minWidth: 56, maxWidth: 80,
+            resizable: false, frozen: true,
+            cssClass: "mp-rownum"
+        },
+
         {
             title: "Front",
             field: "front",
@@ -495,6 +577,18 @@ document.addEventListener("DOMContentLoaded", () => {
             if (isDesktopView()) populateSidebar(cardData, row);
             else openModalForEdit(cardData);
         });
+
+        let renumberQueued = false;
+        function renumberRows() {
+            if (renumberQueued || !tabulatorTable) return;
+            renumberQueued = true;
+            requestAnimationFrame(() => {
+                renumberQueued = false;
+                tabulatorTable.getRows().forEach((r) => r.reformat());
+            });
+        }
+        tabulatorTable.on("rowAdded", renumberRows);
+        tabulatorTable.on("rowDeleted", renumberRows);
     }
 
     // Crossing the breakpoint: the modal never coexists with the editor

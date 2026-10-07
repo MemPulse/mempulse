@@ -27,6 +27,16 @@
 .mp-pane{height:var(--mp-pane-h);min-height:0}
 .mp-table-pane{display:flex;flex-direction:column;overflow:hidden;border-radius:1rem}
 .mp-grid-fill{flex:1 1 0;min-height:0}
+.mp-grid-row{display:flex;flex:1 1 0;min-height:0}
+.mp-grid-row:has(#flashcards-tabulator-grid.hidden){display:none}
+.mp-grid-row > #flashcards-tabulator-grid{min-width:0}
+.mp-rail{flex:0 0 auto;width:2.75rem;display:flex;flex-direction:column;gap:2px;padding:.4rem .25rem;overflow-y:auto;scrollbar-width:none;border-left:1px solid rgba(124,58,237,.15);background:rgba(124,58,237,.03)}
+.mp-rail[hidden]{display:none}
+.mp-rail button{flex:0 0 auto;border:0;border-radius:.5rem;padding:.35rem 0;font-size:.6875rem;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;color:#64748b;background:transparent;cursor:pointer}
+.mp-rail button:hover{background:rgba(124,58,237,.12);color:var(--mp-g2)}
+.mp-rail button.is-active{color:#fff;background:linear-gradient(135deg,var(--mp-g1),var(--mp-g3))}
+.mp-rail button:focus-visible{outline:2px solid var(--mp-g2);outline-offset:1px}
+#flashcards-tabulator-grid .mp-rownum{color:#94a3b8;font-size:.75rem;font-variant-numeric:tabular-nums}
 .mp-editor{display:none}
 @media (min-width:1024px){ .mp-editor{display:flex} }
 .mp-editor.mp-collapsed{display:none!important}
@@ -159,8 +169,10 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
                     <p id="empty-state-text" class="text-on-surface-variant text-sm">Click "Create Card" to add your first card.</p>
                 </div>
 
-                <div id="flashcards-tabulator-grid" class="mp-grid-fill w-full <?= empty($flashcards) ? 'hidden' : '' ?>"></div>
-
+                <div class="mp-grid-row">
+                    <div id="flashcards-tabulator-grid" class="mp-grid-fill w-full <?= empty($flashcards) ? 'hidden' : '' ?>"></div>
+                    <nav id="grid-jump-rail" class="mp-rail" aria-label="Jump to card" hidden></nav>
+                </div>
                 <!-- Lazy-load footer: progress + wayfinding -->
                 <div id="grid-footer" class="mp-footer" <?= empty($flashcards) ? 'hidden' : '' ?>>
                     <div class="mp-footer-info">
