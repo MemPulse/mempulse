@@ -246,7 +246,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!target) return;                                   // already at first/last card
 
         // Explicitly remove highlighting from previously navigated rows
-        tabulatorTable.getSelectedRows().forEach(row => row.deselectRow());
+        tabulatorTable.deselectRow(tabulatorTable.getSelectedRows());
 
         target.select();
         populateSidebar(target.getData(), target, { expand });
@@ -465,7 +465,8 @@ document.addEventListener("DOMContentLoaded", () => {
             layout: "fitDataFill",
             height: "100%",                        // fills .mp-pane (replaces maxHeight)
             responsiveLayout: false,
-            selectableRows: 1,                         // select-only: the grid has no cell editors
+            selectable: 1,                         // select-only: the grid has no cell editors
+            selectableRollingSelection: true,
             resizableColumnFit: false,
             columnDefaults: { headerSort: false }, // sorting 50 of N rows would mislead
             placeholder: "No Flashcards Available",
