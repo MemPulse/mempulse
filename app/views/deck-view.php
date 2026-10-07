@@ -179,15 +179,6 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
                         <span id="grid-range-label" class="text-xs font-semibold text-on-surface-variant">Showing cards…</span>
                         <div class="mp-progress"><span id="grid-progress-bar" style="width:0%"></span></div>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <button type="button" id="grid-top-btn" class="mp-btn mp-btn-ghost mp-btn-icon" title="Back to top" aria-label="Back to top" hidden>
-                            <span class="material-symbols-outlined text-[18px]">vertical_align_top</span>
-                        </button>
-                        <button type="button" id="grid-load-more-btn" class="mp-btn mp-btn-gradient">
-                            <span id="grid-load-more-icon" class="material-symbols-outlined text-[18px]">expand_more</span>
-                            <span id="grid-load-more-label">Load 50 more</span>
-                        </button>
-                    </div>
                 </div>
             </div>
 

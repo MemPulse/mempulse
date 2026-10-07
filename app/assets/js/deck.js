@@ -56,10 +56,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const gridFooter = document.getElementById('grid-footer');
     const rangeLabel = document.getElementById('grid-range-label');
     const progressBar = document.getElementById('grid-progress-bar');
-    const loadMoreBtn = document.getElementById('grid-load-more-btn');
-    const loadMoreLabel = document.getElementById('grid-load-more-label');
-    const loadMoreIcon = document.getElementById('grid-load-more-icon');
-    const topBtn = document.getElementById('grid-top-btn');
 
     // Sidebar Details Elements
     const detLastReviewed = document.getElementById('det-last-reviewed');
@@ -366,11 +362,6 @@ document.addEventListener("DOMContentLoaded", () => {
         gridFooter.hidden = total === 0;
         rangeLabel.textContent = remaining ? `Showing ${loaded} of ${total} ${noun}` : `All ${total} ${noun} loaded`;
         progressBar.style.width = total ? `${Math.round((loaded / total) * 100)}%` : '0%';
-        loadMoreBtn.hidden = remaining === 0;
-        loadMoreLabel.textContent = loadingMore ? 'Loading…' : `Load ${Math.min(PAGE_SIZE, remaining)} more`;
-        loadMoreBtn.disabled = loadingMore;
-        loadMoreIcon.textContent = loadingMore ? 'progress_activity' : 'expand_more';
-        loadMoreIcon.classList.toggle('mp-spin', loadingMore);
         renderJumpRail();
     }
 
@@ -395,12 +386,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const holder = gridContainer.querySelector('.tabulator-tableholder');
         if (!holder) return;
         holder.addEventListener('scroll', () => {
-            if (topBtn) topBtn.hidden = holder.scrollTop < 200;
             if (holder.scrollTop + holder.clientHeight >= holder.scrollHeight - 160) loadMore();
         }, { passive: true });
-        if (topBtn) topBtn.addEventListener('click', () => holder.scrollTo({ top: 0, behavior: 'smooth' }));
     }
-    if (loadMoreBtn) loadMoreBtn.addEventListener('click', loadMore);
     // ---- Jump rail: clickable record ranges beside the grid ----
     const MAX_RAIL_BUTTONS = 16;
     let railStep = PAGE_SIZE;
