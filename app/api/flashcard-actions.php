@@ -174,47 +174,55 @@ try {
         respond(200, ['ok' => true, 'card_id' => $card_id]);
     }
 
-    // Action: Duplicate (copies front/back, fresh progress)
-    if ($action === 'duplicate') {
-        $card_id = filter_var($input['card_id'] ?? null, FILTER_VALIDATE_INT);
-        if (!$card_id || $card_id < 1) {
-            respond(400, ['error' => 'Invalid card specified.']);
-        }
+    // Action: Bulk Duplicate
+    if ($action === 'bulk_duplicate') {
+        $card_ids = $input['card_ids'] ?? [];
+        if (!is_array($card_ids) || empty($card_ids)) respond(400, ['error' => 'No cards selected.']);
+        $card_ids = array_filter(array_map('intval', $card_ids), fn($id) => $id > 0);
+        if (count($card_ids) > 1000) respond(400, ['error' => 'Batch size limited to 1000.']);
 
-        $stmt = mysqli_prepare($conn, "INSERT INTO flashcards (deck_id, front, back)
-                                       SELECT deck_id, front, back FROM flashcards
-                                        WHERE id = ? AND deck_id = ? AND deleted_at IS NULL");
-        mysqli_stmt_bind_param($stmt, "ii", $card_id, $deck_id);
-        mysqli_stmt_execute($stmt);
-        $newCardId = (int) mysqli_insert_id($conn);
-        mysqli_stmt_close($stmt);
-
-        if ($newCardId < 1) {
-            respond(404, ['error' => 'Card not found.']);
-        }
-        respond(200, ['ok' => true, 'card' => FlashcardService::getFlashcardById($conn, $newCardId, $user_id)]);
+        $newCards = FlashcardService::bulkDuplicate($conn, $deck_id, $card_ids, $user_id);
+        respond(200, ['ok' => true, 'cards' => $newCards]);
     }
 
-    // Action: Reset progress (interval back to the user's initial interval, due now)
-    if ($action === 'reset_progress') {
-        $card_id = filter_var($input['card_id'] ?? null, FILTER_VALIDATE_INT);
-        if (!$card_id || $card_id < 1) {
-            respond(400, ['error' => 'Invalid card specified.']);
-        }
+    // Action: Bulk Move
+    if ($action === 'bulk_move') {
+        $card_ids = $input['card_ids'] ?? [];
+        $target_deck_id = filter_var($input['target_deck_id'] ?? null, FILTER_VALIDATE_INT);
+        if (!$target_deck_id) respond(400, ['error' => 'Invalid target deck.']);
+        if (!is_array($card_ids) || empty($card_ids)) respond(400, ['error' => 'No cards selected.']);
+        $card_ids = array_filter(array_map('intval', $card_ids), fn($id) => $id > 0);
+        if (count($card_ids) > 1000) respond(400, ['error' => 'Batch size limited to 1000.']);
 
-        $stmt = mysqli_prepare($conn, "UPDATE flashcards
-                                          SET interval_days = COALESCE((SELECT initial_interval_days FROM user_settings WHERE user_id = ?), 1),
-                                              next_review_at = NOW()
-                                        WHERE id = ? AND deck_id = ? AND deleted_at IS NULL");
-        mysqli_stmt_bind_param($stmt, "iii", $user_id, $card_id, $deck_id);
-        mysqli_stmt_execute($stmt);
-        mysqli_stmt_close($stmt);
+        $affected = FlashcardService::bulkMove($conn, $deck_id, $target_deck_id, $card_ids, $user_id);
+        respond(200, ['ok' => true, 'affected' => $affected]);
+    }
 
-        $card = FlashcardService::getFlashcardById($conn, $card_id, $user_id);
-        if (!$card) {
-            respond(404, ['error' => 'Card not found.']);
+    // Action: Bulk Reset
+    if ($action === 'bulk_reset') {
+        $card_ids = $input['card_ids'] ?? [];
+        if (!is_array($card_ids) || empty($card_ids)) respond(400, ['error' => 'No cards selected.']);
+        $card_ids = array_filter(array_map('intval', $card_ids), fn($id) => $id > 0);
+        if (count($card_ids) > 1000) respond(400, ['error' => 'Batch size limited to 1000.']);
+
+        $affected = FlashcardService::bulkReset($conn, $deck_id, $card_ids, $user_id);
+        respond(200, ['ok' => true, 'affected' => $affected]);
+    }
+
+    // Action: Bulk Archive
+    if ($action === 'bulk_archive') {
+        $card_ids = $input['card_ids'] ?? [];
+        if (!is_array($card_ids) || empty($card_ids)) respond(400, ['error' => 'No cards selected.']);
+        $card_ids = array_filter(array_map('intval', $card_ids), fn($id) => $id > 0);
+        if (count($card_ids) > 1000) respond(400, ['error' => 'Batch size limited to 1000.']);
+
+        $archivedCount = 0;
+        foreach ($card_ids as $id) {
+            if (ArchiveService::archive($conn, 'flashcards', $id, $user_id)) {
+                $archivedCount++;
+            }
         }
-        respond(200, ['ok' => true, 'card' => $card]);
+        respond(200, ['ok' => true, 'affected' => $archivedCount]);
     }
 
     respond(400, ['error' => 'Unknown action.']);

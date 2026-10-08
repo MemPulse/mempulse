@@ -10,7 +10,6 @@ document.addEventListener("DOMContentLoaded", () => {
     let archivedCards = Array.isArray(config.archivedFlashcards) ? config.archivedFlashcards.length : 0;
     let offscreenList = Array.isArray(config.archivedFlashcards) ? config.archivedFlashcards.slice() : [];
     let viewArchived = false;
-    let menuCardId = null;
     let selectedSidebarCardId = null;
     const Archive = window.MemPulseArchive;
     // Navigation state variables
@@ -35,7 +34,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const startReviewBtn = document.getElementById('start-review-btn');
     const emptyTitle = document.getElementById('empty-state-title');
     const emptyText = document.getElementById('empty-state-text');
-    const actionsMenu = document.getElementById('card-actions-menu');
 
     // Sidebar Editor Elements
     const sidebarSidebar = document.getElementById('card-editor-sidebar');
@@ -443,6 +441,15 @@ document.addEventListener("DOMContentLoaded", () => {
     // 1. Tabulator Grid Setup
     const allColumns = [
         {
+            title: "", field: "check", width: 40, resizable: false, frozen: true,
+            headerSort: false, hozAlign: "center", cssClass: "mp-check-cell", visible: false, // Hides it on init
+            formatter: (cell) => {
+                const id = cell.getData().id;
+                const checked = checkedIds.has(Number(id)) ? 'checked' : '';
+                return `<input type="checkbox" class="mp-check row-check" data-id="${id}" ${checked}>`;
+            }
+        },
+        {
             title: "#",
             formatter: "rownum",
             hozAlign: "center", headerHozAlign: "center",
@@ -732,7 +739,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function setViewMode(archived) {
         viewArchived = archived;
-        closeActionsMenu();
 
         if (archiveBanner) archiveBanner.classList.toggle('hidden', !archived);
         if (openAddCardBtn) openAddCardBtn.classList.toggle('hidden', archived);
@@ -777,23 +783,260 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (toggleArchiveBtn) toggleArchiveBtn.addEventListener('click', () => setViewMode(!viewArchived));
 
-    // ---------------------------------------------------------------------------
-    // Row overflow menu (Duplicate / Reset progress)
-    // ---------------------------------------------------------------------------
-    function openActionsMenu(btn, cardId) {
-        if (!actionsMenu) return;
-        menuCardId = cardId;
-        const r = btn.getBoundingClientRect();
-        actionsMenu.classList.remove('hidden');
-        const w = actionsMenu.offsetWidth;
-        actionsMenu.style.top = `${r.bottom + 4}px`;
-        actionsMenu.style.left = `${Math.max(8, r.right - w)}px`;
+    // Inside DOMContentLoaded
+    let editMode = false;
+    const checkedIds = new Set();
+    const otherDecks = config.otherDecks || [];
+
+    // Elements
+    const toggleEditBtn = document.getElementById('toggle-edit-btn');
+    const bulkPanel = document.getElementById('bulk-panel');
+    const bulkSelectAll = document.getElementById('bulk-select-all');
+    const bulkSelectLabel = document.getElementById('bulk-select-label');
+    const bulkActionBtns = [
+        document.getElementById('bulk-duplicate-btn'),
+        document.getElementById('bulk-move-btn'),
+        document.getElementById('bulk-archive-btn'),
+        document.getElementById('bulk-reset-btn')
+    ];
+    const bulkDoneBtn = document.getElementById('bulk-done-btn');
+
+
+    // 1. Toggle Edit Mode
+    function setEditMode(active) {
+        editMode = active;
+        checkedIds.clear();
+        updateBulkUI();
+
+        if (toggleEditBtn) toggleEditBtn.classList.toggle('bg-primary-container', active);
+        if (bulkPanel) bulkPanel.classList.toggle('is-open', active);
+        if (workspace) workspace.classList.toggle('workspace-editing', active);
+
+        if (tabulatorTable) {
+            if (active) {
+                tabulatorTable.showColumn("check");
+            } else {
+                tabulatorTable.hideColumn("check");
+            }
+        }
     }
 
-    function closeActionsMenu() {
-        if (actionsMenu) actionsMenu.classList.add('hidden');
-        menuCardId = null;
+    if (toggleEditBtn) toggleEditBtn.addEventListener('click', () => setEditMode(!editMode));
+    if (bulkDoneBtn) bulkDoneBtn.addEventListener('click', () => setEditMode(false));
+
+    // Update SetViewMode to disable edit mode upon entering Archive
+    const originalSetViewMode = setViewMode;
+    setViewMode = function (archived) {
+        if (archived && editMode) setEditMode(false);
+        if (toggleEditBtn) toggleEditBtn.classList.toggle('hidden', archived);
+        originalSetViewMode(archived);
+        if (tabulatorTable && !editMode) tabulatorTable.hideColumn("check"); // Keep hidden in archive
+    };
+
+    // 2. Selection Logic
+    function updateBulkUI() {
+        const total = tabulatorTable.getDataCount() + pending.length;
+        const selected = checkedIds.size;
+
+        bulkSelectAll.indeterminate = selected > 0 && selected < total;
+        bulkSelectAll.checked = selected > 0 && selected === total;
+
+        if (selected === 0) {
+            bulkSelectLabel.textContent = 'Select all';
+        } else if (selected === total) {
+            bulkSelectLabel.textContent = 'Deselect all';
+        } else {
+            bulkSelectLabel.textContent = `${selected} selected`;
+        }
+
+        bulkActionBtns.forEach(btn => btn.disabled = selected === 0);
+
+        // Disable Move if no other decks exist
+        const moveBtn = document.getElementById('bulk-move-btn');
+        if (moveBtn) {
+            if (otherDecks.length === 0) {
+                moveBtn.disabled = true;
+                moveBtn.title = "No other decks available";
+            } else {
+                moveBtn.title = "Move to deck...";
+            }
+        }
     }
+
+    bulkSelectAll.addEventListener('change', (e) => {
+        const isChecked = e.target.checked;
+        checkedIds.clear();
+
+        if (isChecked) {
+            const allIds = [...tabulatorTable.getData().map(r => Number(r.id)), ...pending.map(r => Number(r.id))];
+            allIds.forEach(id => checkedIds.add(id));
+        }
+
+        updateBulkUI();
+        if (tabulatorTable) tabulatorTable.getRows().forEach(r => r.reformat());
+    });
+
+    // Handle individual row checkbox clicks securely
+    document.addEventListener('change', (e) => {
+        if (e.target.classList.contains('row-check')) {
+            const id = Number(e.target.dataset.id);
+            if (e.target.checked) checkedIds.add(id);
+            else checkedIds.delete(id);
+            updateBulkUI();
+        }
+    });
+
+    // Guard arrow-key and row-click logic
+    tabulatorTable.on("rowClick", (e, row) => {
+        if (e.target.classList.contains('row-check')) return; // Ignore clicks strictly on the checkbox
+        const cardData = row.getData();
+        if (isDesktopView()) populateSidebar(cardData, row);
+        else openModalForEdit(cardData);
+    });
+
+    // 3. API Handlers
+    document.getElementById('bulk-duplicate-btn').addEventListener('click', async () => {
+        const ids = Array.from(checkedIds);
+        if (!ids.length) return;
+        try {
+            bulkActionBtns.forEach(b => b.disabled = true);
+            const res = await sendCardAction({ action: 'bulk_duplicate', card_ids: ids });
+
+            // Add to top of grid
+            if (tabulatorTable) {
+                res.cards.reverse().forEach(card => tabulatorTable.addRow(card, true));
+            }
+            totalCards += res.cards.length;
+            updateCardCountLabel();
+            Archive.toast(`${res.cards.length} cards duplicated`);
+            setEditMode(false);
+        } catch (err) {
+            Archive.toast(err.message, { type: 'error' });
+        } finally {
+            updateBulkUI();
+        }
+    });
+
+    // Move
+    const moveDialog = document.getElementById('move-cards-dialog');
+    const moveDeckSelect = document.getElementById('move-deck-select');
+
+    document.getElementById('bulk-move-btn').addEventListener('click', () => {
+        if (otherDecks.length === 0 || checkedIds.size === 0) return;
+        moveDeckSelect.innerHTML = otherDecks.map(d => `<option value="${d.id}">${d.title}</option>`).join('');
+        moveDialog.showModal();
+    });
+
+    document.getElementById('confirm-move-btn').addEventListener('click', async () => {
+        const ids = Array.from(checkedIds);
+        const targetDeck = Number(moveDeckSelect.value);
+        try {
+            document.getElementById('confirm-move-btn').disabled = true;
+            const res = await sendCardAction({ action: 'bulk_move', card_ids: ids, target_deck_id: targetDeck });
+
+            ids.forEach(id => {
+                const row = tabulatorTable.getRow(id);
+                if (row) row.delete();
+                pending = pending.filter(p => Number(p.id) !== id);
+
+                // If moving the actively viewed card, jump to next or clear
+                if (selectedSidebarCardId === id && isDesktopView()) {
+                    const firstRow = tabulatorTable.getRows()[0];
+                    if (firstRow) activateRow(firstRow, { expand: false });
+                    else setSidebarCollapsed(true);
+                }
+            });
+
+            totalCards -= res.affected;
+            updateCardCountLabel();
+            Archive.toast(`${res.affected} cards moved`);
+            setEditMode(false);
+            moveDialog.close();
+        } catch (err) {
+            Archive.toast(err.message, { type: 'error' });
+        } finally {
+            document.getElementById('confirm-move-btn').disabled = false;
+        }
+    });
+
+    // Bulk Archive
+    document.getElementById('bulk-archive-btn').addEventListener('click', async () => {
+        const ids = Array.from(checkedIds);
+        if (!ids.length) return;
+        try {
+            bulkActionBtns.forEach(b => b.disabled = true);
+            const res = await sendCardAction({ action: 'bulk_archive', card_ids: ids });
+
+            ids.forEach(id => {
+                const row = tabulatorTable.getRow(id);
+                if (row) {
+                    const data = row.getData();
+                    offscreenList.unshift({ ...data, archived_at: new Date().toISOString(), days_left: Archive.RETENTION_DAYS });
+                    row.delete();
+                }
+                pending = pending.filter(p => Number(p.id) !== id);
+
+                // Keep editor in sync if we archived the currently viewed card
+                if (selectedSidebarCardId === id && isDesktopView()) {
+                    const firstRow = tabulatorTable.getRows()[0];
+                    if (firstRow) activateRow(firstRow, { expand: false });
+                    else setSidebarCollapsed(true);
+                }
+            });
+
+            totalCards -= res.affected;
+            archivedCards += res.affected;
+            updateCardCountLabel();
+            Archive.toast(`${res.affected} cards archived`);
+            setEditMode(false);
+        } catch (err) {
+            Archive.toast(err.message, { type: 'error' });
+        } finally {
+            updateBulkUI();
+        }
+    });
+
+    // Reset
+    const resetDialog = document.getElementById('reset-cards-dialog');
+    document.getElementById('bulk-reset-btn').addEventListener('click', () => {
+        if (checkedIds.size === 0) return;
+        resetDialog.showModal();
+    });
+
+    document.getElementById('confirm-reset-btn').addEventListener('click', async () => {
+        const ids = Array.from(checkedIds);
+        try {
+            document.getElementById('confirm-reset-btn').disabled = true;
+            const res = await sendCardAction({ action: 'bulk_reset', card_ids: ids });
+
+            // Client side reset visualization
+            const now = formatDateTimeDisplay(new Date());
+            ids.forEach(id => {
+                const row = tabulatorTable.getRow(id);
+                if (row) {
+                    const data = row.getData();
+                    row.update({
+                        interval_days: 1, // assumption matching DB fallback
+                        next_review_at: new Date().toISOString(),
+                        review_count: 0,
+                        lapses: 0,
+                        accuracy: null,
+                        avg_response_ms: null,
+                        last_reviewed_at: null
+                    });
+                    if (selectedSidebarCardId === id && isDesktopView()) populateSidebar(row.getData(), row);
+                }
+            });
+
+            Archive.toast(`Progress reset for ${res.affected} cards`);
+            setEditMode(false);
+            resetDialog.close();
+        } catch (err) {
+            Archive.toast(err.message, { type: 'error' });
+        } finally {
+            document.getElementById('confirm-reset-btn').disabled = false;
+        }
+    });
 
     document.addEventListener('click', (e) => {
         if (!e.target.closest('#card-actions-menu') && !e.target.closest('[data-more-card]')) closeActionsMenu();

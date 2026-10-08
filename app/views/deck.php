@@ -32,6 +32,10 @@ if (!$deck) {
 $flashcards = FlashcardService::getDeckFlashcards($conn, $deckId);
 $archivedFlashcards = FlashcardService::getDeckFlashcards($conn, $deckId, '', true);
 
+// 6.5 Fetch user's active decks for the Move dialog
+$userDecks = FlashcardService::getUserDecks($conn, $userId);
+$otherDecks = array_filter($userDecks, fn($d) => $d['id'] !== $deckId);
+
 // 7. CSRF token initialization for card mutation requests (Add / Edit / Delete)
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -64,7 +68,8 @@ $currentPage = "decks";
             deckId: <?= $deckId ?>,
             cardCount: <?= (int) $deck['card_count'] ?>,
             archivedCount: <?= (int) $deck['archived_count'] ?>,
-            retentionDays: <?= ArchiveService::RETENTION_DAYS ?>
+            retentionDays: <?= ArchiveService::RETENTION_DAYS ?>,
+            otherDecks: <?= json_encode(array_values($otherDecks)) ?>
         });
     </script>
 

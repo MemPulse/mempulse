@@ -98,6 +98,18 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
 #flashcards-tabulator-grid .tabulator-row.tabulator-selected,
 #flashcards-tabulator-grid .tabulator-row.tabulator-selected:hover{
   background:linear-gradient(90deg,rgba(99,102,241,.22),rgba(217,70,239,.10))!important;box-shadow:inset 3px 0 0 var(--mp-g2)}
+
+.mp-check { width: 1.1rem; height: 1.1rem; accent-color: var(--mp-g2); cursor: pointer; }
+.workspace-editing { --mp-pane-h: clamp(380px, calc(100vh - 21rem), 720px); }
+
+#bulk-panel { 
+    display: none; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; 
+    padding: 0.75rem 1rem; border-radius: 1rem; margin-bottom: 1.25rem; color: #fff;
+    background: linear-gradient(135deg, var(--mp-g1), var(--mp-g2) 50%, var(--mp-g3));
+    box-shadow: 0 10px 25px -10px rgba(124,58,237,.5);
+}
+#bulk-panel.is-open { display: flex; }
+
 </style>
 
 <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
@@ -150,6 +162,10 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
                     <span class="material-symbols-outlined text-[19px]">add</span>
                     <span class="hidden lg:inline">Create Card</span>
                 </button>
+                <button type="button" id="toggle-edit-btn" title="Edit cards" aria-label="Edit cards" class="inline-flex items-center justify-center gap-2 px-2.5 lg:px-4 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-sm transition-all shadow-xs">
+                    <span class="material-symbols-outlined text-[19px]">checklist</span>
+                    <span class="hidden lg:inline">Edit cards</span>
+                </button>
             </div>
         </div>
 
@@ -160,6 +176,34 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
         </div>
 
         <!-- MAIN WORKSPACE: view-only grid + desktop-only card editor -->
+         <!-- BULK ACTIONS PANEL -->
+        <div id="bulk-panel">
+            <label class="flex items-center gap-2 font-semibold text-sm cursor-pointer select-none">
+                <input type="checkbox" id="bulk-select-all" class="mp-check">
+                <span id="bulk-select-label">Select all</span>
+            </label>
+            <div class="flex items-center gap-2">
+                <button type="button" id="bulk-duplicate-btn" class="mp-btn mp-btn-icon lg:mp-btn-text bg-white/20 hover:bg-white/30 disabled:opacity-50 text-white border-0" title="Duplicate selected">
+                    <span class="material-symbols-outlined text-[18px]">content_copy</span>
+                    <span class="hidden lg:inline">Duplicate</span>
+                </button>
+                <button type="button" id="bulk-move-btn" class="mp-btn mp-btn-icon lg:mp-btn-text bg-white/20 hover:bg-white/30 disabled:opacity-50 text-white border-0" title="Move to deck...">
+                    <span class="material-symbols-outlined text-[18px]">drive_file_move</span>
+                    <span class="hidden lg:inline">Move...</span>
+                </button>
+                <button type="button" id="bulk-archive-btn" class="mp-btn mp-btn-icon lg:mp-btn-text bg-white/20 hover:bg-white/30 disabled:opacity-50 text-white border-0" title="Archive selected">
+                    <span class="material-symbols-outlined text-[18px]">inventory_2</span>
+                    <span class="hidden lg:inline">Archive</span>
+                </button>
+                <button type="button" id="bulk-reset-btn" class="mp-btn mp-btn-icon lg:mp-btn-text bg-white/20 hover:bg-white/30 disabled:opacity-50 text-white border-0" title="Reset progress">
+                    <span class="material-symbols-outlined text-[18px]">restart_alt</span>
+                    <span class="hidden lg:inline">Reset</span>
+                </button>
+                
+                <div class="w-px h-5 bg-white/30 mx-1"></div>
+                <button type="button" id="bulk-done-btn" class="mp-btn bg-white text-[var(--mp-g2)] hover:bg-gray-50 border-0">Done</button>
+            </div>
+        </div>
         <div id="mp-workspace" class="mp-workspace editor-collapsed">
 
             <!-- LEFT: VIEW-ONLY TABULATOR GRID -->
@@ -329,14 +373,26 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
     </div>
 </dialog>
 
-<!-- ROW OVERFLOW MENU -->
-<div id="card-actions-menu" class="hidden fixed z-50 min-w-[170px] rounded-lg bg-surface-container-lowest border border-outline-variant/40 shadow-xl py-1">
-    <button type="button" data-menu-action="duplicate" class="w-full flex items-center gap-2 px-3 py-2 text-sm text-on-surface hover:bg-surface-container text-left">
-        <span class="material-symbols-outlined text-[18px]">content_copy</span>
-        <span>Duplicate</span>
-    </button>
-    <button type="button" data-menu-action="reset" class="w-full flex items-center gap-2 px-3 py-2 text-sm text-on-surface hover:bg-surface-container text-left">
-        <span class="material-symbols-outlined text-[18px]">restart_alt</span>
-        <span>Reset progress</span>
-    </button>
-</div>
+<!-- BULK MOVE DIALOG -->
+<dialog id="move-cards-dialog" class="fixed inset-0 m-auto rounded-xl p-0 w-full max-w-sm bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
+    <div class="p-5 flex flex-col gap-4">
+        <h3 class="font-bold text-[16px] text-on-surface">Move Cards</h3>
+        <select id="move-deck-select" class="mp-field w-full p-2.5 rounded-lg border border-outline-variant/50 bg-surface text-on-surface text-sm"></select>
+        <div class="flex justify-end gap-2 pt-2">
+            <button type="button" data-close-dialog class="px-4 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-sm font-semibold">Cancel</button>
+            <button type="button" id="confirm-move-btn" class="px-4 py-2 rounded-lg bg-primary hover:bg-primary-container text-on-primary text-sm font-semibold">Move</button>
+        </div>
+    </div>
+</dialog>
+
+<!-- BULK RESET DIALOG -->
+<dialog id="reset-cards-dialog" class="fixed inset-0 m-auto rounded-xl p-0 w-full max-w-sm bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
+    <div class="p-5 flex flex-col gap-4">
+        <h3 class="font-bold text-[16px] text-rose-700">Reset Progress?</h3>
+        <p class="text-sm text-on-surface-variant">This will reset scheduling and history for the selected cards. They will be due immediately. This cannot be undone.</p>
+        <div class="flex justify-end gap-2 pt-2">
+            <button type="button" data-close-dialog class="px-4 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-sm font-semibold">Cancel</button>
+            <button type="button" id="confirm-reset-btn" class="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold">Reset Progress</button>
+        </div>
+    </div>
+</dialog>
