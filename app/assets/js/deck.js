@@ -178,7 +178,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // Editor collapse: hides the editor, grid goes full width, a peek tab shows on the right edge
-    let isSidebarCollapsed = false;
+    let isSidebarCollapsed = true;
     function setSidebarCollapsed(collapsed) {
         isSidebarCollapsed = collapsed;
         if (workspace) workspace.classList.toggle('editor-collapsed', collapsed);
@@ -553,7 +553,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     const firstRow = tabulatorTable.getRows()[0];
                     if (firstRow) {
                         firstRow.select();
-                        populateSidebar(firstRow.getData(), firstRow);
+                        populateSidebar(firstRow.getData(), firstRow, { expand: false });
                     }
                 });
             }
@@ -768,7 +768,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const first = tabulatorTable.getRows()[0];
                 if (first && isDesktopView()) {
                     first.select();
-                    populateSidebar(first.getData(), first);
+                    populateSidebar(first.getData(), first, { expand: false });
                 }
             });
         }

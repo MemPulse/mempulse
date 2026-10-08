@@ -160,7 +160,7 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
         </div>
 
         <!-- MAIN WORKSPACE: view-only grid + desktop-only card editor -->
-        <div id="mp-workspace" class="mp-workspace">
+        <div id="mp-workspace" class="mp-workspace editor-collapsed">
 
             <!-- LEFT: VIEW-ONLY TABULATOR GRID -->
             <div id="table-wrapper" class="mp-pane mp-table-pane bg-surface-container-lowest border border-outline-variant/30 shadow-xs">
@@ -183,7 +183,7 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
             </div>
 
             <!-- RIGHT: CARD EDITOR (desktop only, hidden below 1024px via CSS) -->
-            <aside id="card-editor-sidebar" class="mp-editor mp-pane mp-shell" aria-label="Card editor">
+            <aside id="card-editor-sidebar" class="mp-editor mp-pane mp-shell mp-collapsed" aria-label="Card editor">
                 <div class="mp-shell-inner bg-surface-container-lowest w-full flex-1">
 
                     <div class="mp-head">
@@ -255,7 +255,7 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
         </div>
 
         <!-- Peek tab: shown only when the editor is collapsed (desktop) -->
-        <button type="button" id="editor-peek-tab" class="mp-peek" hidden title="Open card editor" aria-label="Open card editor">
+        <button type="button" id="editor-peek-tab" class="mp-peek" title="Open card editor" aria-label="Open card editor">
             <span class="material-symbols-outlined text-[20px]">edit_note</span>
             <span class="mp-peek-label">Card Editor</span>
             <span class="material-symbols-outlined text-[18px]">chevron_left</span>
