@@ -103,28 +103,34 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
 .workspace-editing { --mp-pane-h: clamp(380px, calc(100vh - 21rem), 720px); }
 
 #bulk-panel { 
-    display: flex; /* Always visible */
+    display: flex; 
     align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; 
-    padding: 0.375rem 1rem; /* Reduced top and bottom padding */
-    border-radius: 0.75rem; margin-bottom: 1.25rem; 
+    padding: 0.25rem 1rem; 
+    border: 1px solid rgba(124, 58, 237, 0.2); 
+    border-radius: 0.75rem; 
+    margin-bottom: -10px; 
     color: inherit;
-    background: transparent; /* Neutral background */
+    background: rgba(128, 128, 128, 0.08); /* Neutral background */
 }
+
 </style>
 
 <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
     <div class="flex flex-col w-full gap-6">
 
-        <!-- BREADCRUMB NAVIGATION -->
+        <!-- BREADCRUMB NAVIGATION
         <nav class="flex items-center gap-2 text-sm text-on-surface-variant font-medium" aria-label="Breadcrumb">
             <a href="decks.php" class="hover:text-primary transition-colors">Decks</a>
             <span class="material-symbols-outlined text-[16px] text-outline">chevron_right</span>
             <span class="text-on-surface font-semibold truncate max-w-[200px] sm:max-w-xs"><?= FlashcardService::h($deck['title']) ?></span>
-        </nav>
+        </nav> -->
 
         <!-- DECK HEADER BAR -->
         <div class="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-surface-container-lowest border border-outline-variant/30 shadow-xs">
             <div class="flex items-center gap-3 min-w-0 text-sm text-on-surface-variant">
+            <a href="decks.php" class="hover:text-primary transition-colors">Decks</a>
+            <span class="material-symbols-outlined text-[16px] text-outline">chevron_right</span>
+
                 <h1 class="font-headline-sm text-headline-sm font-bold tracking-tight text-on-surface truncate"
                     title="<?= FlashcardService::h($deck['title']) ?>">
                     <?= FlashcardService::h($deck['title']) ?>
@@ -161,10 +167,6 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
                         class="inline-flex items-center justify-center gap-2 px-2.5 lg:px-4 py-2 rounded-lg bg-primary hover:bg-primary-container text-on-primary font-semibold text-sm transition-all shadow-xs">
                     <span class="material-symbols-outlined text-[19px]">add</span>
                     <span class="hidden lg:inline">Create Card</span>
-                </button>
-                <button type="button" id="toggle-edit-btn" title="Edit cards" aria-label="Edit cards" class="inline-flex items-center justify-center gap-2 px-2.5 lg:px-4 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-sm transition-all shadow-xs">
-                    <span class="material-symbols-outlined text-[19px]">checklist</span>
-                    <span class="hidden lg:inline">Edit cards</span>
                 </button>
             </div>
         </div>
@@ -292,8 +294,7 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
                             </div>
 
                             <div class="mp-foot">
-                                <button type="submit" id="sidebar-save-btn" class="mp-btn mp-btn-gradient disabled:opacity-60">
-                                    <span class="material-symbols-outlined text-[18px]">save</span>
+                                <button type="submit" id="sidebar-save-btn" class="mp-btn mp-btn-gradient disabled:opacity-60" title="Save Changes (Ctrl+Return)">
                                     <span>Save Changes</span>
                                 </button>
                             </div>

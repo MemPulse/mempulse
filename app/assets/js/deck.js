@@ -216,7 +216,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (detReviews) detReviews.textContent = cardData.review_count !== undefined ? cardData.review_count : '0';
         if (detLapses) detLapses.textContent = cardData.lapses !== undefined ? cardData.lapses : '0';
 
-        setEditorReadOnly(viewArchived);
+        setEditorReadOnly(viewArchived || checkedIds.size === 0);
+
         updatePositionLabel();
         if (isSidebarCollapsed && expand) setSidebarCollapsed(false);
     }
@@ -277,11 +278,34 @@ document.addEventListener("DOMContentLoaded", () => {
         PageDown: ['next', true], PageUp: ['prev', true],
     };
     document.addEventListener('keydown', (e) => {
+        // 1. Ctrl + Return to save changes
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            if (isDesktopView() && !isSidebarCollapsed && !viewArchived && (checkedIds.size > 0 || !selectedSidebarCardId)) {
+                e.preventDefault();
+                // If the save button isn't hidden (meaning it's not locked), trigger the click
+                if (sidebarSaveBtn && !sidebarSaveBtn.classList.contains('hidden')) {
+                    sidebarSaveBtn.click();
+                }
+            }
+            return;
+        }
+
+        // Guard against intercepting keystrokes while typing in an input or a modal
+        if (document.querySelector('dialog[open]')) return;
+        if (e.target instanceof Element && e.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+
+        // 2. Return key to toggle sidebar collapse
+        if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
+            if (!isDesktopView()) return;
+            e.preventDefault();
+            setSidebarCollapsed(!isSidebarCollapsed);
+            return;
+        }
+
+        // 3. Arrow Up/Down Navigation
         const nav = NAV_KEYS[e.key];
         if (!nav) return;
         if (!isDesktopView() || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
-        if (document.querySelector('dialog[open]')) return;
-        if (e.target instanceof Element && e.target.closest('input, textarea, select, [contenteditable="true"]')) return;
         e.preventDefault();
         navigateSidebarRow(nav[0], { expand: false, step: nav[1] ? pageStep() : 1 });
     });
@@ -329,6 +353,9 @@ document.addEventListener("DOMContentLoaded", () => {
             if (sidebarCardError) sidebarCardError.classList.add('hidden');
             if (sidebarTitle) sidebarTitle.textContent = 'New Flashcard';
             updatePositionLabel();
+
+            setEditorReadOnly(false);
+
             if (sidebarCardFront) sidebarCardFront.focus();
         } else {
             openModalForCreate();
@@ -793,7 +820,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const otherDecks = config.otherDecks || [];
 
     // Elements
-    const toggleEditBtn = document.getElementById('toggle-edit-btn');
     const bulkSelectAll = document.getElementById('bulk-select-all');
     const bulkPanel = document.getElementById('bulk-panel');
     const bulkStatus = document.getElementById('bulk-status');
@@ -814,7 +840,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         updateBulkUI();
 
-        if (toggleEditBtn) toggleEditBtn.classList.toggle('bg-primary-container', active);
         if (bulkPanel) bulkPanel.classList.toggle('is-open', active);
         if (workspace) workspace.classList.toggle('workspace-editing', active);
 
@@ -824,14 +849,12 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    if (toggleEditBtn) toggleEditBtn.addEventListener('click', () => setEditMode(!editMode));
     if (bulkDoneBtn) bulkDoneBtn.addEventListener('click', () => setEditMode(false));
 
     // Update SetViewMode to disable edit mode upon entering Archive
     const originalSetViewMode = setViewMode;
     setViewMode = function (archived) {
         if (archived && editMode) setEditMode(false);
-        if (toggleEditBtn) toggleEditBtn.classList.toggle('hidden', archived);
         originalSetViewMode(archived);
         if (tabulatorTable && !editMode) tabulatorTable.hideColumn("check"); // Keep hidden in archive
     };
@@ -842,16 +865,13 @@ document.addEventListener("DOMContentLoaded", () => {
         const total = tabulatorTable ? tabulatorTable.getDataCount() + pending.length : 0;
         const selected = checkedIds.size;
 
-        if (bulkSelectAll) {
-            bulkSelectAll.indeterminate = selected > 0 && selected < total;
-            bulkSelectAll.checked = selected > 0 && selected === total;
+        const headerCheck = document.getElementById('header-select-all');
+        if (headerCheck) {
+            headerCheck.indeterminate = selected > 0 && selected < total;
+            headerCheck.checked = selected > 0 && selected === total;
         }
 
-        if (bulkStatus) {
-            if (selected === 0) bulkStatus.textContent = 'Select all';
-            else if (selected === total) bulkStatus.textContent = 'Deselect all';
-            else bulkStatus.textContent = `${selected} selected`;
-        }
+        if (bulkStatus) bulkStatus.textContent = `${selected} selected`;
 
         bulkActionBtns.forEach(btn => { if (btn) btn.disabled = selected === 0; });
 
@@ -863,6 +883,11 @@ document.addEventListener("DOMContentLoaded", () => {
             } else {
                 moveBtn.title = "Move to deck...";
             }
+        }
+
+        // Lock the card editor if no checkboxes are ticked (unless creating a New Card)
+        if (selectedSidebarCardId !== null) {
+            setEditorReadOnly(viewArchived || selected === 0);
         }
     }
 
