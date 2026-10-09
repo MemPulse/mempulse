@@ -118,13 +118,6 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
 <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
     <div class="flex flex-col w-full gap-6">
 
-        <!-- BREADCRUMB NAVIGATION
-        <nav class="flex items-center gap-2 text-sm text-on-surface-variant font-medium" aria-label="Breadcrumb">
-            <a href="decks.php" class="hover:text-primary transition-colors">Decks</a>
-            <span class="material-symbols-outlined text-[16px] text-outline">chevron_right</span>
-            <span class="text-on-surface font-semibold truncate max-w-[200px] sm:max-w-xs"><?= FlashcardService::h($deck['title']) ?></span>
-        </nav> -->
-
         <!-- DECK HEADER BAR -->
         <div class="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-surface-container-lowest border border-outline-variant/30 shadow-xs">
             <div class="flex items-center gap-3 min-w-0 text-sm text-on-surface-variant">
@@ -135,7 +128,7 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
                     title="<?= FlashcardService::h($deck['title']) ?>">
                     <?= FlashcardService::h($deck['title']) ?>
                 </h1>
-                <span class="text-outline">•</span>
+                <span class="text-outline">|</span>
                 <span class="inline-flex items-center gap-1 font-semibold text-on-surface whitespace-nowrap">
                     <span class="material-symbols-outlined text-primary text-[18px]">style</span>
                     <span id="deck-card-count-label"><?= $deck['card_count'] ?> <?= $deck['card_count'] === 1 ? 'Card' : 'Cards' ?></span>
@@ -182,6 +175,7 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
         <div id="bulk-panel">
             <div class="flex items-center gap-2 font-semibold text-sm text-on-surface">
                 <span class="material-symbols-outlined text-[20px]">checklist</span>
+                <input type="checkbox" id="bulk-select-all" class="mp-check hidden" title="Select/Deselect all">
                 <span id="bulk-status">0 selected</span>
             </div>
             

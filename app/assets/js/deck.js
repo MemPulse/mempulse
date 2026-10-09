@@ -864,14 +864,25 @@ document.addEventListener("DOMContentLoaded", () => {
     function updateBulkUI() {
         const total = tabulatorTable ? tabulatorTable.getDataCount() + pending.length : 0;
         const selected = checkedIds.size;
+        const bulkSelectAll = document.getElementById('bulk-select-all');
 
-        const headerCheck = document.getElementById('header-select-all');
-        if (headerCheck) {
-            headerCheck.indeterminate = selected > 0 && selected < total;
-            headerCheck.checked = selected > 0 && selected === total;
+        const isUnlocked = !viewArchived && selected > 0;
+
+        if (bulkSelectAll) {
+            if (isUnlocked) {
+                bulkSelectAll.classList.remove('hidden');
+                bulkSelectAll.indeterminate = selected > 0 && selected < total;
+                bulkSelectAll.checked = selected > 0 && selected === total;
+            } else {
+                bulkSelectAll.classList.add('hidden');
+            }
         }
 
-        if (bulkStatus) bulkStatus.textContent = `${selected} selected`;
+        if (bulkStatus) {
+            if (selected === 0) bulkStatus.textContent = '0 selected';
+            else if (selected === total) bulkStatus.textContent = `All ${selected} selected`;
+            else bulkStatus.textContent = `${selected} selected`;
+        }
 
         bulkActionBtns.forEach(btn => { if (btn) btn.disabled = selected === 0; });
 
@@ -891,9 +902,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // Unified delegated listener for Select All and Row checkboxes
+    // Unified delegated listener for both Select All and Row checkboxes
     document.addEventListener('change', (e) => {
-        // Handle Bulk Select All
+        // Handle Bulk Panel "Select All"
         if (e.target.id === 'bulk-select-all') {
             const isChecked = e.target.checked;
             checkedIds.clear();
@@ -903,24 +914,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 allIds.forEach(id => checkedIds.add(id));
             }
 
-            if (checkedIds.size > 0 && !editMode) setEditMode(true);
-            else {
-                updateBulkUI();
-                if (tabulatorTable) tabulatorTable.getRows().forEach(r => r.reformat());
-            }
+            updateBulkUI();
+            if (tabulatorTable) tabulatorTable.getRows().forEach(r => r.reformat());
         }
         // Handle Individual Row Checks
         else if (e.target.classList.contains('row-check')) {
             const id = Number(e.target.dataset.id);
             if (e.target.checked) checkedIds.add(id);
             else checkedIds.delete(id);
-
-            // Automatically open the panel if a box is checked and we aren't in edit mode yet
-            if (checkedIds.size > 0 && !editMode) {
-                setEditMode(true);
-            } else {
-                updateBulkUI();
-            }
+            updateBulkUI();
         }
     });
 
