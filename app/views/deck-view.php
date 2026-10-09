@@ -113,6 +113,8 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
     background: rgba(128, 128, 128, 0.08); /* Neutral background */
 }
 
+#bulk-panel [hidden] { display: none !important; }
+
 </style>
 
 <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
@@ -173,10 +175,25 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
         <!-- MAIN WORKSPACE: view-only grid + desktop-only card editor -->
         <!-- BULK ACTIONS PANEL -->
         <div id="bulk-panel">
-            <div class="flex items-center gap-2 font-semibold text-sm text-on-surface">
-                <span class="material-symbols-outlined text-[20px]">checklist</span>
-                <input type="checkbox" id="bulk-select-all" class="mp-check hidden" title="Select/Deselect all">
-                <span id="bulk-status">0 selected</span>
+            <div class="flex items-center gap-3 font-semibold text-sm text-on-surface">                
+                <!-- Explicit Select All trigger (hidden by default) -->
+                <label id="bulk-select-wrapper" class="hidden flex items-center gap-2 cursor-pointer select-none text-primary hover:text-primary-container transition-colors">
+                    <input type="checkbox" id="bulk-select-all" class="mp-check">
+                    <span>Select all</span>
+                </label>
+                
+                <!-- Visual Divider (hidden by default) -->
+                <div id="bulk-select-separator" class="hidden w-px h-4 bg-outline-variant/60"></div>
+
+                <!-- Status Tracker -->
+                <div class="flex items-center gap-2 text-on-surface-variant">
+                    <span class="material-symbols-outlined text-[20px]">checklist</span>
+                    <span id="bulk-status">0 selected</span>
+                </div>
+                <button type="button" id="bulk-done-btn" hidden
+                    class="mp-btn px-2 py-1 bg-transparent hover:bg-surface-container-high text-primary transition-colors"
+                    title="Clear selection">Clear
+                </button>
             </div>
             
             <div class="flex items-center gap-2">
@@ -196,11 +213,14 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
                     <span class="material-symbols-outlined text-[18px]">restart_alt</span>
                     <span class="hidden lg:inline">Reset</span>
                 </button>
-                
-                <div class="w-px h-5 bg-outline-variant/50 mx-1"></div>
-                
-                <!-- Changed to "Clear" since the panel is always on -->
-                <button type="button" id="bulk-done-btn" class="mp-btn bg-transparent hover:bg-surface-container-high active:bg-surface-container-highest text-primary disabled:opacity-50 transition-colors" title="Clear selection">Clear</button>
+                <button type="button" id="bulk-restore-btn" hidden class="mp-btn mp-btn-icon lg:mp-btn-text bg-transparent hover:bg-surface-container-high active:bg-surface-container-highest text-on-surface-variant hover:text-on-surface disabled:opacity-50 transition-colors" title="Restore selected">
+                    <span class="material-symbols-outlined text-[18px]">restore_from_trash</span>
+                    <span class="hidden lg:inline">Restore</span>
+                </button>
+                <button type="button" id="bulk-delete-btn" hidden class="mp-btn mp-btn-icon lg:mp-btn-text bg-transparent hover:bg-rose-50 active:bg-rose-100 text-rose-700 disabled:opacity-50 transition-colors" title="Delete permanently">
+                    <span class="material-symbols-outlined text-[18px]">delete_forever</span>
+                    <span class="hidden lg:inline">Delete</span>
+                </button>
             </div>
         </div>         
 
@@ -362,7 +382,7 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
             <span class="material-symbols-outlined text-[22px]">warning</span>
             <span>Delete permanently?</span>
         </h3>
-        <p class="text-on-surface-variant text-[14px]">
+        <p id="delete-card-message" class="text-on-surface-variant text-[14px]">
             This card will be permanently deleted. This action cannot be undone.
         </p>
         <p id="delete-card-error" class="hidden text-rose-700 text-[13px]" role="alert"></p>

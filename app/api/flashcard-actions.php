@@ -229,6 +229,23 @@ try {
         respond(200, ['ok' => true, 'affected' => $archivedCount]);
     }
 
+        // Actions: Bulk Restore / Bulk Permanent Delete (archive view)
+    if (in_array($action, ['bulk_restore', 'bulk_delete_permanent'], true)) {
+        $card_ids = $input['card_ids'] ?? [];
+        if (!is_array($card_ids) || empty($card_ids)) respond(400, ['error' => 'No cards selected.']);
+        $card_ids = array_filter(array_map('intval', $card_ids), fn($id) => $id > 0);
+        if (count($card_ids) > 1000) respond(400, ['error' => 'Batch size limited to 1000.']);
+
+        $affected = 0;
+        foreach ($card_ids as $id) {
+            $ok = $action === 'bulk_restore'
+                ? ArchiveService::restore($conn, 'flashcards', $id, $user_id)
+                : ArchiveService::deletePermanently($conn, 'flashcards', $id, $user_id);
+            if ($ok) $affected++;
+        }
+        respond(200, ['ok' => true, 'affected' => $affected]);
+    }
+    
     respond(400, ['error' => 'Unknown action.']);
 
 } catch (Throwable $e) {

@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let archivedCards = Array.isArray(config.archivedFlashcards) ? config.archivedFlashcards.length : 0;
     let offscreenList = Array.isArray(config.archivedFlashcards) ? config.archivedFlashcards.slice() : [];
     let viewArchived = false;
+    const checkedIds = new Set();          // declared early: grid formatters and the editor read it
     let selectedSidebarCardId = null;
     const Archive = window.MemPulseArchive;
     // Navigation state variables
@@ -178,10 +179,11 @@ document.addEventListener("DOMContentLoaded", () => {
     // Editor collapse: hides the editor, grid goes full width, a peek tab shows on the right edge
     let isSidebarCollapsed = true;
     function setSidebarCollapsed(collapsed) {
+        if (viewArchived) collapsed = true;              // no card editor in the archive
         isSidebarCollapsed = collapsed;
         if (workspace) workspace.classList.toggle('editor-collapsed', collapsed);
         if (sidebarSidebar) sidebarSidebar.classList.toggle('mp-collapsed', collapsed);
-        if (peekTab) peekTab.hidden = !collapsed;
+        if (peekTab) peekTab.hidden = !collapsed || viewArchived;
         if (tabulatorTable) requestAnimationFrame(() => tabulatorTable.redraw(true));
     }
     if (toggleSidebarCollapseBtn) toggleSidebarCollapseBtn.addEventListener('click', () => setSidebarCollapsed(true));
@@ -198,7 +200,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Populate Sidebar Editor with selected card data & metadata details
     function populateSidebar(cardData, rowInstance = null, { expand = true } = {}) {
-        if (!cardData) return;
+        if (!cardData || viewArchived) return;
         if (!rowInstance && tabulatorTable) rowInstance = tabulatorTable.getRow(Number(cardData.id)) || null;
         selectedSidebarCardId = cardData.id != null ? Number(cardData.id) : null;
         if (rowInstance) selectedTabulatorRow = rowInstance;
@@ -296,7 +298,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // 2. Return key to toggle sidebar collapse
         if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
-            if (!isDesktopView()) return;
+            if (!isDesktopView() || viewArchived) return;
             e.preventDefault();
             setSidebarCollapsed(!isSidebarCollapsed);
             return;
@@ -305,7 +307,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // 3. Arrow Up/Down Navigation
         const nav = NAV_KEYS[e.key];
         if (!nav) return;
-        if (!isDesktopView() || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+        if (!isDesktopView() || viewArchived || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
         e.preventDefault();
         navigateSidebarRow(nav[0], { expand: false, step: nav[1] ? pageStep() : 1 });
     });
@@ -326,7 +328,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function openModalForEdit(cardData) {
-        if (!cardData) return;
+        if (!cardData || viewArchived) return;
         if (modalTitle) modalTitle.textContent = 'View / Edit Flashcard';
         if (modalCardId) modalCardId.value = cardData.id || '';
         if (modalCardFront) modalCardFront.value = cardData.front || '';
@@ -692,32 +694,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // 3. Delete Card Execution
-    if (deleteCardConfirm) {
-        deleteCardConfirm.addEventListener('click', async () => {
-            if (!targetDeleteCardId) return;
-            deleteCardConfirm.disabled = true;
-            try {
-                await sendCardAction({ action: 'delete_permanent', card_id: targetDeleteCardId });
-                if (tabulatorTable) {
-                    const row = tabulatorTable.getRow(Number(targetDeleteCardId));
-                    if (row) row.delete();
-                    archivedCards--;
-                }
-                updateCardCountLabel();
-                if (deleteCardDialog) deleteCardDialog.close();
-                Archive.toast('Card deleted permanently', { type: 'error' });
-            } catch (err) {
-                if (deleteCardError) {
-                    deleteCardError.textContent = err.message;
-                    deleteCardError.classList.remove('hidden');
-                }
-            } finally {
-                deleteCardConfirm.disabled = false;
-            }
-        });
-    }
-
     // ---------------------------------------------------------------------------
     // Archive: archive / restore / view switching
     // ---------------------------------------------------------------------------
@@ -803,7 +779,7 @@ document.addEventListener("DOMContentLoaded", () => {
             loadFirstPage(next).then(() => {
                 tabulatorTable.redraw(true);
                 const first = tabulatorTable.getRows()[0];
-                if (first && isDesktopView()) {
+                if (first && isDesktopView() && !viewArchived) {
                     first.select();
                     populateSidebar(first.getData(), first, { expand: false });
                 }
@@ -816,7 +792,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Inside DOMContentLoaded
     let editMode = false;
-    const checkedIds = new Set();
     const otherDecks = config.otherDecks || [];
 
     // Elements
@@ -829,7 +804,12 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById('bulk-archive-btn'),
         document.getElementById('bulk-reset-btn')
     ];
-    const bulkDoneBtn = document.getElementById('bulk-done-btn');
+    const archiveActionBtns = [
+        document.getElementById('bulk-restore-btn'),
+        document.getElementById('bulk-delete-btn')
+    ];
+    const bulkClearBtn = document.getElementById('bulk-done-btn');
+    const bulkDoneBtn = bulkClearBtn;
 
 
     // 1. Toggle Edit Mode
@@ -851,40 +831,38 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (bulkDoneBtn) bulkDoneBtn.addEventListener('click', () => setEditMode(false));
 
-    // Update SetViewMode to disable edit mode upon entering Archive
+    // Wrap setViewMode: selections never carry across views, and the archive has no editor
     const originalSetViewMode = setViewMode;
     setViewMode = function (archived) {
-        if (archived && editMode) setEditMode(false);
+        checkedIds.clear();                 // ids differ between the two views
         originalSetViewMode(archived);
-        if (tabulatorTable && !editMode) tabulatorTable.hideColumn("check"); // Keep hidden in archive
+        if (archived) setSidebarCollapsed(true);
+        updateBulkUI();
     };
 
     // 2. Selection Logic
-
     function updateBulkUI() {
         const total = tabulatorTable ? tabulatorTable.getDataCount() + pending.length : 0;
         const selected = checkedIds.size;
-        const bulkSelectAll = document.getElementById('bulk-select-all');
+        const hasSelection = selected > 0;
 
-        const isUnlocked = !viewArchived && selected > 0;
+        const selectAll = document.getElementById('bulk-select-all');
+        const selectWrapper = document.getElementById('bulk-select-wrapper');
+        const selectSeparator = document.getElementById('bulk-select-separator');
 
-        if (bulkSelectAll) {
-            if (isUnlocked) {
-                bulkSelectAll.classList.remove('hidden');
-                bulkSelectAll.indeterminate = selected > 0 && selected < total;
-                bulkSelectAll.checked = selected > 0 && selected === total;
-            } else {
-                bulkSelectAll.classList.add('hidden');
-            }
+        // Select all / divider / Clear only appear once something is ticked
+        if (selectWrapper) selectWrapper.classList.toggle('hidden', !hasSelection);
+        if (selectSeparator) selectSeparator.classList.toggle('hidden', !hasSelection);
+        if (selectAll) {
+            selectAll.indeterminate = false;
+            selectAll.checked = hasSelection && selected === total;
         }
+        if (bulkClearBtn) bulkClearBtn.hidden = !hasSelection;
+        if (bulkStatus) bulkStatus.textContent = `${selected} selected`;
 
-        if (bulkStatus) {
-            if (selected === 0) bulkStatus.textContent = '0 selected';
-            else if (selected === total) bulkStatus.textContent = `All ${selected} selected`;
-            else bulkStatus.textContent = `${selected} selected`;
-        }
-
-        bulkActionBtns.forEach(btn => { if (btn) btn.disabled = selected === 0; });
+        // Panel buttons depend on the view
+        bulkActionBtns.forEach((btn) => { if (btn) { btn.hidden = viewArchived; btn.disabled = !hasSelection; } });
+        archiveActionBtns.forEach((btn) => { if (btn) { btn.hidden = !viewArchived; btn.disabled = !hasSelection; } });
 
         const moveBtn = document.getElementById('bulk-move-btn');
         if (moveBtn) {
@@ -896,11 +874,10 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
-        // Lock the card editor if no checkboxes are ticked (unless creating a New Card)
-        if (selectedSidebarCardId !== null) {
-            setEditorReadOnly(viewArchived || selected === 0);
-        }
+        // Card editor: locked in the archive, and until a checkbox is ticked
+        if (selectedSidebarCardId !== null) setEditorReadOnly(viewArchived || !hasSelection);
     }
+
 
     // Unified delegated listener for both Select All and Row checkboxes
     document.addEventListener('change', (e) => {
@@ -926,24 +903,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-
-    // Handle individual row checkbox clicks securely
-    document.addEventListener('change', (e) => {
-        if (e.target.classList.contains('row-check')) {
-            const id = Number(e.target.dataset.id);
-            if (e.target.checked) checkedIds.add(id);
-            else checkedIds.delete(id);
-            updateBulkUI();
-        }
-    });
-
-    // Guard arrow-key and row-click logic
-    tabulatorTable.on("rowClick", (e, row) => {
-        if (e.target.classList.contains('row-check')) return; // Ignore clicks strictly on the checkbox
-        const cardData = row.getData();
-        if (isDesktopView()) populateSidebar(cardData, row);
-        else openModalForEdit(cardData);
-    });
 
     // 3. API Handlers
     document.getElementById('bulk-duplicate-btn').addEventListener('click', async () => {
@@ -1088,4 +1047,80 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById('confirm-reset-btn').disabled = false;
         }
     });
+
+    // ---------------------------------------------------------------------------
+    // Archive view: bulk Restore / Delete permanently
+    // ---------------------------------------------------------------------------
+    function takeCards(ids) {       // removes cards from the grid AND the not-yet-rendered list
+        const set = new Set(ids);
+        const taken = [];
+        ids.forEach((id) => {
+            const row = tabulatorTable.getRow(id);
+            if (row) { taken.push(row.getData()); row.delete(); }
+        });
+        pending = pending.filter((p) => {
+            if (!set.has(Number(p.id))) return true;
+            taken.push(p);
+            return false;
+        });
+        return taken;
+    }
+
+    document.getElementById('bulk-restore-btn').addEventListener('click', async () => {
+        const ids = Array.from(checkedIds);
+        if (!viewArchived || !ids.length) return;
+        try {
+            archiveActionBtns.forEach((b) => b.disabled = true);
+            const res = await sendCardAction({ action: 'bulk_restore', card_ids: ids });
+            const taken = takeCards(ids);
+            // while viewing the archive, offscreenList holds the active cards
+            offscreenList.unshift(...taken.map((c) => ({ ...c, archived_at: null, days_left: null })));
+            totalCards += res.affected;
+            archivedCards -= res.affected;
+            checkedIds.clear();
+            updateCardCountLabel();
+            if (gridReady) updateLoadMoreUI();
+            Archive.toast(`${res.affected} ${res.affected === 1 ? 'card' : 'cards'} restored`);
+        } catch (err) {
+            Archive.toast(err.message, { type: 'error' });
+        } finally {
+            updateBulkUI();
+        }
+    });
+
+    document.getElementById('bulk-delete-btn').addEventListener('click', () => {
+        const n = checkedIds.size;
+        if (!viewArchived || !n) return;
+        const msg = document.getElementById('delete-card-message');
+        if (msg) msg.textContent = `${n} ${n === 1 ? 'card' : 'cards'} will be permanently deleted. This action cannot be undone.`;
+        if (deleteCardConfirm) deleteCardConfirm.textContent = n === 1 ? 'Delete Card' : `Delete ${n} Cards`;
+        if (deleteCardError) deleteCardError.classList.add('hidden');
+        if (deleteCardDialog) deleteCardDialog.showModal();
+    });
+
+    if (deleteCardConfirm) deleteCardConfirm.addEventListener('click', async () => {
+        const ids = Array.from(checkedIds);
+        if (!ids.length) return;
+        deleteCardConfirm.disabled = true;
+        try {
+            const res = await sendCardAction({ action: 'bulk_delete_permanent', card_ids: ids });
+            takeCards(ids);
+            archivedCards -= res.affected;
+            checkedIds.clear();
+            updateCardCountLabel();
+            if (gridReady) updateLoadMoreUI();
+            if (deleteCardDialog) deleteCardDialog.close();
+            Archive.toast(`${res.affected} ${res.affected === 1 ? 'card' : 'cards'} deleted permanently`, { type: 'error' });
+        } catch (err) {
+            if (deleteCardError) {
+                deleteCardError.textContent = err.message;
+                deleteCardError.classList.remove('hidden');
+            }
+        } finally {
+            deleteCardConfirm.disabled = false;
+            updateBulkUI();
+        }
+    });
+
+    updateBulkUI();   // initial render of the panel (must stay last)
 });
