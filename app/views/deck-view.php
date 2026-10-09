@@ -103,13 +103,13 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
 .workspace-editing { --mp-pane-h: clamp(380px, calc(100vh - 21rem), 720px); }
 
 #bulk-panel { 
-    display: none; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; 
-    padding: 0.75rem 1rem; border-radius: 1rem; margin-bottom: 1.25rem; color: #fff;
-    background: linear-gradient(135deg, var(--mp-g1), var(--mp-g2) 50%, var(--mp-g3));
-    box-shadow: 0 10px 25px -10px rgba(124,58,237,.5);
+    display: flex; /* Always visible */
+    align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; 
+    padding: 0.375rem 1rem; /* Reduced top and bottom padding */
+    border-radius: 0.75rem; margin-bottom: 1.25rem; 
+    color: inherit;
+    background: transparent; /* Neutral background */
 }
-#bulk-panel.is-open { display: flex; }
-
 </style>
 
 <div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
@@ -176,34 +176,39 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
         </div>
 
         <!-- MAIN WORKSPACE: view-only grid + desktop-only card editor -->
-         <!-- BULK ACTIONS PANEL -->
+        <!-- BULK ACTIONS PANEL -->
         <div id="bulk-panel">
-            <label class="flex items-center gap-2 font-semibold text-sm cursor-pointer select-none">
-                <input type="checkbox" id="bulk-select-all" class="mp-check">
-                <span id="bulk-status">Select all</span>
-            </label>
+            <div class="flex items-center gap-2 font-semibold text-sm text-on-surface">
+                <span class="material-symbols-outlined text-[20px]">checklist</span>
+                <span id="bulk-status">0 selected</span>
+            </div>
+            
             <div class="flex items-center gap-2">
-                <button type="button" id="bulk-duplicate-btn" class="mp-btn mp-btn-icon lg:mp-btn-text bg-white/20 hover:bg-white/30 disabled:opacity-50 text-white border-0" title="Duplicate selected">
+                <button type="button" id="bulk-duplicate-btn" class="mp-btn mp-btn-icon lg:mp-btn-text bg-transparent hover:bg-surface-container-high active:bg-surface-container-highest text-on-surface-variant hover:text-on-surface disabled:opacity-50 transition-colors" title="Duplicate selected">
                     <span class="material-symbols-outlined text-[18px]">content_copy</span>
                     <span class="hidden lg:inline">Duplicate</span>
                 </button>
-                <button type="button" id="bulk-move-btn" class="mp-btn mp-btn-icon lg:mp-btn-text bg-white/20 hover:bg-white/30 disabled:opacity-50 text-white border-0" title="Move to deck...">
+                <button type="button" id="bulk-move-btn" class="mp-btn mp-btn-icon lg:mp-btn-text bg-transparent hover:bg-surface-container-high active:bg-surface-container-highest text-on-surface-variant hover:text-on-surface disabled:opacity-50 transition-colors" title="Move to deck...">
                     <span class="material-symbols-outlined text-[18px]">drive_file_move</span>
                     <span class="hidden lg:inline">Move...</span>
                 </button>
-                <button type="button" id="bulk-archive-btn" class="mp-btn mp-btn-icon lg:mp-btn-text bg-white/20 hover:bg-white/30 disabled:opacity-50 text-white border-0" title="Archive selected">
+                <button type="button" id="bulk-archive-btn" class="mp-btn mp-btn-icon lg:mp-btn-text bg-transparent hover:bg-surface-container-high active:bg-surface-container-highest text-on-surface-variant hover:text-on-surface disabled:opacity-50 transition-colors" title="Archive selected">
                     <span class="material-symbols-outlined text-[18px]">inventory_2</span>
                     <span class="hidden lg:inline">Archive</span>
                 </button>
-                <button type="button" id="bulk-reset-btn" class="mp-btn mp-btn-icon lg:mp-btn-text bg-white/20 hover:bg-white/30 disabled:opacity-50 text-white border-0" title="Reset progress">
+                <button type="button" id="bulk-reset-btn" class="mp-btn mp-btn-icon lg:mp-btn-text bg-transparent hover:bg-surface-container-high active:bg-surface-container-highest text-on-surface-variant hover:text-on-surface disabled:opacity-50 transition-colors" title="Reset progress">
                     <span class="material-symbols-outlined text-[18px]">restart_alt</span>
                     <span class="hidden lg:inline">Reset</span>
                 </button>
                 
-                <div class="w-px h-5 bg-white/30 mx-1"></div>
-                <button type="button" id="bulk-done-btn" class="mp-btn bg-white text-[var(--mp-g2)] hover:bg-gray-50 border-0">Done</button>
+                <div class="w-px h-5 bg-outline-variant/50 mx-1"></div>
+                
+                <!-- Changed to "Clear" since the panel is always on -->
+                <button type="button" id="bulk-done-btn" class="mp-btn bg-transparent hover:bg-surface-container-high active:bg-surface-container-highest text-primary disabled:opacity-50 transition-colors" title="Clear selection">Clear</button>
             </div>
-        </div>
+        </div>         
+
+
         <div id="mp-workspace" class="mp-workspace editor-collapsed">
 
             <!-- LEFT: VIEW-ONLY TABULATOR GRID -->

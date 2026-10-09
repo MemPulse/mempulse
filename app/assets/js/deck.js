@@ -569,6 +569,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Desktop: row click fills the editor. Mobile/tablet: row click opens the modal.
         tabulatorTable.on("rowClick", (e, row) => {
+            // Ignore clicks anywhere within the checkbox cell, not just the input
+            if (e.target.closest('.mp-check-cell')) return;
+
             const cardData = row.getData();
             if (isDesktopView()) populateSidebar(cardData, row);
             else openModalForEdit(cardData);
