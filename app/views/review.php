@@ -7,6 +7,12 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || !isset(
 }
 
 require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../api/ReviewHubService.php';
+
+// Anti-CSRF token, sent along with the batch save in review.js
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
 
 $userId = (int) $_SESSION['user_id'];
 $deckId = isset($_GET['deck_id']) && ctype_digit((string) $_GET['deck_id']) ? (int) $_GET['deck_id'] : null;
@@ -18,11 +24,15 @@ $hubDecks = [];
 if ($deckId) {
     // ACTIVE REVIEW STATE: Fetch due cards for the specific deck
     $isReviewing = true;
-    $sql = "SELECT id, front, back, interval_days, next_review_at FROM flashcards 
-            WHERE deck_id = ? AND deleted_at IS NULL AND next_review_at <= NOW() 
-            ORDER BY next_review_at ASC";
+    // Ownership check: only this user's non-archived decks, non-archived cards
+    $sql = "SELECT f.id, f.front, f.back, f.interval_days, f.next_review_at
+            FROM flashcards f
+            JOIN decks d ON d.id = f.deck_id
+            WHERE f.deck_id = ? AND d.user_id = ? AND d.deleted_at IS NULL
+              AND f.deleted_at IS NULL AND f.next_review_at <= NOW()
+            ORDER BY f.next_review_at ASC";
     if ($stmt = mysqli_prepare($conn, $sql)) {
-        mysqli_stmt_bind_param($stmt, "i", $deckId);
+        mysqli_stmt_bind_param($stmt, "ii", $deckId, $userId);
         mysqli_stmt_execute($stmt);
         $result = mysqli_stmt_get_result($stmt);
         while ($row = mysqli_fetch_assoc($result)) {
@@ -31,24 +41,18 @@ if ($deckId) {
         mysqli_stmt_close($stmt);
     }
 } else {
-    // HUB STATE: Fetch decks with due counts and upcoming counts
-    $sql = "SELECT d.id, d.title, 
-            SUM(CASE WHEN f.next_review_at <= NOW() THEN 1 ELSE 0 END) as due_count,
-            SUM(CASE WHEN f.next_review_at > NOW() AND f.next_review_at <= DATE_ADD(NOW(), INTERVAL 2 DAY) THEN 1 ELSE 0 END) as upcoming_count
-            FROM decks d
-            LEFT JOIN flashcards f ON d.id = f.deck_id AND f.deleted_at IS NULL
-            WHERE d.user_id = ? AND d.deleted_at IS NULL
-            GROUP BY d.id HAVING due_count > 0 OR upcoming_count > 0
-            ORDER BY due_count DESC, upcoming_count DESC";
-    if ($stmt = mysqli_prepare($conn, $sql)) {
-        mysqli_stmt_bind_param($stmt, "i", $userId);
-        mysqli_stmt_execute($stmt);
-        $result = mysqli_stmt_get_result($stmt);
-        while ($row = mysqli_fetch_assoc($result)) {
-            $hubDecks[] = $row;
-        }
-        mysqli_stmt_close($stmt);
-    }
+    // HUB STATE: table data + call-to-action data
+    $hubDecks       = ReviewHubService::getHubDecks($conn, $userId);
+    $dueDecks       = ReviewHubService::dueDecks($hubDecks);
+    $upcomingDecks  = ReviewHubService::upcomingDecks($hubDecks);
+    $recentSessions = ReviewHubService::getRecentSessions($conn, $userId, 8);
+
+    $streakInfo     = ReviewHubService::getStreakInfo($conn, $userId);
+    $curStreak      = $streakInfo['currentStreak'];
+    $reviewedToday  = $streakInfo['reviewedToday'];
+
+    $dueTotal       = array_sum(array_column($dueDecks, 'dueCount'));
+    $nextDueSecs    = $dueTotal === 0 ? ReviewHubService::getNextDueSeconds($conn, $userId) : null;
 }
 
 $pageTitle = $isReviewing ? "Active Review" : "Review Hub"; 
@@ -70,80 +74,7 @@ $currentPage = "review";
         <div class="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6">
             
             <?php if (!$isReviewing): ?>
-                <!-- STATE A: REVIEW HUB -->
-                <div class="max-w-5xl mx-auto flex flex-col gap-8">
-                    <div>
-                        <h2 class="font-headline-md text-2xl font-bold tracking-tight text-on-surface">Review Hub</h2>
-                        <p class="text-on-surface-variant text-sm mt-1">Select a deck to start your spaced repetition session.</p>
-                    </div>
-
-                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                        <!-- Left Column: Due & Upcoming Decks -->
-                        <div class="lg:col-span-8 flex flex-col gap-6">
-                            <!-- Due Section -->
-                            <section>
-                                <h3 class="font-semibold text-lg text-rose-700 flex items-center gap-2 mb-3">
-                                    <span class="material-symbols-outlined">schedule</span> Due Now
-                                </h3>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <?php 
-                                    $hasDue = false;
-                                    foreach ($hubDecks as $d): 
-                                        if ($d['due_count'] > 0): $hasDue = true; 
-                                    ?>
-                                        <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-5 shadow-sm flex flex-col justify-between hover:border-primary/50 transition-colors">
-                                            <h4 class="font-bold text-lg truncate"><?= htmlspecialchars($d['title']) ?></h4>
-                                            <div class="mt-4 flex items-center justify-between">
-                                                <span class="text-sm font-semibold text-on-surface-variant"><?= $d['due_count'] ?> cards due</span>
-                                                <a href="review.php?deck_id=<?= $d['id'] ?>" class="px-4 py-2 rounded-xl bg-primary text-on-primary font-bold text-sm shadow-sm hover:bg-primary-container transition-all">Start</a>
-                                            </div>
-                                        </div>
-                                    <?php 
-                                        endif; 
-                                    endforeach; 
-                                    if (!$hasDue) echo "<p class=\"text-on-surface-variant text-sm\">You are all caught up for now!</p>";
-                                    ?>
-                                </div>
-                            </section>
-
-                            <!-- Upcoming Section -->
-                            <section class="mt-4">
-                                <h3 class="font-semibold text-lg text-on-surface-variant flex items-center gap-2 mb-3">
-                                    <span class="material-symbols-outlined">update</span> Upcoming (Next 48h)
-                                </h3>
-                                <div class="flex flex-col gap-3">
-                                    <?php 
-                                    $hasUpcoming = false;
-                                    foreach ($hubDecks as $d): 
-                                        if ($d['due_count'] == 0 && $d['upcoming_count'] > 0): $hasUpcoming = true; 
-                                    ?>
-                                        <div class="flex items-center justify-between p-3 bg-surface-container-low rounded-xl border border-outline-variant/20">
-                                            <span class="font-semibold text-on-surface"><?= htmlspecialchars($d['title']) ?></span>
-                                            <span class="text-xs text-on-surface-variant bg-surface-container-high px-2 py-1 rounded-md"><?= $d['upcoming_count'] ?> cards soon</span>
-                                        </div>
-                                    <?php 
-                                        endif; 
-                                    endforeach; 
-                                    if (!$hasUpcoming) echo "<p class=\"text-on-surface-variant text-sm\">No cards scheduled for the next 48 hours.</p>";
-                                    ?>
-                                </div>
-                            </section>
-                        </div>
-
-                        <!-- Right Column: Info/Logs -->
-                        <div class="lg:col-span-4">
-                            <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-5 shadow-sm">
-                                <h3 class="font-semibold text-base mb-2">Review Keyboard Controls</h3>
-                                <ul class="text-sm text-on-surface-variant flex flex-col gap-3 mt-4">
-                                    <li class="flex items-center gap-3"><kbd class="px-2 py-1 bg-surface-container-high rounded border font-mono text-xs">Space</kbd> Show Answer / Remember</li>
-                                    <li class="flex items-center gap-3"><kbd class="px-2 py-1 bg-surface-container-high rounded border font-mono text-xs">F</kbd> Mark as Forgotten</li>
-                                    <li class="flex items-center gap-3"><kbd class="px-2 py-1 bg-surface-container-high rounded border font-mono text-xs">←</kbd> Previous Card</li>
-                                    <li class="flex items-center gap-3"><kbd class="px-2 py-1 bg-surface-container-high rounded border font-mono text-xs">→</kbd> Next Card</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <?php include __DIR__ . '/review-hub-view.php'; ?>
 
             <?php else: ?>
                 <!-- STATE B: ACTIVE REVIEW INTERFACE -->
@@ -260,7 +191,8 @@ $currentPage = "review";
     <script>
         window.MemPulseReviewData = {
             deckId: <?= json_encode($deckId) ?>,
-            dueCards: <?= json_encode($dueCards ?? []) ?>
+            dueCards: <?= json_encode($dueCards ?? []) ?>,
+            csrfToken: <?= json_encode($_SESSION['csrf_token'] ?? '') ?>
         };
     </script>
     <script src="../assets/js/review.js" defer></script>

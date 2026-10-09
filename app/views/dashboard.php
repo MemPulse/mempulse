@@ -325,49 +325,152 @@
 
             </div>
 
-            <!-- DIV: ROW 2 - Streak Analytics Horizontal Metric Bar -->
-            <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-2 sm:p-2.5 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-1 sm:gap-3 w-full">
-                <!-- DIV: Metric 1 - Best Historical Streak -->
-                <div class="flex items-center gap-3 w-full sm:flex-1 justify-start p-2 sm:p-2.5 rounded-xl hover:bg-primary/5 transition-all group/streak cursor-default">
-                    <div class="w-8 h-8 rounded-lg bg-primary-fixed/60 border border-primary-fixed-dim/40 flex items-center justify-center text-primary flex-shrink-0 group-hover/streak:scale-105 transition-transform">
-                        <span class="material-symbols-outlined text-[18px]">emoji_events</span>
-                    </div>
-                    <div class="flex flex-col">
-                        <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70">Best Streak</span>
-                        <span id="stat-best-streak" class="font-headline-sm text-sm font-bold text-on-surface group-hover/streak:text-primary transition-colors">
-                            <?php echo (int) $streakData['bestStreak']; ?> days
-                        </span>
+                        <?php
+            // ---- "Due Now" call-to-action state ----
+            $dueTotal     = (int) ($metricsData['cardsDue'] ?? 0);
+            $dueDecks     = $dueByDeck ?? [];
+            $nextDueSecs  = $nextDueSecs ?? null;
+            $curStreak    = (int) ($streakData['currentStreak'] ?? 0);
+            $streakAtRisk = $dueTotal > 0 && $curStreak > 0 && (int) ($metricsData['cardsReviewedToday'] ?? 0) === 0;
+            $reviewHref   = count($dueDecks) === 1 ? 'review.php?deck_id=' . (int) $dueDecks[0]['id'] : 'review.php';
+
+            if ($streakAtRisk) {
+                $dueSubtitle = 'Keep your ' . $curStreak . '-day streak alive';
+            } elseif (count($dueDecks) === 1) {
+                $dueSubtitle = 'in ' . $dueDecks[0]['title'];
+            } elseif (count($dueDecks) > 1) {
+                $dueSubtitle = 'across ' . count($dueDecks) . ' decks';
+            } else {
+                $dueSubtitle = '';
+            }
+
+            $nextDueLabel = '';
+            if ($nextDueSecs !== null && $nextDueSecs > 0) {
+                if ($nextDueSecs < 3600)       $nextDueLabel = 'Next cards due in ' . max(1, (int) ceil($nextDueSecs / 60)) . ' min';
+                elseif ($nextDueSecs < 86400)  $nextDueLabel = 'Next cards due in ' . (int) floor($nextDueSecs / 3600) . ' h';
+                else                           $nextDueLabel = 'Next cards due in ' . (int) floor($nextDueSecs / 86400) . ' d';
+            }
+            ?>
+
+            <!-- DIV: ROW 2 - Grid Split: Streak Stats (Left, matches heatmap) vs Due Now CTA (Right, matches carousel) -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-stretch w-full">
+
+                <!-- DIV: LEFT COLUMN - Streak Analytics Metric Bar -->
+                <div class="lg:col-span-6 flex w-full min-w-0 order-last lg:order-none">
+                    <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-2 sm:p-2.5 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-1 sm:gap-3 w-full h-full">
+                        <!-- DIV: Metric 1 - Best Historical Streak -->
+                        <div class="flex items-center gap-3 w-full sm:flex-1 justify-start p-2 sm:p-2.5 rounded-xl hover:bg-primary/5 transition-all group/streak cursor-default">
+                            <div class="w-8 h-8 rounded-lg bg-primary-fixed/60 border border-primary-fixed-dim/40 flex items-center justify-center text-primary flex-shrink-0 group-hover/streak:scale-105 transition-transform">
+                                <span class="material-symbols-outlined text-[18px]">emoji_events</span>
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70">Best Streak</span>
+                                <span id="stat-best-streak" class="font-headline-sm text-sm font-bold text-on-surface group-hover/streak:text-primary transition-colors">
+                                    <?php echo (int) $streakData['bestStreak']; ?> days
+                                </span>
+                            </div>
+                        </div>
+                        <!-- DIV: Vertical Divider -->
+                        <div class="hidden sm:block w-[1px] h-8 bg-outline-variant/30"></div>
+
+                        <!-- DIV: Metric 2 - Current Active Streak -->
+                        <div class="flex items-center gap-3 w-full sm:flex-1 justify-start p-2 sm:p-2.5 rounded-xl hover:bg-amber-500/5 transition-all group/streak cursor-default">
+                            <div class="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200/80 flex items-center justify-center text-amber-500 flex-shrink-0 group-hover/streak:scale-105 transition-transform">
+                                <span class="material-symbols-outlined text-[18px]">local_fire_department</span>
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70">Current Streak</span>
+                                <span id="stat-current-streak" class="font-headline-sm text-sm font-bold text-on-surface group-hover/streak:text-amber-600 transition-colors">
+                                    <?php echo (int) $streakData['currentStreak']; ?> days
+                                </span>
+                            </div>
+                        </div>
+                        <!-- DIV: Vertical Divider -->
+                        <div class="hidden sm:block w-[1px] h-8 bg-outline-variant/30"></div>
+
+                        <!-- DIV: Metric 3 - Streak Accuracy Percentage -->
+                        <div class="flex items-center gap-3 w-full sm:flex-1 justify-start p-2 sm:p-2.5 rounded-xl hover:bg-teal-500/5 transition-all group/streak cursor-default">
+                            <div class="w-8 h-8 rounded-lg bg-teal-50 border border-teal-200/80 flex items-center justify-center text-teal-500 flex-shrink-0 group-hover/streak:scale-105 transition-transform">
+                                <span class="material-symbols-outlined text-[18px]">track_changes</span>
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70">Streak Acc.</span>
+                                <span id="stat-streak-accuracy" class="font-headline-sm text-sm font-bold text-on-surface group-hover/streak:text-teal-600 transition-colors">
+                                    <?php echo (float) $streakData['streakAccuracy']; ?>%
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <!-- DIV: Vertical Divider -->
-                <div class="hidden sm:block w-[1px] h-8 bg-outline-variant/30"></div>
-                
-                <!-- DIV: Metric 2 - Current Active Streak -->
-                <div class="flex items-center gap-3 w-full sm:flex-1 justify-start p-2 sm:p-2.5 rounded-xl hover:bg-amber-500/5 transition-all group/streak cursor-default">
-                    <div class="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200/80 flex items-center justify-center text-amber-500 flex-shrink-0 group-hover/streak:scale-105 transition-transform">
-                        <span class="material-symbols-outlined text-[18px]">local_fire_department</span>
-                    </div>
-                    <div class="flex flex-col">
-                        <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70">Current Streak</span>
-                        <span id="stat-current-streak" class="font-headline-sm text-sm font-bold text-on-surface group-hover/streak:text-amber-600 transition-colors">
-                            <?php echo (int) $streakData['currentStreak']; ?> days
-                        </span>
-                    </div>
-                </div>
-                <!-- DIV: Vertical Divider -->
-                <div class="hidden sm:block w-[1px] h-8 bg-outline-variant/30"></div>
-                
-                <!-- DIV: Metric 3 - Streak Accuracy Percentage -->
-                <div class="flex items-center gap-3 w-full sm:flex-1 justify-start p-2 sm:p-2.5 rounded-xl hover:bg-teal-500/5 transition-all group/streak cursor-default">
-                    <div class="w-8 h-8 rounded-lg bg-teal-50 border border-teal-200/80 flex items-center justify-center text-teal-500 flex-shrink-0 group-hover/streak:scale-105 transition-transform">
-                        <span class="material-symbols-outlined text-[18px]">track_changes</span>
-                    </div>
-                    <div class="flex flex-col">
-                        <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70">Streak Acc.</span>
-                        <span id="stat-streak-accuracy" class="font-headline-sm text-sm font-bold text-on-surface group-hover/streak:text-teal-600 transition-colors">
-                            <?php echo (float) $streakData['streakAccuracy']; ?>%
-                        </span>
-                    </div>
+
+                <!-- DIV: RIGHT COLUMN - Due Now Call-To-Action (same width as carousel / recent sessions) -->
+                <div class="lg:col-span-6 flex w-full min-w-0 order-first lg:order-none">
+
+                    <?php if ($dueTotal > 0): ?>
+                        <!-- A: Cards due - primary call-to-action -->
+                        <a href="<?php echo htmlspecialchars($reviewHref, ENT_QUOTES, 'UTF-8'); ?>"
+                           id="stat-due-cta"
+                           aria-label="Review <?php echo $dueTotal; ?> due <?php echo $dueTotal === 1 ? 'card' : 'cards'; ?>"
+                           class="group/cta relative overflow-hidden flex items-center justify-between gap-4 w-full h-full min-h-[64px] px-4 sm:px-5 py-3 rounded-2xl bg-gradient-to-r from-primary to-primary-container text-on-primary shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
+                            <!-- DIV: Ambient Glow -->
+                            <div class="absolute -right-6 -top-8 w-28 h-28 bg-white/15 rounded-full blur-2xl pointer-events-none"></div>
+
+                            <!-- DIV: Icon + Text -->
+                            <div class="relative z-10 flex items-center gap-3 min-w-0">
+                                <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+                                    <span class="material-symbols-outlined text-[22px]">alarm</span>
+                                </div>
+                                <div class="flex flex-col min-w-0">
+                                    <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-on-primary/80">Due Now</span>
+                                    <span class="text-base sm:text-lg font-extrabold leading-tight truncate">
+                                        <span id="stat-due-cta-count"><?php echo $dueTotal; ?></span>
+                                        <?php echo $dueTotal === 1 ? 'card' : 'cards'; ?> ready to review
+                                    </span>
+                                    <?php if ($dueSubtitle !== ''): ?>
+                                        <span class="text-[11px] sm:text-xs text-on-primary/80 truncate"><?php echo htmlspecialchars($dueSubtitle, ENT_QUOTES, 'UTF-8'); ?></span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+
+                            <!-- DIV: Action Pill -->
+                            <span class="relative z-10 inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl bg-white text-primary font-label-md text-xs font-bold shadow-xs flex-shrink-0">
+                                <span class="hidden sm:inline">Start Review</span>
+                                <span class="material-symbols-outlined text-[18px] transition-transform group-hover/cta:translate-x-1">arrow_forward</span>
+                            </span>
+                        </a>
+
+                    <?php elseif ($nextDueSecs !== null): ?>
+                        <!-- B: Nothing due, cards are scheduled -->
+                        <div id="stat-due-cta" class="flex items-center gap-3 w-full h-full min-h-[64px] px-4 sm:px-5 py-3 rounded-2xl bg-surface-container-lowest border border-outline-variant/30 shadow-xs">
+                            <div class="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-center text-emerald-600 flex-shrink-0">
+                                <span class="material-symbols-outlined text-[22px]">task_alt</span>
+                            </div>
+                            <div class="flex flex-col min-w-0">
+                                <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70">Due Now</span>
+                                <span class="text-base sm:text-lg font-extrabold leading-tight text-on-surface">All caught up</span>
+                                <?php if ($nextDueLabel !== ''): ?>
+                                    <span class="text-[11px] sm:text-xs text-on-surface-variant"><?php echo htmlspecialchars($nextDueLabel, ENT_QUOTES, 'UTF-8'); ?></span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                    <?php else: ?>
+                        <!-- C: No cards at all - point to creation -->
+                        <a href="decks.php?add_card=1" id="stat-due-cta"
+                           class="group/cta flex items-center justify-between gap-4 w-full h-full min-h-[64px] px-4 sm:px-5 py-3 rounded-2xl bg-surface-container-lowest border border-outline-variant/30 shadow-xs hover:border-primary/50 hover:shadow-md transition-all">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                                    <span class="material-symbols-outlined text-[22px]">add</span>
+                                </div>
+                                <div class="flex flex-col min-w-0">
+                                    <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70">Due Now</span>
+                                    <span class="text-base sm:text-lg font-extrabold leading-tight text-on-surface truncate">Create your first cards</span>
+                                </div>
+                            </div>
+                            <span class="material-symbols-outlined text-[20px] text-primary flex-shrink-0 transition-transform group-hover/cta:translate-x-1">arrow_forward</span>
+                        </a>
+                    <?php endif; ?>
+
                 </div>
             </div>
 

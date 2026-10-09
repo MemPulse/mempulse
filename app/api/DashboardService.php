@@ -48,8 +48,8 @@ class DashboardService
         // 1. Cards Due Today
         $due = self::fetchCount($conn, 
             "SELECT COUNT(*) FROM flashcards f 
-             JOIN decks d ON f.deck_id = d.id 
-             WHERE d.user_id = ? AND f.deleted_at IS NULL AND f.next_review_at <= NOW()", 
+             JOIN decks d ON f.deck_id = d.id
+             WHERE d.user_id = ? AND d.deleted_at IS NULL AND f.deleted_at IS NULL AND f.next_review_at <= NOW()", 
             $userId
         );
 
@@ -57,7 +57,7 @@ class DashboardService
         $mastered = self::fetchCount($conn, 
             "SELECT COUNT(*) FROM flashcards f 
              JOIN decks d ON f.deck_id = d.id 
-             WHERE d.user_id = ? AND f.deleted_at IS NULL AND f.interval_days >= 21", 
+             WHERE d.user_id = ? AND d.deleted_at IS NULL AND f.deleted_at IS NULL AND f.interval_days >= 21", 
             $userId
         );
 
@@ -65,7 +65,7 @@ class DashboardService
         $tough = self::fetchCount($conn, 
             "SELECT COUNT(*) FROM flashcards f 
              JOIN decks d ON f.deck_id = d.id 
-             WHERE d.user_id = ? AND f.deleted_at IS NULL AND f.lapses >= 8", 
+             WHERE d.user_id = ? AND d.deleted_at IS NULL AND f.deleted_at IS NULL AND f.lapses >= 8", 
             $userId
         );
 
@@ -272,6 +272,60 @@ class DashboardService
         return $sessions;
     }
 
+        /**
+     * Decks that currently have cards due, most due first.
+     *
+     * @return array<int, array{id:int,title:string,dueCount:int}>
+     */
+    public static function getDueByDeck(mysqli $conn, int $userId): array
+    {
+        $sql = "SELECT d.id, d.title, COUNT(*) AS due_count
+                FROM flashcards f
+                JOIN decks d ON f.deck_id = d.id
+                WHERE d.user_id = ? AND d.deleted_at IS NULL
+                  AND f.deleted_at IS NULL AND f.next_review_at <= NOW()
+                GROUP BY d.id, d.title
+                ORDER BY due_count DESC, d.title ASC";
+
+        $decks = [];
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "i", $userId);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            while ($row = mysqli_fetch_assoc($result)) {
+                $decks[] = [
+                    'id'       => (int) $row['id'],
+                    'title'    => $row['title'],
+                    'dueCount' => (int) $row['due_count'],
+                ];
+            }
+            mysqli_stmt_close($stmt);
+        }
+        return $decks;
+    }
+
+    /**
+     * Seconds until the next card becomes due, or null if the user has no upcoming cards.
+     * Computed in SQL so PHP/MySQL timezone differences cannot skew it.
+     */
+    public static function getNextDueSeconds(mysqli $conn, int $userId): ?int
+    {
+        $sql = "SELECT TIMESTAMPDIFF(SECOND, NOW(), MIN(f.next_review_at))
+                FROM flashcards f
+                JOIN decks d ON f.deck_id = d.id
+                WHERE d.user_id = ? AND d.deleted_at IS NULL
+                  AND f.deleted_at IS NULL AND f.next_review_at > NOW()";
+
+        $secs = null;
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "i", $userId);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_bind_result($stmt, $secs);
+            mysqli_stmt_fetch($stmt);
+            mysqli_stmt_close($stmt);
+        }
+        return $secs === null ? null : (int) $secs;
+    }
     private static function fetchCount(mysqli $conn, string $query, int $userId): int
     {
         if ($stmt = mysqli_prepare($conn, $query)) {

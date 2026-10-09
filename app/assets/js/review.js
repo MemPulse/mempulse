@@ -11,6 +11,11 @@ document.addEventListener("DOMContentLoaded", () => {
     let isAnswerShown = false;
     let sessionEnded = false;
 
+    const csrfToken = data.csrfToken || '';
+    const sessionStartedAt = Date.now();
+    let sessionDuration = 0;
+    let unsavedRatings = false;
+
     // DOM Elements
     const elFront = document.getElementById('card-front-content');
     const elBack = document.getElementById('card-back-content');
@@ -90,6 +95,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function rateCard(status) {
         const card = queue[currentIndex];
         ratings[card.id] = status;
+        unsavedRatings = true;
 
         updateTally();
         showFeedbackToast(status);
@@ -144,8 +150,56 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // 4. Batch Save & Session End
+    async function saveSession() {
+        const res = await fetch('../api/save-session.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                deck_id: data.deckId,
+                results: ratings,
+                csrf_token: csrfToken,
+                duration_seconds: sessionDuration
+            })
+        });
+        let body = {};
+        try { body = await res.json(); } catch (_) { }
+        if (!res.ok || !body.ok) {
+            throw new Error(body.error || `Save failed (HTTP ${res.status}).`);
+        }
+        unsavedRatings = false;
+        return body;
+    }
+
+    function showSaveError(message) {
+        let box = document.getElementById('save-status');
+        if (!box) {
+            box = document.createElement('div');
+            box.id = 'save-status';
+            box.className = 'w-full max-w-sm mb-6 p-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-sm flex flex-col gap-3';
+            viewFinished.insertBefore(box, viewFinished.querySelector('a[href="review.php"]'));
+        }
+        box.textContent = '';
+
+        const p = document.createElement('p');
+        p.textContent = `Your session wasn't saved: ${message}`;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold';
+        btn.textContent = 'Retry save';
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            try { await saveSession(); box.remove(); }
+            catch (err) { showSaveError(err.message); }
+        });
+
+        box.append(p, btn);
+    }
+
     async function endSession() {
+        if (sessionEnded) return;
         sessionEnded = true;
+        sessionDuration = Math.round((Date.now() - sessionStartedAt) / 1000);
         viewActive.classList.add('hidden');
         viewFinished.classList.remove('hidden');
 
@@ -160,18 +214,11 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById('summary-total').textContent = ratedIds.length;
         document.getElementById('summary-accuracy').textContent = Math.round((remCount / ratedIds.length) * 100) + '%';
 
-        // Fire & Forget API Save
         try {
-            await fetch('../api/save-session.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    deck_id: data.deckId,
-                    results: ratings
-                })
-            });
+            await saveSession();
         } catch (error) {
             console.error("Failed to save session batch:", error);
+            showSaveError(error.message);
         }
     }
 
@@ -201,6 +248,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 skipToNext();
                 break;
         }
+    });
+
+    window.addEventListener('beforeunload', (e) => {
+        if (unsavedRatings) { e.preventDefault(); e.returnValue = ''; }
     });
 
     // Utilities
