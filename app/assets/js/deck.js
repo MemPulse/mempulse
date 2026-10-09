@@ -441,7 +441,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // 1. Tabulator Grid Setup
     const allColumns = [
         {
-            title: `<input type="checkbox" id="header-select-all" class="mp-check" title="Select all cards" aria-label="Select all cards">`,
+            title: "",
             field: "check", width: 44, resizable: false, frozen: true,
             headerSort: false, hozAlign: "center", headerHozAlign: "center", cssClass: "mp-check-cell",
             formatter: (cell) => {
@@ -817,7 +817,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Reformat rows if we just turned edit mode off to uncheck boxes visually
         if (!active && tabulatorTable) {
-            tabulatorTalble.getRows().forEach(r => r.reformat());
+            tabulatorTable.getRows().forEach(r => r.reformat());
         }
     }
 
@@ -1058,44 +1058,4 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById('confirm-reset-btn').disabled = false;
         }
     });
-
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('#card-actions-menu') && !e.target.closest('[data-more-card]')) closeActionsMenu();
-    });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeActionsMenu(); });
-    window.addEventListener('resize', closeActionsMenu);
-    if (tabulatorTable) {
-        tabulatorTable.on('scrollVertical', closeActionsMenu);
-        tabulatorTable.on('scrollHorizontal', closeActionsMenu);
-    }
-
-    if (actionsMenu) {
-        actionsMenu.addEventListener('click', async (e) => {
-            const item = e.target.closest('[data-menu-action]');
-            if (!item || !menuCardId) return;
-            const id = menuCardId;
-            const act = item.dataset.menuAction;
-            closeActionsMenu();
-
-            try {
-                if (act === 'duplicate') {
-                    const res = await sendCardAction({ action: 'duplicate', card_id: id });
-                    if (tabulatorTable) await tabulatorTable.addRow(res.card, true);
-                    totalCards++;
-                    updateCardCountLabel();
-                    Archive.toast('Card duplicated');
-                } else if (act === 'reset') {
-                    const res = await sendCardAction({ action: 'reset_progress', card_id: id });
-                    const row = tabulatorTable ? tabulatorTable.getRow(Number(id)) : null;
-                    if (row) await row.update(res.card);
-                    if (isDesktopView() && selectedSidebarCardId === Number(id)) {
-                        populateSidebar(row ? row.getData() : res.card, row || null);
-                    }
-                    Archive.toast('Progress reset. The card is due now.');
-                }
-            } catch (err) {
-                Archive.toast(err.message, { type: 'error' });
-            }
-        });
-    }
 });

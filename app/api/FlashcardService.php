@@ -195,7 +195,11 @@ class FlashcardService
                      WHERE f.id IN ($placeholders) AND f.deck_id = ? AND d.user_id = ? AND f.deleted_at IS NULL";
 
         $stmt = mysqli_prepare($conn, $fetchSql);
-        mysqli_stmt_bind_param($stmt, $types, ...$params);
+        $bindParams = [$types];
+        foreach ($params as $k => $v) {
+            $bindParams[] = &$params[$k];
+        }
+        call_user_func_array([$stmt, 'bind_param'], $bindParams);
         mysqli_stmt_execute($stmt);
         $result = mysqli_stmt_get_result($stmt);
 
@@ -254,9 +258,9 @@ class FlashcardService
         $checkStmt = mysqli_prepare($conn, "SELECT id FROM decks WHERE id = ? AND user_id = ? AND deleted_at IS NULL");
         mysqli_stmt_bind_param($checkStmt, "ii", $targetDeckId, $userId);
         mysqli_stmt_execute($checkStmt);
-        $ownsTarget = mysqli_stmt_num_rows(mysqli_stmt_get_result($checkStmt)) === 1;
+        mysqli_stmt_store_result($checkStmt);
+        $ownsTarget = mysqli_stmt_num_rows($checkStmt) === 1;
         mysqli_stmt_close($checkStmt);
-        if (!$ownsTarget) return 0;
 
         $placeholders = implode(',', array_fill(0, count($cardIds), '?'));
         $types = 'i' . str_repeat('i', count($cardIds)) . 'ii';
@@ -268,7 +272,11 @@ class FlashcardService
                 WHERE f.id IN ($placeholders) AND f.deck_id = ? AND d.user_id = ? AND f.deleted_at IS NULL";
 
         $stmt = mysqli_prepare($conn, $sql);
-        mysqli_stmt_bind_param($stmt, $types, ...$params);
+        $bindParams = [$types];
+        foreach ($params as $k => $v) {
+            $bindParams[] = &$params[$k];
+        }
+        call_user_func_array([$stmt, 'bind_param'], $bindParams);
         mysqli_stmt_execute($stmt);
         $affected = mysqli_stmt_affected_rows($stmt);
         mysqli_stmt_close($stmt);
@@ -295,7 +303,11 @@ class FlashcardService
                 WHERE f.id IN ($placeholders) AND f.deck_id = ? AND d.user_id = ? AND f.deleted_at IS NULL";
 
         $stmt = mysqli_prepare($conn, $sql);
-        mysqli_stmt_bind_param($stmt, $types, ...$params);
+        $bindParams = [$types];
+        foreach ($params as $k => $v) {
+            $bindParams[] = &$params[$k];
+        }
+        call_user_func_array([$stmt, 'bind_param'], $bindParams);
         mysqli_stmt_execute($stmt);
         $affected = mysqli_stmt_affected_rows($stmt);
         mysqli_stmt_close($stmt);

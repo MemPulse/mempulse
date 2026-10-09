@@ -9,6 +9,10 @@
 session_start();
 header('Content-Type: application/json; charset=utf-8');
 
+require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/FlashcardService.php'; 
+require_once __DIR__ . '/ArchiveService.php';   
+
 /**
  * Send a structured JSON HTTP response and terminate request execution.
  * 
