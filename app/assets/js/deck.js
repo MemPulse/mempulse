@@ -441,8 +441,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // 1. Tabulator Grid Setup
     const allColumns = [
         {
-            title: "", field: "check", width: 40, resizable: false, frozen: true,
-            headerSort: false, hozAlign: "center", cssClass: "mp-check-cell", visible: false, // Hides it on init
+            title: `<input type="checkbox" id="header-select-all" class="mp-check" title="Select all cards" aria-label="Select all cards">`,
+            field: "check", width: 44, resizable: false, frozen: true,
+            headerSort: false, hozAlign: "center", headerHozAlign: "center", cssClass: "mp-check-cell",
             formatter: (cell) => {
                 const id = cell.getData().id;
                 const checked = checkedIds.has(Number(id)) ? 'checked' : '';
@@ -790,9 +791,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Elements
     const toggleEditBtn = document.getElementById('toggle-edit-btn');
-    const bulkPanel = document.getElementById('bulk-panel');
     const bulkSelectAll = document.getElementById('bulk-select-all');
-    const bulkSelectLabel = document.getElementById('bulk-select-label');
+    const bulkPanel = document.getElementById('bulk-panel');
+    const bulkStatus = document.getElementById('bulk-status');
     const bulkActionBtns = [
         document.getElementById('bulk-duplicate-btn'),
         document.getElementById('bulk-move-btn'),
@@ -805,19 +806,18 @@ document.addEventListener("DOMContentLoaded", () => {
     // 1. Toggle Edit Mode
     function setEditMode(active) {
         editMode = active;
-        checkedIds.clear();
+        if (!active) {
+            checkedIds.clear();
+        }
         updateBulkUI();
 
         if (toggleEditBtn) toggleEditBtn.classList.toggle('bg-primary-container', active);
         if (bulkPanel) bulkPanel.classList.toggle('is-open', active);
         if (workspace) workspace.classList.toggle('workspace-editing', active);
 
-        if (tabulatorTable) {
-            if (active) {
-                tabulatorTable.showColumn("check");
-            } else {
-                tabulatorTable.hideColumn("check");
-            }
+        // Reformat rows if we just turned edit mode off to uncheck boxes visually
+        if (!active && tabulatorTable) {
+            tabulatorTalble.getRows().forEach(r => r.reformat());
         }
     }
 
@@ -834,24 +834,24 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     // 2. Selection Logic
+
     function updateBulkUI() {
-        const total = tabulatorTable.getDataCount() + pending.length;
+        const total = tabulatorTable ? tabulatorTable.getDataCount() + pending.length : 0;
         const selected = checkedIds.size;
 
-        bulkSelectAll.indeterminate = selected > 0 && selected < total;
-        bulkSelectAll.checked = selected > 0 && selected === total;
-
-        if (selected === 0) {
-            bulkSelectLabel.textContent = 'Select all';
-        } else if (selected === total) {
-            bulkSelectLabel.textContent = 'Deselect all';
-        } else {
-            bulkSelectLabel.textContent = `${selected} selected`;
+        if (bulkSelectAll) {
+            bulkSelectAll.indeterminate = selected > 0 && selected < total;
+            bulkSelectAll.checked = selected > 0 && selected === total;
         }
 
-        bulkActionBtns.forEach(btn => btn.disabled = selected === 0);
+        if (bulkStatus) {
+            if (selected === 0) bulkStatus.textContent = 'Select all';
+            else if (selected === total) bulkStatus.textContent = 'Deselect all';
+            else bulkStatus.textContent = `${selected} selected`;
+        }
 
-        // Disable Move if no other decks exist
+        bulkActionBtns.forEach(btn => { if (btn) btn.disabled = selected === 0; });
+
         const moveBtn = document.getElementById('bulk-move-btn');
         if (moveBtn) {
             if (otherDecks.length === 0) {
@@ -863,18 +863,39 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    bulkSelectAll.addEventListener('change', (e) => {
-        const isChecked = e.target.checked;
-        checkedIds.clear();
+    // Unified delegated listener for Select All and Row checkboxes
+    document.addEventListener('change', (e) => {
+        // Handle Bulk Select All
+        if (e.target.id === 'bulk-select-all') {
+            const isChecked = e.target.checked;
+            checkedIds.clear();
 
-        if (isChecked) {
-            const allIds = [...tabulatorTable.getData().map(r => Number(r.id)), ...pending.map(r => Number(r.id))];
-            allIds.forEach(id => checkedIds.add(id));
+            if (isChecked && tabulatorTable) {
+                const allIds = [...tabulatorTable.getData().map(r => Number(r.id)), ...pending.map(r => Number(r.id))];
+                allIds.forEach(id => checkedIds.add(id));
+            }
+
+            if (checkedIds.size > 0 && !editMode) setEditMode(true);
+            else {
+                updateBulkUI();
+                if (tabulatorTable) tabulatorTable.getRows().forEach(r => r.reformat());
+            }
         }
+        // Handle Individual Row Checks
+        else if (e.target.classList.contains('row-check')) {
+            const id = Number(e.target.dataset.id);
+            if (e.target.checked) checkedIds.add(id);
+            else checkedIds.delete(id);
 
-        updateBulkUI();
-        if (tabulatorTable) tabulatorTable.getRows().forEach(r => r.reformat());
+            // Automatically open the panel if a box is checked and we aren't in edit mode yet
+            if (checkedIds.size > 0 && !editMode) {
+                setEditMode(true);
+            } else {
+                updateBulkUI();
+            }
+        }
     });
+
 
     // Handle individual row checkbox clicks securely
     document.addEventListener('change', (e) => {

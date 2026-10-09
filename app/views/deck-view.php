@@ -180,7 +180,7 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
         <div id="bulk-panel">
             <label class="flex items-center gap-2 font-semibold text-sm cursor-pointer select-none">
                 <input type="checkbox" id="bulk-select-all" class="mp-check">
-                <span id="bulk-select-label">Select all</span>
+                <span id="bulk-status">Select all</span>
             </label>
             <div class="flex items-center gap-2">
                 <button type="button" id="bulk-duplicate-btn" class="mp-btn mp-btn-icon lg:mp-btn-text bg-white/20 hover:bg-white/30 disabled:opacity-50 text-white border-0" title="Duplicate selected">
