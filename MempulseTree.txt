@@ -4,8 +4,11 @@ Volume serial number is 8E4B-9250
 C:.
 │   comebine_files.py
 │   database-design.md
+│   generate_mock.py
 │   MempulseTree.txt
+│   mempulse_mock_data.sql
 │   review-page.txt
+│   review.txt
 │   
 ├───app
 │   ├───api
@@ -49,8 +52,8 @@ C:.
 │           decks-view.php
 │           decks.php
 │           index.php
-│           reivew-hub-view.php
 │           reports.php
+│           review-hub-view.php
 │           review.php
 │           science.php
 │           settings.php

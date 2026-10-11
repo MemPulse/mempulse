@@ -463,8 +463,8 @@
                                     <span class="material-symbols-outlined text-[22px]">add</span>
                                 </div>
                                 <div class="flex flex-col min-w-0">
-                                    <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70">Due Now</span>
-                                    <span class="text-base sm:text-lg font-extrabold leading-tight text-on-surface truncate">Create your first cards</span>
+                                    <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70">No Due Today</span>
+                                    <span class="text-base sm:text-lg font-extrabold leading-tight text-on-surface truncate">Create new cards</span>
                                 </div>
                             </div>
                             <span class="material-symbols-outlined text-[20px] text-primary flex-shrink-0 transition-transform group-hover/cta:translate-x-1">arrow_forward</span>

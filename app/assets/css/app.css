@@ -27,17 +27,42 @@
     }
 }
 
-/* Hide normal page scrollbars */
+/* Subtle custom scrollbar for page scrolling */
 html,
 body,
 main {
-    scrollbar-width: none;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+
+html {
+    scroll-behavior: smooth;
 }
 
 html::-webkit-scrollbar,
 body::-webkit-scrollbar,
 main::-webkit-scrollbar {
-    display: none;
+    display: block;
+    width: 6px;
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+main::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+main::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.35);
+    border-radius: 9999px;
+}
+
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
+main::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.6);
 }
 
 
