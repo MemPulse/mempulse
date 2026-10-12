@@ -74,8 +74,7 @@
             <!-- Grid view -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 transition-opacity duration-200" id="decks-grid-view">
                 <?php foreach ($decks as $deck): ?>
-                    <div data-deck-card="<?= $deck['id'] ?>" data-deck-id="<?= $deck['id'] ?>" class="deck-card deck-item cursor-grab active:cursor-grabbing bg-surface-container-lowest border border-outline-variant/30 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-primary-fixed-dim/60 transition-all flex flex-col group">
-                        <!-- Cover -->
+                <div data-deck-card="<?= $deck['id'] ?>" data-deck-id="<?= $deck['id'] ?>" class="deck-card deck-item bg-surface-container-lowest border border-outline-variant/30 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-primary-fixed-dim/60 transition-all flex flex-col group">                        <!-- Cover -->
                         <div class="relative h-44 w-full overflow-hidden border-b border-outline-variant/20 flex items-center justify-center" style="<?= DeckService::h($deck['cover_style']) ?>">
                             <?php if ($deck['due_count'] > 0): ?>
                                 <div class="absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/45 backdrop-blur-md text-white text-[12px] font-semibold shadow-sm">
@@ -161,8 +160,7 @@
             <!-- List view -->
             <div class="flex flex-col gap-4 hidden" id="decks-list-view">
                 <?php foreach ($decks as $deck): ?>
-                    <div data-deck-card="<?= $deck['id'] ?>" data-deck-id="<?= $deck['id'] ?>" class="deck-card deck-item cursor-grab active:cursor-grabbing bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md hover:border-primary-fixed-dim/60 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4 group">
-                        <div class="flex items-center gap-4 min-w-0">
+                    <div data-deck-card="<?= $deck['id'] ?>" data-deck-id="<?= $deck['id'] ?>" class="deck-card deck-item bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md hover:border-primary-fixed-dim/60 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4 group">                        <div class="flex items-center gap-4 min-w-0">
                             <div class="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center" style="<?= DeckService::h($deck['cover_style']) ?>">
                                 <span class="material-symbols-outlined text-white/90 text-[26px]">style</span>
                             </div>
@@ -256,6 +254,10 @@
 
 <!-- Shared kebab menu -->
 <div id="deck-menu" class="hidden fixed z-50 w-44 rounded-xl bg-surface-container-lowest border border-outline-variant/30 shadow-lg py-1" role="menu">
+    <button type="button" role="menuitem" data-menu-action="move-pos" class="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-on-surface hover:bg-surface-container transition-colors">
+        <span class="material-symbols-outlined text-[18px]">drag_indicator</span>
+        <span>Move Position</span>
+    </button>
     <button type="button" role="menuitem" data-menu-action="rename" class="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-on-surface hover:bg-surface-container transition-colors">
         <span class="material-symbols-outlined text-[18px]">edit</span>
         <span>Rename</span>
@@ -264,7 +266,7 @@
         <span class="material-symbols-outlined text-[18px]">archive</span>
         <span>Archive</span>
     </button>
-    <hr>
+    <hr class="my-1 border-outline-variant/20">
     <button type="button" role="menuitem" data-menu-action="add-card" class="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-on-surface hover:bg-surface-container transition-colors">
         <span class="material-symbols-outlined text-[18px]">add</span>
         <span>Add Card</span>
@@ -431,4 +433,23 @@
             <button type="button" id="perm-delete-confirm" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-[14px] transition-colors disabled:opacity-60">Delete Permanently</button>
         </div>
     </div>
+</dialog>
+
+<!-- Move Deck Position Dialog -->
+<dialog id="move-pos-dialog" class="m-auto rounded-2xl p-0 w-full max-w-sm bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
+    <form id="move-pos-form" class="p-6 flex flex-col gap-4" novalidate>
+        <h3 class="font-headline-sm text-[18px] font-bold">Move Deck Position</h3>
+        <p class="text-on-surface-variant text-[13px]">
+            Reorder <span id="move-pos-deck-name" class="font-semibold text-on-surface"></span> in your deck gallery.
+        </p>
+        <div class="flex flex-col gap-1.5">
+            <label for="move-pos-input" class="text-on-surface-variant text-[13px] font-semibold">New Position Number</label>
+            <input id="move-pos-input" type="number" min="1" step="1" class="w-full px-3 py-2 rounded-xl border border-outline-variant/50 bg-surface text-on-surface focus:outline-none focus:border-primary">
+            <p id="move-pos-hint" class="text-on-surface-variant/70 text-[12px]">Position 1 appears first.</p>
+        </div>
+        <div class="flex justify-end gap-2.5 pt-2">
+            <button type="button" data-close-dialog class="px-4 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-sm transition-colors">Cancel</button>
+            <button type="submit" id="move-pos-save" class="px-4 py-2 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-semibold text-sm transition-colors">Apply</button>
+        </div>
+    </form>
 </dialog>

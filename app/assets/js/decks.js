@@ -1,920 +1,757 @@
 /**
- * MemPulse Deck Flashcards Module (Tabulator + Persistent Sidebar & Mobile Modal)
+ * MemPulse Decks Module
+ * Handles view toggles, kebab menu dropdowns, modal dialogs, and AJAX actions.
  */
 document.addEventListener("DOMContentLoaded", () => {
     const config = window.MemPulseDeckData || {};
     const CSRF_TOKEN = config.csrfToken || '';
-    const DECK_ID = config.deckId || null;
-    const initialFlashcards = Array.isArray(config.flashcards) ? config.flashcards : [];
-    
-    let totalCards = initialFlashcards.length;
-    let archivedCards = Array.isArray(config.archivedFlashcards) ? config.archivedFlashcards.length : 0;
-    let offscreenList = Array.isArray(config.archivedFlashcards) ? config.archivedFlashcards.slice() : [];
-    let viewArchived = false;
-    let selectedSidebarCardId = null;
-    let selectedTabulatorRow = null;
-    
-    // --- BULK EDIT STATE ---
-    let editMode = false;
-    const checkedIds = new Set();
-    const otherDecks = config.otherDecks || [];
 
-    const Archive = window.MemPulseArchive;
-    if (!DECK_ID) return;
+    // ---------------------------------------------------------------
+    // 1. View toggle (grid vs list), remembered in localStorage
+    // ---------------------------------------------------------------
+    const viewGridBtn = document.getElementById('view-grid-btn');
+    const viewListBtn = document.getElementById('view-list-btn');
+    const gridView = document.getElementById('decks-grid-view');
+    const listView = document.getElementById('decks-list-view');
 
-    // DOM Elements - Main UI
-    const workspace = document.getElementById('mp-workspace');
-    const gridContainer = document.getElementById('flashcards-tabulator-grid');
-    const jumpRail = document.getElementById('grid-jump-rail');
-    const emptyState = document.getElementById('no-cards-empty-state');
-    const emptyTitle = document.getElementById('empty-state-title');
-    const emptyText = document.getElementById('empty-state-text');
-    const cardCountLabel = document.getElementById('deck-card-count-label');
-    const archivedCountLabel = document.getElementById('archived-count-label');
-    const archiveBanner = document.getElementById('archive-banner');
-    
-    // DOM Elements - Top Bar Buttons
-    const openAddCardBtn = document.getElementById('open-add-card-btn');
-    const toggleArchiveBtn = document.getElementById('toggle-archive-btn');
-    const toggleArchiveIcon = document.getElementById('toggle-archive-icon');
-    const toggleArchiveLabel = document.getElementById('toggle-archive-label');
-    const startReviewBtn = document.getElementById('start-review-btn');
-    const toggleEditBtn = document.getElementById('toggle-edit-btn');
-    
-    // DOM Elements - Bulk Panel
-    const bulkPanel = document.getElementById('bulk-panel');
-    const bulkSelectAll = document.getElementById('bulk-select-all');
-    const bulkSelectLabel = document.getElementById('bulk-select-label');
-    const bulkDoneBtn = document.getElementById('bulk-done-btn');
-    const bulkActionBtns = [
-        document.getElementById('bulk-duplicate-btn'),
-        document.getElementById('bulk-move-btn'),
-        document.getElementById('bulk-archive-btn'),
-        document.getElementById('bulk-reset-btn')
-    ];
+    const VIEW_KEY = 'mempulse_decks_view';
+    const activeBtn = "flex items-center justify-center p-1.5 rounded-lg bg-surface-container-lowest text-primary font-semibold shadow-xs transition-all";
+    const idleBtn = "flex items-center justify-center p-1.5 rounded-lg text-on-surface-variant hover:text-on-surface transition-colors";
 
-    // DOM Elements - Sidebar Editor
-    const sidebarSidebar = document.getElementById('card-editor-sidebar');
-    const toggleSidebarCollapseBtn = document.getElementById('toggle-sidebar-collapse');
-    const sidebarPrevBtn = document.getElementById('sidebar-prev-btn');
-    const sidebarNextBtn = document.getElementById('sidebar-next-btn');
-    const sidebarForm = document.getElementById('sidebar-card-form');
-    const sidebarCardId = document.getElementById('sidebar-card-id');
-    const sidebarCardFront = document.getElementById('sidebar-card-front');
-    const sidebarCardBack = document.getElementById('sidebar-card-back');
-    const sidebarCardDue = document.getElementById('sidebar-card-due');
-    const sidebarCardError = document.getElementById('sidebar-card-error');
-    const sidebarSaveBtn = document.getElementById('sidebar-save-btn');
-    const sidebarTitle = document.getElementById('sidebar-title');
-    const peekTab = document.getElementById('editor-peek-tab');
-    const positionLabel = document.getElementById('sidebar-position');
-    const gridFooter = document.getElementById('grid-footer');
-    const rangeLabel = document.getElementById('grid-range-label');
-    const progressBar = document.getElementById('grid-progress-bar');
-
-    // Sidebar Details Elements
-    const detLastReviewed = document.getElementById('det-last-reviewed');
-    const detAccuracy = document.getElementById('det-accuracy');
-    const detSpeed = document.getElementById('det-speed');
-    const detInterval = document.getElementById('det-interval');
-    const detReviews = document.getElementById('det-reviews');
-    const detLapses = document.getElementById('det-lapses');
-
-    // DOM Elements - Mobile Modal
-    const cardModal = document.getElementById('card-editor-modal');
-    const modalTitle = document.getElementById('modal-title');
-    const modalForm = document.getElementById('modal-card-form');
-    const modalCardId = document.getElementById('modal-card-id');
-    const modalCardFront = document.getElementById('modal-card-front');
-    const modalCardBack = document.getElementById('modal-card-back');
-    const modalCardDue = document.getElementById('modal-card-due');
-    const modalError = document.getElementById('modal-card-error');
-    const modalSaveBtn = document.getElementById('modal-save-btn');
-    const closeModalBtn = document.getElementById('close-modal-btn');
-
-    // DOM Elements - Delete Dialog
-    const deleteCardDialog = document.getElementById('delete-card-dialog');
-    const deleteCardError = document.getElementById('delete-card-error');
-    const deleteCardConfirm = document.getElementById('delete-card-confirm');
-    let targetDeleteCardId = null;
-    let tabulatorTable = null;
-
-    const desktopMQ = window.matchMedia('(min-width: 1024px)');
-    function isDesktopView() { return desktopMQ.matches; }
-
-    function setMinDueDateConstraint() {
-        const now = new Date();
-        const pad = (n) => String(n).padStart(2, '0');
-        const minFormatted = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T00:00`;
-        if (sidebarCardDue) sidebarCardDue.min = minFormatted;
-        if (modalCardDue) modalCardDue.min = minFormatted;
-    }
-    setMinDueDateConstraint();
-
-    function toggleStateVisibility(hasCards) {
-        if (hasCards) {
-            if (gridContainer) gridContainer.classList.remove('hidden');
-            if (emptyState) emptyState.classList.add('hidden');
-        } else {
-            if (gridContainer) gridContainer.classList.add('hidden');
-            if (emptyState) emptyState.classList.remove('hidden');
+    function setView(mode) {
+        const isGrid = mode !== 'list';
+        if (gridView) gridView.classList.toggle('hidden', !isGrid);
+        if (listView) listView.classList.toggle('hidden', isGrid);
+        if (viewGridBtn) {
+            viewGridBtn.className = isGrid ? activeBtn : idleBtn;
+            viewGridBtn.setAttribute('aria-pressed', String(isGrid));
         }
-    }
-    toggleStateVisibility(initialFlashcards.length > 0);
-
-    async function sendCardAction(payload) {
-        try {
-            const res = await fetch('../api/flashcard-actions.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...payload, csrf_token: CSRF_TOKEN, deck_id: DECK_ID })
-            });
-            let data = {};
-            try { data = await res.json(); } catch (_) { }
-
-            if (!res.ok || !data.ok) {
-                throw new Error(data.error || `Database communication error (HTTP ${res.status}).`);
-            }
-            return data;
-        } catch (error) {
-            console.error("Database connection failure:", error);
-            throw error;
+        if (viewListBtn) {
+            viewListBtn.className = isGrid ? idleBtn : activeBtn;
+            viewListBtn.setAttribute('aria-pressed', String(!isGrid));
         }
     }
 
-    function updateCardCountLabel() {
-        if (cardCountLabel) {
-            cardCountLabel.textContent = totalCards + (totalCards === 1 ? ' Card' : ' Cards');
-        }
-        if (archivedCountLabel) archivedCountLabel.textContent = archivedCards;
-
-        const visibleCount = viewArchived ? archivedCards : totalCards;
-        toggleStateVisibility(visibleCount > 0);
+    function saveView(mode) {
+        try { localStorage.setItem(VIEW_KEY, mode); } catch (_) { }
     }
 
-    function formatDateTimeForInput(dateString) {
-        if (!dateString) return '';
-        const d = new Date(dateString);
-        if (isNaN(d.getTime())) return '';
-        const pad = (n) => String(n).padStart(2, '0');
-        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    if (viewGridBtn && viewListBtn && gridView && listView) {
+        let saved = null;
+        try { saved = localStorage.getItem(VIEW_KEY); } catch (_) { }
+        setView(saved === 'list' ? 'list' : 'grid');
+
+        viewGridBtn.addEventListener('click', () => { setView('grid'); saveView('grid'); });
+        viewListBtn.addEventListener('click', () => { setView('list'); saveView('list'); });
     }
 
-    function formatDateTimeDisplay(dateString) {
-        if (!dateString) return '';
-        const d = new Date(dateString);
-        if (isNaN(d.getTime())) return dateString;
-        const pad = (n) => String(n).padStart(2, '0');
-        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    // ---------------------------------------------------------------
+    // Helper: Toast Notifications inside Archived Modal
+    // ---------------------------------------------------------------
+    const archivedToast = document.getElementById('archived-toast');
+    const archivedToastMsg = document.getElementById('archived-toast-message');
+
+    function showArchivedToast(message, isSuccess = true) {
+        if (!archivedToast || !archivedToastMsg) return;
+        archivedToastMsg.textContent = message;
+        archivedToast.className = isSuccess
+            ? "px-4 py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-between bg-emerald-50 text-emerald-800 border border-emerald-200"
+            : "px-4 py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-between bg-rose-50 text-rose-800 border border-rose-200";
+        archivedToast.classList.remove('hidden');
     }
 
-    function setEditorReadOnly(readOnly) {
-        [sidebarCardFront, sidebarCardBack, modalCardFront, modalCardBack].forEach((el) => { if (el) el.readOnly = readOnly; });
-        if (sidebarCardDue) sidebarCardDue.disabled = readOnly;
-        if (modalCardDue) modalCardDue.disabled = readOnly;
-        if (sidebarSaveBtn) sidebarSaveBtn.classList.toggle('hidden', readOnly);
-        if (modalSaveBtn) modalSaveBtn.classList.toggle('hidden', readOnly);
+    // Trigger pulse highlight animation on Archived Decks button
+    function triggerArchiveButtonPulse() {
+        const btn = document.getElementById('open-archived-btn');
+        if (!btn) return;
 
-        if (readOnly) {
-            if (sidebarTitle) sidebarTitle.textContent = 'Archived Card Details';
-            if (modalTitle) modalTitle.textContent = 'Archived Flashcard';
-        } else {
-            if (sidebarTitle) sidebarTitle.textContent = 'Card Editor';
-            if (modalTitle) modalTitle.textContent = 'View / Edit Flashcard';
-        }
+        btn.classList.add('animate-archive-pulse', 'bg-primary-container', 'text-on-primary-container', 'ring-2', 'ring-primary/40');
+        setTimeout(() => {
+            btn.classList.remove('animate-archive-pulse', 'bg-primary-container', 'text-on-primary-container', 'ring-2', 'ring-primary/40');
+        }, 1500);
     }
 
-    // ---------------------------------------------------------------------------
-    // BULK EDIT UI LOGIC
-    // ---------------------------------------------------------------------------
-    function setEditMode(active) {
-        editMode = active;
-        checkedIds.clear();
-        updateBulkUI();
+    // ---------------------------------------------------------------
+    // 2. Deck Kebab Menu & Modals Logic
+    // ---------------------------------------------------------------
+    const deckMenu = document.getElementById('deck-menu');
+    const renameDialog = document.getElementById('rename-dialog');
+    const renameForm = document.getElementById('rename-form');
+    const renameInput = document.getElementById('rename-input');
+    const renameError = document.getElementById('rename-error');
+    const renameSave = document.getElementById('rename-save');
 
-        if (toggleEditBtn) toggleEditBtn.classList.toggle('bg-primary-container', active);
-        if (bulkPanel) bulkPanel.classList.toggle('is-open', active);
-        if (workspace) workspace.classList.toggle('workspace-editing', active);
+    const archiveDialog = document.getElementById('archive-dialog') || document.getElementById('delete-dialog');
+    const archiveName = document.getElementById('archive-name') || document.getElementById('delete-name');
+    const archiveError = document.getElementById('archive-error') || document.getElementById('delete-error');
+    const archiveConfirm = document.getElementById('archive-confirm') || document.getElementById('delete-confirm');
+    const countBadge = document.getElementById('deck-count-badge');
 
-        if (tabulatorTable) {
-            if (active) tabulatorTable.showColumn("check");
-            else tabulatorTable.hideColumn("check");
-        }
-    }
+    let activeDeckId = null;
+    let menuButton = null;
 
-    if (toggleEditBtn) toggleEditBtn.addEventListener('click', () => setEditMode(!editMode));
-    if (bulkDoneBtn) bulkDoneBtn.addEventListener('click', () => setEditMode(false));
+    const archivedDecksDialog = document.getElementById('archived-decks-dialog');
+    const openArchivedBtn = document.getElementById('open-archived-btn');
 
-    function updateBulkUI() {
-        const total = tabulatorTable ? tabulatorTable.getDataCount() + pending.length : 0;
-        const selected = checkedIds.size;
-
-        if (bulkSelectAll) {
-            bulkSelectAll.indeterminate = selected > 0 && selected < total;
-            bulkSelectAll.checked = selected > 0 && selected === total;
-        }
-
-        if (bulkSelectLabel) {
-            if (selected === 0) bulkSelectLabel.textContent = 'Select all';
-            else if (selected === total) bulkSelectLabel.textContent = 'Deselect all';
-            else bulkSelectLabel.textContent = `${selected} selected`;
-        }
-
-        bulkActionBtns.forEach(btn => { if (btn) btn.disabled = selected === 0; });
-
-        const moveBtn = document.getElementById('bulk-move-btn');
-        if (moveBtn) {
-            if (otherDecks.length === 0) {
-                moveBtn.disabled = true;
-                moveBtn.title = "No other decks available";
-            } else {
-                moveBtn.title = "Move to deck...";
-            }
-        }
-    }
-
-    if (bulkSelectAll) {
-        bulkSelectAll.addEventListener('change', (e) => {
-            const isChecked = e.target.checked;
-            checkedIds.clear();
-
-            if (isChecked && tabulatorTable) {
-                const allIds = [...tabulatorTable.getData().map(r => Number(r.id)), ...pending.map(r => Number(r.id))];
-                allIds.forEach(id => checkedIds.add(id));
-            }
-
-            updateBulkUI();
-            if (tabulatorTable) tabulatorTable.getRows().forEach(r => r.reformat());
+    if (openArchivedBtn && archivedDecksDialog) {
+        openArchivedBtn.addEventListener('click', () => {
+            archivedDecksDialog.showModal();
         });
     }
 
-    document.addEventListener('change', (e) => {
-        if (e.target.classList.contains('row-check')) {
-            const id = Number(e.target.dataset.id);
-            if (e.target.checked) checkedIds.add(id);
-            else checkedIds.delete(id);
-            updateBulkUI();
+    // Restore Deck Action Handler
+    document.addEventListener('click', async (e) => {
+        const restoreBtn = e.target.closest('[data-restore-deck]');
+        if (!restoreBtn) return;
+
+        const deckId = restoreBtn.getAttribute('data-restore-deck');
+        const itemEl = document.querySelector(`[data-archived-item="${deckId}"]`);
+        const deckTitleEl = document.querySelector(`[data-archived-title="${deckId}"]`);
+        const deckTitle = deckTitleEl ? deckTitleEl.textContent.trim() : 'Deck';
+
+        restoreBtn.disabled = true;
+        restoreBtn.textContent = "Restoring...";
+
+        try {
+            await sendDeckAction({ action: 'restore', deck_id: deckId });
+
+            if (itemEl) itemEl.remove();
+
+            const listContainer = document.getElementById('archived-decks-list-container');
+            if (listContainer && listContainer.children.length === 0) {
+                listContainer.innerHTML = '<p id="no-archived-msg" class="text-on-surface-variant text-center py-6 text-sm">No archived decks found.</p>';
+            }
+
+            showArchivedToast(`"${deckTitle}" has been restored to active decks.`, true);
+            window.needMainReload = true;
+        } catch (err) {
+            showArchivedToast("Failed to restore deck: " + err.message, false);
+            restoreBtn.disabled = false;
+            restoreBtn.textContent = "Restore";
         }
     });
 
-    // ---------------------------------------------------------------------------
-    // SIDEBAR & NAVIGATION
-    // ---------------------------------------------------------------------------
-    let isSidebarCollapsed = true;
-    function setSidebarCollapsed(collapsed) {
-        isSidebarCollapsed = collapsed;
-        if (workspace) workspace.classList.toggle('editor-collapsed', collapsed);
-        if (sidebarSidebar) sidebarSidebar.classList.toggle('mp-collapsed', collapsed);
-        if (peekTab) peekTab.hidden = !collapsed;
-        if (tabulatorTable) requestAnimationFrame(() => tabulatorTable.redraw(true));
-    }
-    if (toggleSidebarCollapseBtn) toggleSidebarCollapseBtn.addEventListener('click', () => setSidebarCollapsed(true));
-    if (peekTab) peekTab.addEventListener('click', () => setSidebarCollapsed(false));
+    // Permanent Delete Handler for Archived Decks
+    const permDeleteDialog = document.getElementById('permanent-delete-dialog');
+    const permDeleteName = document.getElementById('perm-delete-name');
+    const permDeleteError = document.getElementById('perm-delete-error');
+    const permDeleteConfirm = document.getElementById('perm-delete-confirm');
+    let targetDeleteDeckId = null;
 
-    function updatePositionLabel() {
-        if (!positionLabel) return;
-        const total = viewArchived ? archivedCards : totalCards;
-        if (!selectedSidebarCardId || !tabulatorTable) { positionLabel.textContent = 'New card'; highlightJumpRail(-1); return; }
-        const idx = tabulatorTable.getRows().findIndex(r => Number(r.getData().id) === selectedSidebarCardId);
-        positionLabel.textContent = idx === -1 ? 'Use ↑ ↓ to browse' : `Card ${idx + 1} of ${total} · ↑ ↓ to browse`;
-        highlightJumpRail(idx);
-    }
+    document.addEventListener('click', (e) => {
+        const deleteBtn = e.target.closest('[data-delete-archived]');
+        if (!deleteBtn) return;
 
-    function populateSidebar(cardData, rowInstance = null, { expand = true } = {}) {
-        if (!cardData) return;
-        if (!rowInstance && tabulatorTable) rowInstance = tabulatorTable.getRow(Number(cardData.id)) || null;
-        selectedSidebarCardId = cardData.id != null ? Number(cardData.id) : null;
-        if (rowInstance) selectedTabulatorRow = rowInstance;
+        targetDeleteDeckId = deleteBtn.getAttribute('data-delete-archived');
+        const deckTitleEl = document.querySelector(`[data-archived-title="${targetDeleteDeckId}"]`);
+        const deckTitle = deckTitleEl ? deckTitleEl.textContent.trim() : 'Deck';
 
-        if (sidebarCardId) sidebarCardId.value = cardData.id || '';
-        if (sidebarCardFront) sidebarCardFront.value = cardData.front || '';
-        if (sidebarCardBack) sidebarCardBack.value = cardData.back || '';
-        if (sidebarCardDue) sidebarCardDue.value = formatDateTimeForInput(cardData.next_review_at);
-        if (sidebarCardError) sidebarCardError.classList.add('hidden');
-
-        if (detLastReviewed) detLastReviewed.textContent = cardData.last_reviewed_at ? formatDateTimeDisplay(cardData.last_reviewed_at) : 'Never';
-        if (detAccuracy) detAccuracy.textContent = cardData.accuracy !== null && cardData.accuracy !== undefined ? cardData.accuracy + '%' : '—';
-        if (detSpeed) detSpeed.textContent = cardData.avg_response_ms !== null && cardData.avg_response_ms !== undefined ? (cardData.avg_response_ms / 1000).toFixed(1) + 's' : '—';
-        if (detInterval) detInterval.textContent = cardData.interval_days !== undefined ? cardData.interval_days + (Number(cardData.interval_days) === 1 ? ' day' : ' days') : '—';
-        if (detReviews) detReviews.textContent = cardData.review_count !== undefined ? cardData.review_count : '0';
-        if (detLapses) detLapses.textContent = cardData.lapses !== undefined ? cardData.lapses : '0';
-
-        setEditorReadOnly(viewArchived);
-        updatePositionLabel();
-        if (isSidebarCollapsed && expand) setSidebarCollapsed(false);
-    }
-
-    function pageStep() {
-        const holder = gridContainer.querySelector('.tabulator-tableholder');
-        const first = tabulatorTable.getRows()[0];
-        const rowH = first ? first.getElement().offsetHeight : 0;
-        if (!holder || !rowH) return 10;
-        return Math.max(1, Math.floor(holder.clientHeight / rowH) - 1);
-    }
-
-    async function ensureLoaded(index) {
-        while (tabulatorTable.getDataCount() <= index && pending.length) {
-            if (loadingMore) { await new Promise((r) => setTimeout(r, 30)); continue; }
-            await loadMore();
-        }
-    }
-
-    function activateRow(row, { expand = true, position = 'nearest' } = {}) {
-        tabulatorTable.deselectRow(tabulatorTable.getSelectedRows());
-        row.select();
-        if (isDesktopView()) populateSidebar(row.getData(), row, { expand });
-        Promise.resolve(row.scrollTo(position, false)).catch(() => { });
-    }
-
-    async function navigateSidebarRow(direction, { expand = true, step = 1 } = {}) {
-        if (!tabulatorTable) return;
-        let rows = tabulatorTable.getRows();
-        if (!rows.length) return;
-
-        const idx = rows.findIndex(r => Number(r.getData().id) === selectedSidebarCardId);
-        let targetIdx;
-        if (idx === -1) targetIdx = direction === 'next' ? 0 : rows.length - 1;
-        else targetIdx = direction === 'next' ? idx + step : idx - step;
-
-        if (targetIdx > rows.length - 1) {
-            await ensureLoaded(targetIdx);
-            rows = tabulatorTable.getRows();
-        }
-        targetIdx = Math.max(0, Math.min(targetIdx, rows.length - 1));
-        if (targetIdx === idx) return;
-        activateRow(rows[targetIdx], { expand });
-    }
-
-    if (sidebarPrevBtn) sidebarPrevBtn.addEventListener('click', () => navigateSidebarRow('prev'));
-    if (sidebarNextBtn) sidebarNextBtn.addEventListener('click', () => navigateSidebarRow('next'));
-
-    const NAV_KEYS = { ArrowDown: ['next', false], ArrowUp: ['prev', false], PageDown: ['next', true], PageUp: ['prev', true] };
-    document.addEventListener('keydown', (e) => {
-        const nav = NAV_KEYS[e.key];
-        if (!nav) return;
-        if (!isDesktopView() || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
-        if (document.querySelector('dialog[open]')) return;
-        if (e.target instanceof Element && e.target.closest('input, textarea, select, [contenteditable="true"]')) return;
-        e.preventDefault();
-        navigateSidebarRow(nav[0], { expand: false, step: nav[1] ? pageStep() : 1 });
+        if (permDeleteName) permDeleteName.textContent = `"${deckTitle}"`;
+        if (permDeleteError) permDeleteError.classList.add('hidden');
+        if (permDeleteDialog) permDeleteDialog.showModal();
     });
 
-    // ---------------------------------------------------------------------------
-    // MODAL CONTROL
-    // ---------------------------------------------------------------------------
-    function openModalForCreate() {
-        if (viewArchived) return;
-        if (modalTitle) modalTitle.textContent = 'Create New Flashcard';
-        if (modalCardId) modalCardId.value = '';
-        if (modalCardFront) modalCardFront.value = '';
-        if (modalCardBack) modalCardBack.value = '';
-        if (modalCardDue) modalCardDue.value = formatDateTimeForInput(new Date());
-        if (modalError) modalError.classList.add('hidden');
+    if (permDeleteConfirm) {
+        permDeleteConfirm.addEventListener('click', async () => {
+            if (!targetDeleteDeckId) return;
 
-        setMinDueDateConstraint();
-        setEditorReadOnly(false);
-        if (cardModal) cardModal.showModal();
+            permDeleteConfirm.disabled = true;
+            try {
+                const deckTitleEl = document.querySelector(`[data-archived-title="${targetDeleteDeckId}"]`);
+                const deckTitle = deckTitleEl ? deckTitleEl.textContent.trim() : 'Deck';
+
+                await sendDeckAction({ action: 'permanent_delete', deck_id: targetDeleteDeckId });
+
+                const itemEl = document.querySelector(`[data-archived-item="${targetDeleteDeckId}"]`);
+                if (itemEl) itemEl.remove();
+
+                const listContainer = document.getElementById('archived-decks-list-container');
+                if (listContainer && listContainer.children.length === 0) {
+                    listContainer.innerHTML = '<p id="no-archived-msg" class="text-on-surface-variant text-center py-6 text-sm">No archived decks found.</p>';
+                }
+
+                if (permDeleteDialog) permDeleteDialog.close();
+                showArchivedToast(`"${deckTitle}" has been permanently deleted.`, false);
+            } catch (err) {
+                if (permDeleteError) {
+                    permDeleteError.textContent = err.message;
+                    permDeleteError.classList.remove('hidden');
+                }
+            } finally {
+                permDeleteConfirm.disabled = false;
+            }
+        });
     }
 
-    function openModalForEdit(cardData) {
-        if (!cardData) return;
-        if (modalTitle) modalTitle.textContent = 'View / Edit Flashcard';
-        if (modalCardId) modalCardId.value = cardData.id || '';
-        if (modalCardFront) modalCardFront.value = cardData.front || '';
-        if (modalCardBack) modalCardBack.value = cardData.back || '';
-        if (modalCardDue) modalCardDue.value = formatDateTimeForInput(cardData.next_review_at);
-        if (modalError) modalError.classList.add('hidden');
-
-        setMinDueDateConstraint();
-        setEditorReadOnly(viewArchived);
-        if (cardModal) cardModal.showModal();
+    if (archivedDecksDialog) {
+        archivedDecksDialog.addEventListener('close', () => {
+            if (window.needMainReload) {
+                window.location.reload();
+            }
+        });
     }
 
-    if (closeModalBtn) closeModalBtn.addEventListener('click', () => cardModal && cardModal.close());
-    if (openAddCardBtn) openAddCardBtn.addEventListener('click', () => {
-        if (isDesktopView()) {
-            setSidebarCollapsed(false);
-            selectedSidebarCardId = null;
-            selectedTabulatorRow = null;
-            if (tabulatorTable) tabulatorTable.deselectRow();
-            if (sidebarCardId) sidebarCardId.value = '';
-            if (sidebarCardFront) sidebarCardFront.value = '';
-            if (sidebarCardBack) sidebarCardBack.value = '';
-            if (sidebarCardDue) sidebarCardDue.value = formatDateTimeForInput(new Date());
-            if (sidebarCardError) sidebarCardError.classList.add('hidden');
-            if (sidebarTitle) sidebarTitle.textContent = 'New Flashcard';
-            updatePositionLabel();
-            if (sidebarCardFront) sidebarCardFront.focus();
-        } else {
-            openModalForCreate();
+    function getDeckTitle(id) {
+        const el = document.querySelector('[data-deck-title="' + id + '"]');
+        return el ? el.textContent.trim() : '';
+    }
+
+    function closeMenu() {
+        if (!deckMenu) return;
+        deckMenu.classList.add('hidden');
+        if (menuButton) menuButton.setAttribute('aria-expanded', 'false');
+        menuButton = null;
+    }
+
+    function openMenu(btn) {
+        closeMenu();
+        if (!deckMenu) return;
+        menuButton = btn;
+        activeDeckId = btn.dataset.deckId;
+        btn.setAttribute('aria-expanded', 'true');
+        deckMenu.classList.remove('hidden');
+
+        const rect = btn.getBoundingClientRect();
+        const w = deckMenu.offsetWidth;
+        const h = deckMenu.offsetHeight;
+        const left = Math.min(Math.max(8, rect.right - w), window.innerWidth - w - 8);
+        let top = rect.bottom + 6;
+        if (top + h > window.innerHeight - 8) top = rect.top - h - 6;
+        deckMenu.style.left = left + 'px';
+        deckMenu.style.top = Math.max(8, top) + 'px';
+    }
+
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-deck-menu]');
+        if (btn) {
+            if (menuButton === btn) closeMenu(); else openMenu(btn);
+        } else if (deckMenu && !deckMenu.contains(e.target)) {
+            closeMenu();
         }
     });
 
-    document.querySelectorAll('[data-close-dialog]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const dlg = btn.closest('dialog');
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
+    window.addEventListener('resize', closeMenu);
+    window.addEventListener('scroll', closeMenu, true);
+
+    document.querySelectorAll('[data-close-dialog]').forEach((b) => {
+        b.addEventListener('click', () => {
+            const dlg = b.closest('dialog');
             if (dlg) dlg.close();
         });
     });
 
-    // ---------------------------------------------------------------------------
-    // LAZY LOADING
-    // ---------------------------------------------------------------------------
-    const PAGE_SIZE = 50;
-    let pending = [];
-    let loadingMore = false;
-    let gridReady = false;
-
-    function updateLoadMoreUI() {
-        if (!gridFooter || !tabulatorTable) return;
-        const loaded = tabulatorTable.getDataCount();
-        const remaining = pending.length;
-        const total = loaded + remaining;
-        const noun = total === 1 ? 'card' : 'cards';
-
-        gridFooter.hidden = total === 0;
-        rangeLabel.textContent = remaining ? `Showing ${loaded} of ${total} ${noun}` : `All ${total} ${noun} loaded`;
-        progressBar.style.width = total ? `${Math.round((loaded / total) * 100)}%` : '0%';
-        renderJumpRail();
-    }
-
-    function loadFirstPage(list) {
-        pending = list.slice(PAGE_SIZE);
-        return tabulatorTable.setData(list.slice(0, PAGE_SIZE)).then(updateLoadMoreUI);
-    }
-
-    async function loadMore() {
-        if (loadingMore || !pending.length || !tabulatorTable) return;
-        loadingMore = true;
-        updateLoadMoreUI();
-        try {
-            await tabulatorTable.addData(pending.splice(0, PAGE_SIZE), false);
-        } finally {
-            loadingMore = false;
-            updateLoadMoreUI();
-        }
-    }
-
-    function bindGridScroll() {
-        const holder = gridContainer.querySelector('.tabulator-tableholder');
-        if (!holder) return;
-        holder.addEventListener('scroll', () => {
-            if (holder.scrollTop + holder.clientHeight >= holder.scrollHeight - 160) loadMore();
-        }, { passive: true });
-    }
-
-    let railStep = PAGE_SIZE;
-    let railTotal = -1;
-    const MAX_RAIL_BUTTONS = 16;
-
-    function renderJumpRail() {
-        if (!jumpRail) return;
-        const total = tabulatorTable ? tabulatorTable.getDataCount() + pending.length : 0;
-        if (total === railTotal) return;
-        railTotal = total;
-        jumpRail.textContent = '';
-        if (total <= PAGE_SIZE) { jumpRail.hidden = true; return; }
-
-        railStep = PAGE_SIZE * Math.ceil(total / PAGE_SIZE / MAX_RAIL_BUTTONS);
-        for (let start = 0; start < total; start += railStep) {
-            const b = document.createElement('button');
-            b.type = 'button';
-            b.dataset.start = start;
-            b.textContent = start + 1;
-            b.title = `Jump to card ${start + 1}`;
-            b.setAttribute('aria-label', `Jump to card ${start + 1}`);
-            jumpRail.appendChild(b);
-        }
-        jumpRail.hidden = false;
-        const idx = selectedSidebarCardId
-            ? tabulatorTable.getRows().findIndex(r => Number(r.getData().id) === selectedSidebarCardId)
-            : -1;
-        highlightJumpRail(idx);
-    }
-
-    function highlightJumpRail(idx) {
-        if (!jumpRail || jumpRail.hidden) return;
-        const start = idx < 0 ? -1 : Math.floor(idx / railStep) * railStep;
-        jumpRail.querySelectorAll('button').forEach((b) =>
-            b.classList.toggle('is-active', Number(b.dataset.start) === start));
-    }
-
-    async function jumpToRecord(index) {
-        if (!tabulatorTable) return;
-        await ensureLoaded(index);
-        const row = tabulatorTable.getRows()[index];
-        if (!row) return;
-        activateRow(row, { expand: false, position: 'top' });
-        highlightJumpRail(index);
-    }
-
-    if (jumpRail) jumpRail.addEventListener('click', (e) => {
-        const b = e.target.closest('button[data-start]');
-        if (b) jumpToRecord(Number(b.dataset.start));
-    });
-
-    // ---------------------------------------------------------------------------
-    // TABULATOR INITIALIZATION
-    // ---------------------------------------------------------------------------
-    const allColumns = [
-        {
-            title: "", field: "check", width: 40, resizable: false, frozen: true,
-            headerSort: false, hozAlign: "center", cssClass: "mp-check-cell", visible: false,
-            formatter: (cell) => {
-                const id = cell.getData().id;
-                const checked = checkedIds.has(Number(id)) ? 'checked' : '';
-                return `<input type="checkbox" class="mp-check row-check" data-id="${id}" ${checked}>`;
-            }
-        },
-        {
-            title: "#", formatter: "rownum", hozAlign: "center", headerHozAlign: "center",
-            width: 56, minWidth: 56, maxWidth: 80, resizable: false, frozen: true, cssClass: "mp-rownum"
-        },
-        { title: "Front", field: "front", formatter: "plaintext", tooltip: true, minWidth: 200, width: 280 },
-        { title: "Back", field: "back", formatter: "plaintext", tooltip: true, minWidth: 200, width: 280 },
-        {
-            title: "Next Review (Due)", field: "next_review_at", minWidth: 150, width: 170,
-            formatter: (cell) => formatDateTimeDisplay(cell.getValue())
-        },
-        {
-            title: "Purges In", field: "days_left", minWidth: 90, width: 110, maxWidth: 200, hozAlign: "center",
-            formatter: (cell) => {
-                const d = cell.getValue();
-                const cls = d !== null && d <= 3 ? 'text-rose-700' : 'text-on-surface-variant';
-                return `<span class="font-semibold ${cls}">${Archive.retentionLabel(d)}</span>`;
-            }
-        },
-        {
-            title: "Last Reviewed", field: "last_reviewed_at", minWidth: 140, width: 160, maxWidth: 260,
-            formatter: (cell) => cell.getValue() ? formatDateTimeDisplay(cell.getValue()) : '<span class="text-on-surface-variant">Never</span>'
-        },
-        {
-            title: "Accuracy", field: "accuracy", minWidth: 80, width: 100, maxWidth: 180, hozAlign: "center",
-            formatter: (cell) => {
-                const v = cell.getValue();
-                if (v === null || v === undefined) return '—';
-                const cls = v >= 80 ? 'text-emerald-700' : v >= 50 ? 'text-amber-600' : 'text-rose-700';
-                return `<span class="font-semibold ${cls}">${v}%</span>`;
-            }
-        },
-        {
-            title: "Speed", field: "avg_response_ms", minWidth: 70, width: 90, maxWidth: 180, hozAlign: "center",
-            formatter: (cell) => {
-                const v = cell.getValue();
-                return (v === null || v === undefined) ? '—' : (v / 1000).toFixed(1) + 's';
-            }
-        },
-        {
-            title: "Interval", field: "interval_days", minWidth: 80, width: 100, maxWidth: 220,
-            formatter: (cell) => `${cell.getValue()} ${cell.getValue() === 1 ? 'day' : 'days'}`
-        },
-        { title: "Reviews", field: "review_count", minWidth: 70, width: 90, maxWidth: 200 },
-        {
-            title: "Lapses", field: "lapses", minWidth: 70, width: 90, maxWidth: 200,
-            formatter: (cell) => cell.getValue() > 0 ? `<span class="text-amber-600 font-semibold">${cell.getValue()}</span>` : cell.getValue()
-        }
-    ];
-
-    if (gridContainer) {
-        tabulatorTable = new Tabulator("#flashcards-tabulator-grid", {
-            data: [],
-            layout: "fitDataFill",
-            height: "100%",
-            responsiveLayout: false,
-            selectable: 1,
-            selectableRollingSelection: true,
-            resizableColumnFit: false,
-            columnDefaults: { headerSort: false },
-            placeholder: "No Flashcards Available",
-            columns: allColumns.filter((c) => c.field !== 'days_left'),
+    async function sendDeckAction(payload) {
+        const res = await fetch('../api/deck-actions.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...payload, csrf_token: CSRF_TOKEN })
         });
+        let data = {};
+        try { data = await res.json(); } catch (_) { }
+        if (!res.ok || !data.ok) {
+            const err = new Error(data.error || 'Request failed (HTTP ' + res.status + ').');
+            err.suggestion = data.suggestion || null;
+            throw err;
+        }
+        return data;
+    }
 
-        tabulatorTable.on("tableBuilt", () => {
-            gridReady = true;
-            bindGridScroll();
-            if (initialFlashcards.length > 0) {
-                toggleStateVisibility(true);
-                loadFirstPage(initialFlashcards).then(() => {
-                    if (!isDesktopView()) return;
-                    const firstRow = tabulatorTable.getRows()[0];
-                    if (firstRow) {
-                        firstRow.select();
-                        populateSidebar(firstRow.getData(), firstRow, { expand: false });
-                    }
-                });
+    if (deckMenu) {
+        deckMenu.addEventListener('click', (e) => {
+            const item = e.target.closest('[data-menu-action]');
+            if (!item || !activeDeckId) return;
+            const action = item.dataset.menuAction;
+            closeMenu();
+
+            if (action === 'rename' && renameDialog) {
+                if (renameInput) renameInput.value = getDeckTitle(activeDeckId);
+                if (renameError) renameError.classList.add('hidden');
+                renameDialog.showModal();
+                if (renameInput) renameInput.select();
+            } else if ((action === 'delete' || action === 'archive') && archiveDialog) {
+                if (archiveName) archiveName.textContent = '"' + getDeckTitle(activeDeckId) + '"';
+                if (archiveError) archiveError.classList.add('hidden');
+                archiveDialog.showModal();
+            } else if (action === 'add-card') {
+                openCardDialog(activeDeckId);
             }
         });
-
-        // Guard arrow-key and row-click logic for bulk checkboxes
-        tabulatorTable.on("rowClick", (e, row) => {
-            if (e.target.classList.contains('row-check')) return;
-            const cardData = row.getData();
-            if (isDesktopView()) populateSidebar(cardData, row);
-            else openModalForEdit(cardData);
-        });
-
-        let renumberQueued = false;
-        function renumberRows() {
-            if (renumberQueued || !tabulatorTable) return;
-            renumberQueued = true;
-            requestAnimationFrame(() => {
-                renumberQueued = false;
-                tabulatorTable.getRows().forEach((r) => r.reformat());
-            });
-        }
-        tabulatorTable.on("rowAdded", renumberRows);
-        tabulatorTable.on("rowDeleted", renumberRows);
     }
 
-    desktopMQ.addEventListener('change', (e) => {
-        if (e.matches && cardModal && cardModal.open) cardModal.close();
-        if (tabulatorTable) requestAnimationFrame(() => tabulatorTable.redraw(true));
-    });
-
-    // ---------------------------------------------------------------------------
-    // SAVING & DELETING
-    // ---------------------------------------------------------------------------
-    async function handleCardSave(cardId, front, back, nextReviewAt, errorEl, saveBtnEl, isSidebar) {
-        if (front === '' || back === '') {
-            if (errorEl) { errorEl.textContent = 'Both Front and Back content are required.'; errorEl.classList.remove('hidden'); }
-            return;
-        }
-        if (saveBtnEl) saveBtnEl.disabled = true;
-
-        try {
-            const action = cardId ? 'update' : 'add';
-            const res = await sendCardAction({ action, card_id: cardId, front, back, next_review_at: nextReviewAt });
-
-            if (action === 'add') {
-                totalCards++;
-                if (tabulatorTable) {
-                    const row = await tabulatorTable.addRow(res.card, true);
-                    if (isSidebar && row) {
-                        row.select();
-                        populateSidebar(row.getData(), row);
-                    }
-                }
-            } else {
-                const row = tabulatorTable ? tabulatorTable.getRow(Number(res.card.id)) : null;
-                if (row) await row.update(res.card);
-                if (isSidebar && isDesktopView()) {
-                    populateSidebar(row ? row.getData() : res.card, row || null);
-                }
-            }
-
-            updateCardCountLabel();
-            if (gridReady) updateLoadMoreUI();
-            if (!isSidebar && cardModal) cardModal.close();
-            Archive.toast(action === 'add' ? 'Card created successfully' : 'Card updated successfully');
-        } catch (err) {
-            if (errorEl) { errorEl.textContent = err.message; errorEl.classList.remove('hidden'); }
-        } finally {
-            if (saveBtnEl) saveBtnEl.disabled = false;
-        }
-    }
-
-    if (sidebarForm) {
-        sidebarForm.addEventListener('submit', async (e) => {
+    if (renameForm) {
+        renameForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const cardId = sidebarCardId ? sidebarCardId.value.trim() : '';
-            const front = sidebarCardFront ? sidebarCardFront.value.trim() : '';
-            const back = sidebarCardBack ? sidebarCardBack.value.trim() : '';
-            const nextReviewAt = sidebarCardDue ? sidebarCardDue.value.trim() : '';
-            await handleCardSave(cardId, front, back, nextReviewAt, sidebarCardError, sidebarSaveBtn, true);
-        });
-    }
-
-    if (modalForm) {
-        modalForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const cardId = modalCardId ? modalCardId.value.trim() : '';
-            const front = modalCardFront ? modalCardFront.value.trim() : '';
-            const back = modalCardBack ? modalCardBack.value.trim() : '';
-            const nextReviewAt = modalCardDue ? modalCardDue.value.trim() : '';
-            await handleCardSave(cardId, front, back, nextReviewAt, modalError, modalSaveBtn, false);
-        });
-    }
-
-    if (deleteCardConfirm) {
-        deleteCardConfirm.addEventListener('click', async () => {
-            if (!targetDeleteCardId) return;
-            deleteCardConfirm.disabled = true;
+            const title = renameInput ? renameInput.value.trim() : '';
+            if (title === '') {
+                if (renameError) {
+                    renameError.textContent = 'Deck name cannot be empty.';
+                    renameError.classList.remove('hidden');
+                }
+                return;
+            }
+            if (renameSave) renameSave.disabled = true;
             try {
-                await sendCardAction({ action: 'delete_permanent', card_id: targetDeleteCardId });
-                if (tabulatorTable) {
-                    const row = tabulatorTable.getRow(Number(targetDeleteCardId));
-                    if (row) row.delete();
-                    archivedCards--;
-                }
-                updateCardCountLabel();
-                if (deleteCardDialog) deleteCardDialog.close();
-                Archive.toast('Card deleted permanently', { type: 'error' });
+                const data = await sendDeckAction({ action: 'rename', deck_id: activeDeckId, title });
+                document.querySelectorAll('[data-deck-title="' + activeDeckId + '"]').forEach((el) => {
+                    el.textContent = data.title;
+                });
+                if (renameDialog) renameDialog.close();
             } catch (err) {
-                if (deleteCardError) { deleteCardError.textContent = err.message; deleteCardError.classList.remove('hidden'); }
+                showFieldError(renameError, renameInput, err);
             } finally {
-                deleteCardConfirm.disabled = false;
+                if (renameSave) renameSave.disabled = false;
             }
         });
     }
 
-    // ---------------------------------------------------------------------------
-    // ARCHIVE VIEW TOGGLE & SINGLE ARCHIVE
-    // ---------------------------------------------------------------------------
-    function setViewMode(archived) {
-        if (archived && editMode) setEditMode(false);
-        viewArchived = archived;
+    // ---------------------------------------------------------------
+    // 3. Inline Archiving Action (Animates Card Out & Updates Archive List)
+    // ---------------------------------------------------------------
+    if (archiveConfirm) {
+        archiveConfirm.addEventListener('click', async () => {
+            archiveConfirm.disabled = true;
+            try {
+                const action = archiveConfirm.id === 'delete-confirm' ? 'delete' : 'archive';
+                const deckTitle = getDeckTitle(activeDeckId) || 'Deck';
 
-        if (archiveBanner) archiveBanner.classList.toggle('hidden', !archived);
-        if (openAddCardBtn) openAddCardBtn.classList.toggle('hidden', archived);
-        if (startReviewBtn) startReviewBtn.classList.toggle('hidden', archived);
-        if (toggleEditBtn) toggleEditBtn.classList.toggle('hidden', archived);
-        if (toggleArchiveIcon) toggleArchiveIcon.textContent = archived ? 'arrow_back' : 'inventory_2';
-        if (toggleArchiveLabel) toggleArchiveLabel.textContent = archived ? 'Back to cards' : 'Archive';
-        if (toggleArchiveBtn) {
-            const label = archived ? 'Back to cards' : 'View archive';
-            toggleArchiveBtn.title = label;
-            toggleArchiveBtn.setAttribute('aria-label', label);
-            toggleArchiveBtn.setAttribute('aria-pressed', String(archived));
-        }
-        if (emptyTitle) emptyTitle.textContent = archived ? 'Archive is empty' : 'No flashcards yet';
-        if (emptyText) {
-            emptyText.textContent = archived
-                ? `Archived cards appear here for ${Archive.RETENTION_DAYS} days before they are permanently deleted.`
-                : 'Click "Create Card" to add your first card.';
-        }
+                // Get metadata from active card element
+                const activeCard = document.querySelector(`[data-deck-card="${activeDeckId}"]`);
+                let cardCount = '0';
+                let accuracy = 'N/A';
 
-        if (tabulatorTable) {
-            tabulatorTable.setColumns(
-                allColumns.filter((c) => c.field !== (archived ? 'next_review_at' : 'days_left'))
-            );
-            if (!editMode) tabulatorTable.hideColumn("check");
+                if (activeCard) {
+                    const cardCountEl = activeCard.querySelector('.font-semibold.text-on-surface');
+                    if (cardCountEl) cardCount = cardCountEl.textContent.trim();
 
-            const current = tabulatorTable.getData().concat(pending);
-            const next = offscreenList;
-            offscreenList = current;
-            selectedSidebarCardId = null;
-            selectedTabulatorRow = null;
-
-            loadFirstPage(next).then(() => {
-                tabulatorTable.redraw(true);
-                const first = tabulatorTable.getRows()[0];
-                if (first && isDesktopView()) {
-                    first.select();
-                    populateSidebar(first.getData(), first, { expand: false });
+                    // Safely find the accuracy badge element without invalid query selector syntax
+                    const accEl = activeCard.querySelector('[class*="badge"]') ||
+                        Array.from(activeCard.querySelectorAll('span')).find(el => el.textContent.includes('%'));
+                    if (accEl) accuracy = accEl.textContent.trim();
                 }
-            });
-        }
-        updateCardCountLabel();
+
+                await sendDeckAction({ action, deck_id: activeDeckId });
+
+                if (archiveDialog) archiveDialog.close();
+
+                // Fade out card elements in grid & list view
+                const cardsToRemove = document.querySelectorAll(`[data-deck-card="${activeDeckId}"]`);
+                cardsToRemove.forEach(card => {
+                    card.style.transition = 'all 0.3s ease';
+                    card.style.opacity = '0';
+                    card.style.transform = 'scale(0.95)';
+                    setTimeout(() => card.remove(), 300);
+                });
+
+                // Dynamically insert into Archived Decks Modal
+                const listContainer = document.getElementById('archived-decks-list-container');
+                if (listContainer) {
+                    const noMsg = document.getElementById('no-archived-msg');
+                    if (noMsg) noMsg.remove();
+
+                    const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    const newItemHTML = `
+                        <div data-archived-item="${activeDeckId}" class="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-outline-variant/40 bg-surface gap-4 hover:border-primary/50 transition-colors">
+                            <div>
+                                <h4 class="font-bold text-on-surface text-[15px]" data-archived-title="${activeDeckId}">${deckTitle}</h4>
+                                <div class="text-[13px] text-on-surface-variant mt-1.5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+                                    <span><strong>Cards:</strong> ${cardCount}</span>
+                                    <span><strong>Accuracy:</strong> ${accuracy}</span>
+                                    <span><strong>Archived:</strong> ${today}</span>
+                                    <span><strong>Reviewed:</strong> Just now</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 flex-shrink-0">
+                                <button type="button" data-restore-deck="${activeDeckId}" class="px-3.5 py-2 rounded-xl bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary text-sm font-semibold transition-colors whitespace-nowrap shadow-sm">
+                                    Restore
+                                </button>
+                                <button type="button" data-delete-archived="${activeDeckId}" class="px-3.5 py-2 rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 text-sm font-semibold transition-colors whitespace-nowrap" title="Delete Permanently">
+                                    Delete
+                                </button>
+                            </div>
+                        </div>`;
+                    listContainer.insertAdjacentHTML('afterbegin', newItemHTML);
+                }
+
+                // Trigger Archive Button Highlight Animation
+                triggerArchiveButtonPulse();
+
+                // Update remaining deck badge count
+                setTimeout(() => {
+                    const remaining = document.querySelectorAll('#decks-grid-view [data-deck-card]').length;
+                    if (remaining === 0) {
+                        window.location.reload();
+                    } else if (countBadge) {
+                        countBadge.textContent = remaining + (remaining === 1 ? ' Deck' : ' Decks');
+                    }
+                }, 350);
+
+            } catch (err) {
+                if (archiveError) {
+                    archiveError.textContent = err.message;
+                    archiveError.classList.remove('hidden');
+                }
+            } finally {
+                archiveConfirm.disabled = false;
+            }
+        });
     }
 
-    if (toggleArchiveBtn) toggleArchiveBtn.addEventListener('click', () => setViewMode(!viewArchived));
+    // ---------------------------------------------------------------
+    // 4. Create Deck Dialog Handler
+    // ---------------------------------------------------------------
+    const createDialog = document.getElementById('create-dialog');
+    const createForm = document.getElementById('create-form');
+    const createInput = document.getElementById('create-input');
+    const createError = document.getElementById('create-error');
+    const createSave = document.getElementById('create-save');
 
-    // ---------------------------------------------------------------------------
-    // BULK ACTIONS API TRIGGERS
-    // ---------------------------------------------------------------------------
-    
-    // Bulk Duplicate
-    const dupBtn = document.getElementById('bulk-duplicate-btn');
-    if (dupBtn) dupBtn.addEventListener('click', async () => {
-        const ids = Array.from(checkedIds);
-        if (!ids.length) return;
-        try {
-            bulkActionBtns.forEach(b => { if(b) b.disabled = true; });
-            const res = await sendCardAction({ action: 'bulk_duplicate', card_ids: ids });
+    let creatingDeckForCard = false;
+    let suppressCardResume = false;
 
-            if (tabulatorTable) {
-                res.cards.reverse().forEach(card => tabulatorTable.addRow(card, true));
+    function openCreateDialog(fromCard = false) {
+        creatingDeckForCard = fromCard;
+
+        if (fromCard && typeof cardDialog !== 'undefined' && cardDialog && cardDialog.open) {
+            suppressCardResume = true;
+            cardDialog.close();
+            suppressCardResume = false;
+        }
+
+        if (createInput) createInput.value = '';
+        if (createError) createError.classList.add('hidden');
+        if (createSave) createSave.disabled = false;
+        if (createDialog) {
+            createDialog.showModal();
+            if (createInput) createInput.focus();
+        }
+    }
+
+    ['new-deck-btn', 'new-deck-tile', 'new-deck-row', 'new-deck-empty-grid', 'new-deck-empty-list'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('click', () => openCreateDialog(false));
+    });
+
+    if (createForm) {
+        createForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const title = createInput ? createInput.value.trim() : '';
+            if (title === '') {
+                if (createError) {
+                    createError.textContent = 'Deck name cannot be empty.';
+                    createError.classList.remove('hidden');
+                }
+                return;
             }
-            totalCards += res.cards.length;
-            updateCardCountLabel();
-            Archive.toast(`${res.cards.length} cards duplicated`);
-            setEditMode(false);
-        } catch (err) {
-            Archive.toast(err.message, { type: 'error' });
-        } finally {
-            updateBulkUI();
+            if (createSave) createSave.disabled = true;
+            try {
+                const data = await sendDeckAction({ action: 'create', title });
+
+                if (creatingDeckForCard) {
+                    window.location.href = 'decks.php?add_card=1&deck_id=' + encodeURIComponent(data.id);
+                } else {
+                    window.location.reload();
+                }
+            } catch (err) {
+                showFieldError(createError, createInput, err);
+                if (createSave) createSave.disabled = false;
+            }
+        });
+    }
+
+    if (createDialog) {
+        createDialog.addEventListener('close', () => {
+            if (creatingDeckForCard && !suppressCardResume) {
+                creatingDeckForCard = false;
+                if (typeof cardDeckSelect !== 'undefined' && cardDeckSelect) {
+                    cardDeckSelect.value = cardDeckId ? String(cardDeckId) : '';
+                }
+                if (typeof cardDialog !== 'undefined' && cardDialog) {
+                    cardDialog.showModal();
+                    if (cardFront) cardFront.focus();
+                }
+            }
+        });
+    }
+
+    // ---------------------------------------------------------------
+    // 5. Review Button Handler
+    // ---------------------------------------------------------------
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-action="review"]');
+        if (!btn) return;
+
+        const deckId = btn.dataset.deckId;
+        if (deckId) {
+            window.location.href = 'review.php?deck_id=' + encodeURIComponent(deckId);
         }
     });
 
-    // Bulk Move
-    const moveDialog = document.getElementById('move-cards-dialog');
-    const moveDeckSelect = document.getElementById('move-deck-select');
-    const moveBtn = document.getElementById('bulk-move-btn');
-    const confirmMoveBtn = document.getElementById('confirm-move-btn');
+    // ---------------------------------------------------------------
+    // 6. Add Card Modal Handler
+    // ---------------------------------------------------------------
+    const cardDialog = document.getElementById('card-dialog');
+    const cardForm = document.getElementById('card-form');
+    const cardDeckSelect = document.getElementById('card-deck-select');
+    const cardFront = document.getElementById('card-front');
+    const cardBack = document.getElementById('card-back');
+    const cardError = document.getElementById('card-error');
+    const cardSuccess = document.getElementById('card-success');
+    const cardSave = document.getElementById('card-save');
 
-    if (moveBtn) moveBtn.addEventListener('click', () => {
-        if (otherDecks.length === 0 || checkedIds.size === 0) return;
-        moveDeckSelect.innerHTML = otherDecks.map(d => `<option value="${d.id}">${d.title}</option>`).join('');
-        moveDialog.showModal();
+    let cardDeckId = null;
+    let cardsAdded = false;
+
+    function openCardDialog(deckId = null) {
+        if (!cardDialog) return;
+        const selectedId = Number(deckId);
+        cardDeckId = Number.isInteger(selectedId) && selectedId > 0 ? selectedId : null;
+        cardsAdded = false;
+
+        if (cardDeckSelect) cardDeckSelect.value = cardDeckId ? String(cardDeckId) : '';
+        if (cardFront) cardFront.value = '';
+        if (cardBack) cardBack.value = '';
+        if (cardError) cardError.classList.add('hidden');
+        if (cardSuccess) cardSuccess.classList.add('hidden');
+        if (cardSave) cardSave.disabled = false;
+
+        cardDialog.showModal();
+
+        if (cardDeckId && cardFront) {
+            cardFront.focus();
+        } else if (cardDeckSelect) {
+            cardDeckSelect.focus();
+        }
+    }
+
+    if (cardDeckSelect) {
+        cardDeckSelect.addEventListener('change', () => {
+            if (cardDeckSelect.value === '__create__') {
+                cardDeckSelect.value = cardDeckId ? String(cardDeckId) : '';
+                openCreateDialog(true);
+                return;
+            }
+
+            const selectedId = Number(cardDeckSelect.value);
+            cardDeckId = Number.isInteger(selectedId) && selectedId > 0 ? selectedId : null;
+            if (cardError) cardError.classList.add('hidden');
+        });
+    }
+
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-action="add-card"]');
+        if (btn) openCardDialog(btn.dataset.deckId);
     });
 
-    if (confirmMoveBtn) confirmMoveBtn.addEventListener('click', async () => {
-        const ids = Array.from(checkedIds);
-        const targetDeck = Number(moveDeckSelect.value);
-        try {
-            confirmMoveBtn.disabled = true;
-            const res = await sendCardAction({ action: 'bulk_move', card_ids: ids, target_deck_id: targetDeck });
-
-            ids.forEach(id => {
-                const row = tabulatorTable.getRow(id);
-                if (row) row.delete();
-                pending = pending.filter(p => Number(p.id) !== id);
-
-                if (selectedSidebarCardId === id && isDesktopView()) {
-                    const firstRow = tabulatorTable.getRows()[0];
-                    if (firstRow) activateRow(firstRow, { expand: false });
-                    else setSidebarCollapsed(true);
+    [cardFront, cardBack].forEach((field) => {
+        if (field) {
+            field.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    if (cardForm) cardForm.requestSubmit();
                 }
             });
-
-            totalCards -= res.affected;
-            updateCardCountLabel();
-            Archive.toast(`${res.affected} cards moved`);
-            setEditMode(false);
-            moveDialog.close();
-        } catch (err) {
-            Archive.toast(err.message, { type: 'error' });
-        } finally {
-            confirmMoveBtn.disabled = false;
         }
     });
 
-    // Bulk Archive
-    const archBtn = document.getElementById('bulk-archive-btn');
-    if (archBtn) archBtn.addEventListener('click', async () => {
-        const ids = Array.from(checkedIds);
-        if (!ids.length) return;
-        try {
-            bulkActionBtns.forEach(b => { if(b) b.disabled = true; });
-            const res = await sendCardAction({ action: 'bulk_archive', card_ids: ids });
+    if (cardForm) {
+        cardForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const front = cardFront ? cardFront.value.trim() : '';
+            const back = cardBack ? cardBack.value.trim() : '';
+            const selectedDeckId = cardDeckSelect ? Number(cardDeckSelect.value) : null;
 
-            ids.forEach(id => {
-                const row = tabulatorTable.getRow(id);
-                if (row) {
-                    const data = row.getData();
-                    offscreenList.unshift({ ...data, archived_at: new Date().toISOString(), days_left: Archive.RETENTION_DAYS });
-                    row.delete();
-                }
-                pending = pending.filter(p => Number(p.id) !== id);
+            if (cardSuccess) cardSuccess.classList.add('hidden');
 
-                if (selectedSidebarCardId === id && isDesktopView()) {
-                    const firstRow = tabulatorTable.getRows()[0];
-                    if (firstRow) activateRow(firstRow, { expand: false });
-                    else setSidebarCollapsed(true);
+            if (!Number.isInteger(selectedDeckId) || selectedDeckId <= 0) {
+                cardDeckId = null;
+                if (cardError) {
+                    cardError.textContent = 'Please choose a deck before adding the card.';
+                    cardError.classList.remove('hidden');
                 }
+                if (cardDeckSelect) cardDeckSelect.focus();
+                return;
+            }
+
+            cardDeckId = selectedDeckId;
+
+            if (front === '' || back === '') {
+                if (cardError) {
+                    cardError.textContent = 'Both the front and back are required.';
+                    cardError.classList.remove('hidden');
+                }
+                return;
+            }
+            if (cardError) cardError.classList.add('hidden');
+
+            if (cardSave) cardSave.disabled = true;
+            try {
+                await sendDeckAction({ action: 'add_card', deck_id: cardDeckId, front, back });
+                cardsAdded = true;
+                if (cardFront) cardFront.value = '';
+                if (cardBack) cardBack.value = '';
+                if (cardSuccess) cardSuccess.classList.remove('hidden');
+                if (cardFront) cardFront.focus();
+            } catch (err) {
+                if (cardError) {
+                    cardError.textContent = err.message;
+                    cardError.classList.remove('hidden');
+                }
+            } finally {
+                if (cardSave) cardSave.disabled = false;
+            }
+        });
+    }
+
+    function showFieldError(errorEl, input, err) {
+        if (!errorEl) return;
+        errorEl.textContent = err.message;
+        if (err.suggestion && input) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'ml-2 underline font-semibold';
+            btn.textContent = 'Use "' + err.suggestion + '"';
+            btn.addEventListener('click', () => {
+                input.value = err.suggestion;
+                errorEl.classList.add('hidden');
+                input.focus();
             });
-
-            totalCards -= res.affected;
-            archivedCards += res.affected;
-            updateCardCountLabel();
-            Archive.toast(`${res.affected} cards archived`);
-            setEditMode(false);
-        } catch (err) {
-            Archive.toast(err.message, { type: 'error' });
-        } finally {
-            updateBulkUI();
+            errorEl.appendChild(btn);
         }
-    });
+        errorEl.classList.remove('hidden');
+    }
 
-    // Bulk Reset
-    const resetDialog = document.getElementById('reset-cards-dialog');
-    const resetBtn = document.getElementById('bulk-reset-btn');
-    const confirmResetBtn = document.getElementById('confirm-reset-btn');
+    if (cardDialog) {
+        cardDialog.addEventListener('close', () => {
+            if (cardsAdded) {
+                const cleanUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+                window.location.reload();
+            }
+        });
+    }
 
-    if (resetBtn) resetBtn.addEventListener('click', () => {
-        if (checkedIds.size === 0) return;
-        resetDialog.showModal();
-    });
+    // Auto-open modals via URL params
+    if (config.createRequested) {
+        openCreateDialog();
+    } else if (config.addCardRequested) {
+        openCardDialog(config.requestedDeckId);
+    }
 
-    if (confirmResetBtn) confirmResetBtn.addEventListener('click', async () => {
-        const ids = Array.from(checkedIds);
+    // ---------------------------------------------------------------
+    // 7. Custom Deck Position Management via LocalStorage
+    // ---------------------------------------------------------------
+    const ORDER_KEY = 'mempulse_deck_order';
+    const gridContainer = document.getElementById('decks-grid-view');
+    const listContainer = document.getElementById('decks-list-view');
+
+    const movePosDialog = document.getElementById('move-pos-dialog');
+    const movePosForm = document.getElementById('move-pos-form');
+    const movePosName = document.getElementById('move-pos-deck-name');
+    const movePosInput = document.getElementById('move-pos-input');
+    const movePosHint = document.getElementById('move-pos-hint');
+
+    function getDeckElements(container) {
+        if (!container) return [];
+        return Array.from(container.querySelectorAll('.deck-card[data-deck-id]'));
+    }
+
+    function applySavedDeckOrder(container) {
+        if (!container) return;
+
+        let savedOrder = null;
         try {
-            confirmResetBtn.disabled = true;
-            const res = await sendCardAction({ action: 'bulk_reset', card_ids: ids });
+            savedOrder = JSON.parse(localStorage.getItem(ORDER_KEY));
+        } catch (_) { }
 
-            ids.forEach(id => {
-                const row = tabulatorTable.getRow(id);
-                if (row) {
-                    row.update({
-                        interval_days: 1, 
-                        next_review_at: new Date().toISOString(),
-                        review_count: 0,
-                        lapses: 0,
-                        accuracy: null,
-                        avg_response_ms: null,
-                        last_reviewed_at: null
-                    });
-                    if (selectedSidebarCardId === id && isDesktopView()) populateSidebar(row.getData(), row);
-                }
+        if (!Array.isArray(savedOrder) || savedOrder.length === 0) return;
+
+        const items = getDeckElements(container);
+        const itemMap = new Map();
+        items.forEach(item => itemMap.set(String(item.dataset.deckId), item));
+
+        savedOrder.forEach(deckId => {
+            const el = itemMap.get(String(deckId));
+            if (el) {
+                container.appendChild(el);
+                itemMap.delete(String(deckId));
+            }
+        });
+
+        const createBtn = container.querySelector('#new-deck-tile, #new-deck-row');
+        itemMap.forEach(el => {
+            if (createBtn) container.insertBefore(el, createBtn);
+            else container.appendChild(el);
+        });
+
+        if (createBtn) container.appendChild(createBtn);
+    }
+
+    function saveCurrentDeckOrder(container) {
+        if (!container) return;
+        const items = getDeckElements(container);
+        const order = items.map(el => Number(el.dataset.deckId));
+        try {
+            localStorage.setItem(ORDER_KEY, JSON.stringify(order));
+        } catch (_) { }
+    }
+
+    function moveDeckToPosition(targetDeckId, newPos) {
+        [gridContainer, listContainer].forEach(container => {
+            if (!container) return;
+            const items = getDeckElements(container);
+            const targetEl = container.querySelector(`.deck-card[data-deck-id="${targetDeckId}"]`);
+            if (!targetEl || items.length === 0) return;
+
+            const targetIdx = Math.max(0, Math.min(newPos - 1, items.length - 1));
+            const createBtn = container.querySelector('#new-deck-tile, #new-deck-row');
+
+            const remaining = items.filter(el => String(el.dataset.deckId) !== String(targetDeckId));
+            remaining.splice(targetIdx, 0, targetEl);
+
+            remaining.forEach(el => {
+                if (createBtn) container.insertBefore(el, createBtn);
+                else container.appendChild(el);
             });
+            if (createBtn) container.appendChild(createBtn);
 
-            Archive.toast(`Progress reset for ${res.affected} cards`);
-            setEditMode(false);
-            resetDialog.close();
-        } catch (err) {
-            Archive.toast(err.message, { type: 'error' });
-        } finally {
-            confirmResetBtn.disabled = false;
-        }
-    });
+            saveCurrentDeckOrder(container);
+        });
+    }
+
+    // Apply saved order on load
+    applySavedDeckOrder(gridContainer);
+    applySavedDeckOrder(listContainer);
+
+    // Kebab Menu Handler for Move Position
+    if (deckMenu) {
+        deckMenu.addEventListener('click', (e) => {
+            const item = e.target.closest('[data-menu-action="move-pos"]');
+            if (!item || !activeDeckId) return;
+
+            const deckTitle = getDeckTitle(activeDeckId) || 'Deck';
+            const currentItems = getDeckElements(gridContainer || listContainer);
+            const currentIdx = currentItems.findIndex(el => String(el.dataset.deckId) === String(activeDeckId));
+
+            if (movePosName) movePosName.textContent = `"${deckTitle}"`;
+            if (movePosInput) {
+                movePosInput.value = currentIdx !== -1 ? currentIdx + 1 : 1;
+                movePosInput.max = currentItems.length;
+            }
+            if (movePosHint) movePosHint.textContent = `Enter position between 1 and ${currentItems.length}.`;
+
+            if (movePosDialog) movePosDialog.showModal();
+        });
+    }
+
+    if (movePosForm) {
+        movePosForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const newPos = parseInt(movePosInput ? movePosInput.value : '1', 10);
+            if (!isNaN(newPos) && activeDeckId) {
+                moveDeckToPosition(activeDeckId, newPos);
+                if (movePosDialog) movePosDialog.close();
+            }
+        });
+    }
 });
