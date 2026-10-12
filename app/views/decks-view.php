@@ -254,17 +254,21 @@
 
 <!-- Shared kebab menu -->
 <div id="deck-menu" class="hidden fixed z-50 w-44 rounded-xl bg-surface-container-lowest border border-outline-variant/30 shadow-lg py-1" role="menu">
-    <button type="button" role="menuitem" data-menu-action="move-pos" class="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-on-surface hover:bg-surface-container transition-colors">
-        <span class="material-symbols-outlined text-[18px]">drag_indicator</span>
-        <span>Move Position</span>
-    </button>
     <button type="button" role="menuitem" data-menu-action="rename" class="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-on-surface hover:bg-surface-container transition-colors">
         <span class="material-symbols-outlined text-[18px]">edit</span>
-        <span>Rename</span>
+        <span>Rename Deck</span>
     </button>
     <button type="button" role="menuitem" data-menu-action="archive" class="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-amber-700 hover:bg-amber-50 transition-colors">
         <span class="material-symbols-outlined text-[18px]">archive</span>
-        <span>Archive</span>
+        <span>Archive Deck</span>
+    </button>
+    <button type="button" role="menuitem" data-menu-action="move-pos" class="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-on-surface hover:bg-surface-container transition-colors">
+        <span class="material-symbols-outlined text-[18px]">drag_indicator</span>
+        <span>Move Deck Position</span>
+    </button>
+    <button type="button" role="menuitem" data-menu-action="edit-banner" class="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-on-surface hover:bg-surface-container transition-colors">
+        <span class="material-symbols-outlined text-[18px]">image</span>
+        <span>Edit Cover Image</span>
     </button>
     <hr class="my-1 border-outline-variant/20">
     <button type="button" role="menuitem" data-menu-action="add-card" class="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-on-surface hover:bg-surface-container transition-colors">
@@ -273,9 +277,51 @@
     </button>
 </div>
 
+<!-- Edit Banner Dialog -->
+<dialog id="banner-dialog" class="m-auto rounded-2xl p-0 w-full max-w-xl bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
+    <div class="p-6 flex flex-col gap-5">
+        <div class="flex justify-between items-center">
+            <h3 class="font-headline-sm text-[18px] font-bold">Select Deck Banner</h3>
+            <button type="button" data-close-dialog class="text-on-surface-variant hover:text-on-surface transition-colors">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+
+        <p id="banner-error" class="hidden text-rose-700 text-[13px]" role="alert"></p>
+
+        <!-- Preset Gallery Grid (Dynamically Scanned) -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-72 overflow-y-auto p-1">
+            <!-- Default Gradient Preset Option -->
+            <button type="button" data-banner-path="" class="banner-option border-2 border-primary rounded-xl h-20 flex items-center justify-center bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-xs shadow-sm hover:opacity-90 transition-all">
+                Default Gradient
+            </button>
+            
+            <?php 
+            $bannerDir = __DIR__ . '/../assets/images/deck-header-banner/';
+            $bannerFiles = glob($bannerDir . '*.{jpg,jpeg,png,webp}', GLOB_BRACE);
+            
+            // Sort files numerically (e.g., dh1, dh2, dh10)
+            natsort($bannerFiles);
+
+            foreach ($bannerFiles as $filePath): 
+                $fileName = basename($filePath);
+                $relativePath = '../assets/images/deck-header-banner/' . $fileName;
+            ?>
+                <button type="button" data-banner-path="<?= DeckService::h($relativePath) ?>" class="banner-option border-2 border-transparent hover:border-primary rounded-xl h-20 overflow-hidden relative transition-all group">
+                    <img src="<?= DeckService::h($relativePath) ?>" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" alt="<?= DeckService::h($fileName) ?>">
+                </button>
+            <?php endforeach; ?>
+        </div>
+
+        <div class="flex justify-end gap-2.5 pt-2 border-t border-outline-variant/20">
+            <button type="button" data-close-dialog class="px-4 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-sm transition-colors">Cancel</button>
+            <button type="button" id="banner-save" class="px-4 py-2 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-semibold text-sm transition-colors">Save Banner</button>
+        </div>
+    </div>
+</dialog>
+
 <!-- Rename dialog -->
-<dialog id="rename-dialog" class="m-auto rounded-2xl p-0 w-full max-w-md bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
-    <form id="rename-form" class="p-6 flex flex-col gap-4" novalidate>
+<dialog id="banner-dialog" class="m-auto rounded-2xl p-0 w-full max-w-xl bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">    <form id="rename-form" class="p-6 flex flex-col gap-4" novalidate>
         <h3 class="font-headline-sm text-[18px] font-bold">Rename deck</h3>
         <div class="flex flex-col gap-1.5">
             <label for="rename-input" class="text-on-surface-variant text-[13px] font-semibold">Deck name</label>

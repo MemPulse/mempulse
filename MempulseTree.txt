@@ -3,7 +3,11 @@ Folder PATH listing
 Volume serial number is 8E4B-9250
 C:.
 │   comebine_files.py
+│   dashboard-checking.md
+│   dashboard-checking.txt
 │   database-design.md
+│   decks-management-checking.txt
+│   decks.txt
 │   generate_mock.py
 │   MempulseTree.txt
 │   mempulse_mock_data.sql
@@ -26,12 +30,26 @@ C:.
 │   │   │       app.css
 │   │   │       
 │   │   ├───images
-│   │   │       decks-hero-icon.png
-│   │   │       flashcards-hero-icon.png
-│   │   │       forgetting-curve-hero-image.webp
-│   │   │       mempulse-logo.png
-│   │   │       profile-picture.webp.jpg
-│   │   │       
+│   │   │   │   decks-hero-icon.png
+│   │   │   │   flashcards-hero-icon.png
+│   │   │   │   forgetting-curve-hero-image.webp
+│   │   │   │   mempulse-logo.png
+│   │   │   │   profile-picture.webp.jpg
+│   │   │   │   
+│   │   │   └───deck-header-banner
+│   │   │           dh1.jpg
+│   │   │           dh10.jpg
+│   │   │           dh11.jpg
+│   │   │           dh12.jpg
+│   │   │           dh2.jpg
+│   │   │           dh3.jpg
+│   │   │           dh4.jpg
+│   │   │           dh5.jpg
+│   │   │           dh6.jpg
+│   │   │           dh7.jpg
+│   │   │           dh8.jpg
+│   │   │           dh9.jpg
+│   │   │           
 │   │   └───js
 │   │           archive-ui.js
 │   │           deck.js

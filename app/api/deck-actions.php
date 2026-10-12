@@ -256,3 +256,22 @@ try {
     error_log('deck-actions.php: ' . $e->getMessage());
     respond(500, ['error' => 'Something went wrong. Please try again.']);
 }
+
+// Action: Update Deck Banner Cover
+if ($action === 'update_cover') {
+    $cover_image = trim((string) ($input['cover_image'] ?? ''));
+
+    // Validate path security to prevent path traversal (.jpg, .jpeg, .png, .webp)
+    if ($cover_image !== '' && !preg_match('/^\.\.\/assets\/images\/deck-header-banner\/[a-zA-Z0-9_\-]+\.(jpg|jpeg|png|webp)$/i', $cover_image)) {
+        respond(422, ['error' => 'Invalid image selected.']);
+    }
+
+    $db_val = $cover_image === '' ? NULL : $cover_image;
+
+    $stmt = mysqli_prepare($conn, "UPDATE decks SET cover_image = ? WHERE id = ? AND user_id = ? AND deleted_at IS NULL");
+    mysqli_stmt_bind_param($stmt, "sii", $db_val, $deck_id, $user_id);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_close($stmt);
+
+    respond(200, ['ok' => true, 'cover_image' => $cover_image]);
+}

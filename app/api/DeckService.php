@@ -18,6 +18,7 @@ class DeckService
     {
         $sql = "SELECT d.id,
                        d.title,
+                       d.cover_image,
                        (SELECT COUNT(*) FROM flashcards f
                          WHERE f.deck_id = d.id AND f.deleted_at IS NULL) AS card_count,
                        (SELECT COUNT(*) FROM flashcards f
@@ -49,10 +50,21 @@ class DeckService
             $reviewed  = (int) $row['reviewed'];
             $accuracy  = $reviewed > 0 ? (int) round(((int) $row['remembered'] / $reviewed) * 100) : null;
             $hue       = ((int) $row['id'] * 47) % 360;
+            $defaultGradient = "linear-gradient(135deg, hsl({$hue} 65% 45%), hsl(" . (($hue + 45) % 360) . " 65% 28%))";
+
+            if (!empty($row['cover_image'])) {
+                $coverStyle = "background-image: url('" . self::h($row['cover_image']) . "'); background-size: cover; background-position: center;";
+                $hasCustomImage = true;
+            } else {
+                $coverStyle = "background: {$defaultGradient};";
+                $hasCustomImage = false;
+            }
 
             $decks[] = [
                 'id'                 => (int) $row['id'],
                 'title'              => $row['title'],
+                'cover_image'        => $row['cover_image'],
+                'has_custom_image'   => $hasCustomImage,
                 'card_count'         => $cardCount,
                 'due_count'          => (int) $row['due_count'],
                 'accuracy'           => $accuracy,

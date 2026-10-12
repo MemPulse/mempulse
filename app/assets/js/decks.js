@@ -275,6 +275,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 archiveDialog.showModal();
             } else if (action === 'add-card') {
                 openCardDialog(activeDeckId);
+            } else if (action === 'edit-banner' && bannerDialog) {
+                if (bannerError) bannerError.classList.add('hidden');
+
+                // Highlight current selection if any
+                document.querySelectorAll('.banner-option').forEach(b => {
+                    b.classList.remove('border-primary');
+                    b.classList.add('border-transparent');
+                });
+
+                bannerDialog.showModal();
             }
         });
     }
@@ -755,3 +765,59 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 });
+
+// ---------------------------------------------------------------
+// Edit Banner Modal Handler
+// ---------------------------------------------------------------
+const bannerDialog = document.getElementById('banner-dialog');
+const bannerSave = document.getElementById('banner-save');
+const bannerError = document.getElementById('banner-error');
+let selectedBannerPath = null;
+
+// Delegate banner image clicks inside the dialog
+if (bannerDialog) {
+    bannerDialog.addEventListener('click', (e) => {
+        const optionBtn = e.target.closest('.banner-option');
+        if (!optionBtn) return;
+
+        document.querySelectorAll('.banner-option').forEach(b => {
+            b.classList.remove('border-primary');
+            b.classList.add('border-transparent');
+        });
+
+        optionBtn.classList.remove('border-transparent');
+        optionBtn.classList.add('border-primary');
+        selectedBannerPath = optionBtn.dataset.bannerPath;
+    });
+}
+
+if (bannerSave) {
+    bannerSave.addEventListener('click', async () => {
+        if (selectedBannerPath === null) {
+            if (bannerError) {
+                bannerError.textContent = "Please select a banner image or default gradient.";
+                bannerError.classList.remove('hidden');
+            }
+            return;
+        }
+
+        bannerSave.disabled = true;
+        try {
+            await sendDeckAction({
+                action: 'update_cover',
+                deck_id: activeDeckId,
+                cover_image: selectedBannerPath
+            });
+
+            if (bannerDialog) bannerDialog.close();
+            window.location.reload();
+        } catch (err) {
+            if (bannerError) {
+                bannerError.textContent = err.message;
+                bannerError.classList.remove('hidden');
+            }
+        } finally {
+            bannerSave.disabled = false;
+        }
+    });
+}
