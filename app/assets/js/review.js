@@ -12,7 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let sessionEnded = false;
 
     const csrfToken = data.csrfToken || '';
-    const sessionStartedAt = Date.now();
+    let sessionStartedAt = Date.now();
     let sessionDuration = 0;
     let unsavedRatings = false;
 
@@ -35,6 +35,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const viewActive = document.getElementById('active-review-container');
     const viewFinished = document.getElementById('review-finished-screen');
+
+    const stage = document.getElementById('flashcard-stage');
+    const hintReveal = document.getElementById('hint-reveal');
+    const hintRate = document.getElementById('hint-rate');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let isAnimating = false;
+
+    const btnMissed = document.getElementById('review-missed-btn');
+    const returnLink = document.getElementById('return-hub-link');
+    const sumAccuracy = document.getElementById('summary-accuracy');
+    const sumRem = document.getElementById('summary-remembered');
+    const sumFor = document.getElementById('summary-forgotten');
+    let missedCount = 0;
+    let statsDone = Promise.resolve();
 
     // 1. Core Navigation & Display Logic
     function renderCard() {
@@ -66,21 +80,28 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         // Calculate and show projected dates
-        const interval = parseInt(card.interval_days) || 1;
-        projForgot.textContent = "Due: Today";
-        const remDays = interval === 0 ? 1 : interval * 2;
-        projRemember.textContent = `Due: ${remDays} ${remDays === 1 ? 'day' : 'days'}`;
+        const interval = parseInt(card.interval_days, 10) || 0;
+        const remDays = Math.max(1, interval * 2); // mirrors GREATEST(1, interval_days * 2) in save-session.php
+        projForgot.textContent = 'Again today';
+        projRemember.textContent = `in ${remDays} ${remDays === 1 ? 'day' : 'days'}`;
 
         hideAnswer();
     }
 
     function showAnswer() {
-        if (sessionEnded) return;
+        if (sessionEnded || isAnimating || isAnswerShown) return;
         isAnswerShown = true;
         elBack.classList.remove('hidden');
         elDivider.classList.remove('hidden');
         btnShow.classList.add('hidden');
         boxRates.classList.remove('hidden');
+        hintReveal.classList.add('hidden');
+        hintRate.classList.remove('hidden');
+        if (!reduceMotion) {
+            elBack.animate(
+                [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'translateY(0)' }],
+                { duration: 200, easing: 'ease-out' });
+        }
     }
 
     function hideAnswer() {
@@ -89,48 +110,57 @@ document.addEventListener("DOMContentLoaded", () => {
         elDivider.classList.add('hidden');
         btnShow.classList.remove('hidden');
         boxRates.classList.add('hidden');
+        hintReveal.classList.remove('hidden');
+        hintRate.classList.add('hidden');
     }
 
     // 2. Rating & Tally Logic
-    function rateCard(status) {
+    async function rateCard(status) {
+        if (sessionEnded || isAnimating) return;
         const card = queue[currentIndex];
         ratings[card.id] = status;
         unsavedRatings = true;
+        updateTally(status);
 
-        updateTally();
-        showFeedbackToast(status);
+        if (reduceMotion) {
+            currentIndex++;
+            renderCard();
+            return;
+        }
+
+        isAnimating = true;
+        const dir = status === 'remembered' ? 1 : -1;
+        const glow = status === 'remembered' ? 'rgba(16,185,129,0.35)' : 'rgba(244,63,94,0.35)';
+
+        const out = stage.animate([
+            { opacity: 1, transform: 'translateX(0) rotate(0deg)', boxShadow: `0 0 0 0 ${glow}` },
+            { opacity: 0, transform: `translateX(${dir * 64}px) rotate(${dir * 2}deg)`, boxShadow: `0 0 0 6px ${glow}` }
+        ], { duration: 220, easing: 'ease-in', fill: 'forwards' });
+        await out.finished;
 
         currentIndex++;
         renderCard();
+        out.cancel();
+
+        if (!sessionEnded) {
+            stage.animate([
+                { opacity: 0, transform: 'translateY(14px) scale(0.98)' },
+                { opacity: 1, transform: 'translateY(0) scale(1)' }
+            ], { duration: 240, easing: 'ease-out' });
+        }
+        isAnimating = false;
     }
 
-    function updateTally() {
+    function updateTally(bumpStatus) {
         let rem = 0, forg = 0;
         Object.values(ratings).forEach(r => r === 'remembered' ? rem++ : forg++);
         txtRem.textContent = rem;
         txtFor.textContent = forg;
-    }
-
-    function showFeedbackToast(status) {
-        const toast = document.getElementById('review-toast');
-        const icon = document.getElementById('review-toast-icon');
-        const msg = document.getElementById('review-toast-msg');
-
-        toast.classList.remove('translate-y-12', 'opacity-0', 'bg-emerald-600', 'text-white', 'bg-rose-600');
-        if (status === 'remembered') {
-            toast.classList.add('bg-emerald-600', 'text-white');
-            icon.textContent = 'check_circle';
-            msg.textContent = 'Remembered';
-        } else {
-            toast.classList.add('bg-rose-600', 'text-white');
-            icon.textContent = 'cancel';
-            msg.textContent = 'Forgotten';
+        if (bumpStatus && !reduceMotion) {
+            (bumpStatus === 'remembered' ? txtRem : txtFor).animate(
+                [{ transform: 'scale(1)' }, { transform: 'scale(1.4)' }, { transform: 'scale(1)' }],
+                { duration: 280, easing: 'ease-out' });
         }
-
-        // Pop in
-        setTimeout(() => toast.classList.remove('translate-y-12', 'opacity-0'), 10);
-        // Fade out
-        setTimeout(() => toast.classList.add('translate-y-12', 'opacity-0'), 1200);
     }
 
     // 3. Backward/Forward Queue Navigation
@@ -176,7 +206,7 @@ document.addEventListener("DOMContentLoaded", () => {
             box = document.createElement('div');
             box.id = 'save-status';
             box.className = 'w-full max-w-sm mb-6 p-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-sm flex flex-col gap-3';
-            viewFinished.insertBefore(box, viewFinished.querySelector('a[href="review.php"]'));
+            viewFinished.insertBefore(box, document.getElementById('finished-actions'));
         }
         box.textContent = '';
 
@@ -189,8 +219,9 @@ document.addEventListener("DOMContentLoaded", () => {
         btn.textContent = 'Retry save';
         btn.addEventListener('click', async () => {
             btn.disabled = true;
-            try { await saveSession(); box.remove(); }
-            catch (err) { showSaveError(err.message); }
+            try {
+                await saveSession(); box.remove(); armMissedButton();
+            } catch (err) { showSaveError(err.message); }
         });
 
         box.append(p, btn);
@@ -202,20 +233,42 @@ document.addEventListener("DOMContentLoaded", () => {
         sessionDuration = Math.round((Date.now() - sessionStartedAt) / 1000);
         viewActive.classList.add('hidden');
         viewFinished.classList.remove('hidden');
+        viewFinished.classList.add('flex');   // fixes the off-center completion screen
+
+        if (!reduceMotion) {
+            document.getElementById('finished-icon').animate(
+                [{ transform: 'scale(0.6)', opacity: 0 }, { transform: 'scale(1.08)', opacity: 1 }, { transform: 'scale(1)' }],
+                { duration: 450, easing: 'ease-out' });
+        }
 
         const ratedIds = Object.keys(ratings);
         if (ratedIds.length === 0) return;
 
-        // Display Summary
-        let remCount = 0;
-        Object.values(ratings).forEach(r => r === 'remembered' && remCount++);
+        const total = ratedIds.length;
+        const remCount = Object.values(ratings).filter(r => r === 'remembered').length;
+        const forgCount = total - remCount;
+        const accuracy = Math.round((remCount / total) * 100);
 
+        // document.getElementById('finished-headline').textContent = headlineFor(accuracy);
         document.getElementById('session-summary-stats').classList.remove('hidden');
-        document.getElementById('summary-total').textContent = ratedIds.length;
-        document.getElementById('summary-accuracy').textContent = Math.round((remCount / ratedIds.length) * 100) + '%';
+
+        if (forgCount > 0) {
+            missedCount = forgCount;
+            btnMissed.disabled = true;
+            btnMissed.textContent = 'Saving…';
+            btnMissed.classList.remove('hidden');
+            // Demote "Return to Review Hub" to a secondary button
+            returnLink.classList.remove('bg-primary', 'text-on-primary', 'shadow-sm', 'hover:bg-primary-container');
+            returnLink.classList.add('border', 'border-outline-variant', 'text-on-surface', 'hover:bg-surface-container-low');
+        }
+
+        // Confetti pop + stats showcase run alongside the save
+        // confettiBurst({ x: 0.5, y: 0.35, count: accuracy >= 80 ? 170 : 120, power: 17 });
+        statsDone = showStats(remCount, forgCount, accuracy);
 
         try {
             await saveSession();
+            armMissedButton();
         } catch (error) {
             console.error("Failed to save session batch:", error);
             showSaveError(error.message);
@@ -229,7 +282,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById('end-session-btn').addEventListener('click', endSession);
 
     document.addEventListener('keydown', (e) => {
-        if (sessionEnded) return;
+        if (sessionEnded || isAnimating) return;
 
         switch (e.key) {
             case ' ':
@@ -253,6 +306,244 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener('beforeunload', (e) => {
         if (unsavedRatings) { e.preventDefault(); e.returnValue = ''; }
     });
+
+    // -----------------------------------------------------------------------
+    // Finished screen: headline, missed-cards button, stats showcase
+    // -----------------------------------------------------------------------
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    function headlineFor(accuracy) {
+        if (accuracy >= 80) return 'Solid session';
+        if (accuracy >= 50) return 'Good progress';
+        return 'Those will come back soon';
+    }
+
+    // Enabled only after the save succeeded, so forgotten cards are due again on reload
+    async function armMissedButton() {
+        await statsDone;               // don't let the user jump away mid-stamp
+        if (missedCount < 1) return;
+        btnMissed.textContent = `Review ${missedCount} missed ${missedCount === 1 ? 'card' : 'cards'}`;
+        btnMissed.disabled = false;
+    }
+
+    function startMissedSession() {
+        const missed = queue.filter(c => ratings[c.id] === 'forgotten');
+        if (missed.length === 0) return;
+
+        // save-session.php left these at interval 0, so mirror that locally
+        missed.forEach(c => { c.interval_days = 0; });
+
+        // Fresh session state
+        queue = missed;
+        currentIndex = 0;
+        ratings = {};
+        isAnswerShown = false;
+        sessionEnded = false;
+        unsavedRatings = false;
+        sessionStartedAt = Date.now();
+        sessionDuration = 0;
+        missedCount = 0;
+
+        // Reset header tally and finished screen
+        txtRem.textContent = '0';
+        txtFor.textContent = '0';
+        sumAccuracy.textContent = '0%';
+        sumRem.textContent = '0';
+        sumFor.textContent = '0';
+        document.getElementById('summary-accuracy-bar').style.width = '0%';
+        document.getElementById('session-summary-stats').classList.add('hidden');
+        document.getElementById('finished-headline').textContent = 'Session Complete!';
+        document.getElementById('save-status')?.remove();
+        btnMissed.classList.add('hidden');
+        returnLink.classList.add('bg-primary', 'text-on-primary', 'shadow-sm', 'hover:bg-primary-container');
+        returnLink.classList.remove('border', 'border-outline-variant', 'text-on-surface', 'hover:bg-surface-container-low');
+
+        // Swap views and deal the first missed card
+        viewFinished.classList.add('hidden');
+        viewFinished.classList.remove('flex');
+        viewActive.classList.remove('hidden');
+        renderCard();
+    }
+    btnMissed.addEventListener('click', startMissedSession);
+
+    // function countUp(el, to, { duration = 900, suffix = '' } = {}) {
+    //     if (reduceMotion || to === 0) {
+    //         el.textContent = to + suffix;
+    //         return Promise.resolve();
+    //     }
+    //     return new Promise(resolve => {
+    //         const t0 = performance.now();
+    //         const tick = now => {
+    //             const p = Math.min(1, (now - t0) / duration);
+    //             el.textContent = Math.round(to * (1 - Math.pow(1 - p, 3))) + suffix;
+    //             p < 1 ? requestAnimationFrame(tick) : resolve();
+    //         };
+    //         requestAnimationFrame(tick);
+    //     });
+    // }
+
+    async function showStats(rem, forg, accuracy) {
+        const headline = document.getElementById('finished-headline');
+        const bar = document.getElementById('summary-accuracy-bar');
+        const tiles = document.querySelectorAll('#session-summary-stats [data-stat-tile]');
+        const [tileAcc, tileRem, tileFor] = tiles;   // DOM order: Accuracy, Remembered, Forgotten
+
+        sumAccuracy.textContent = accuracy + '%';
+        sumRem.textContent = rem;
+        sumFor.textContent = forg;
+
+        if (reduceMotion) {
+            bar.style.width = accuracy + '%';
+            headline.textContent = headlineFor(accuracy);
+            return;
+        }
+
+        // Empty frames fade in first; each number stays hidden until its stamp lands
+        [sumAccuracy, sumRem, sumFor].forEach(el => { el.style.opacity = '0'; });
+        bar.style.width = '0%';
+        tiles.forEach(tile => tile.animate(
+            [{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'translateY(0)' }],
+            { duration: 350, easing: 'ease-out', fill: 'backwards' }));
+
+        await sleep(500);
+        await stampStat(sumRem, tileRem, 'border-emerald-400', { scale: 3, duration: 520, shakePx: 4 });
+        await sleep(300);
+        await stampStat(sumFor, tileFor, 'border-rose-400', { scale: 3, duration: 520, shakePx: 4 });
+        await sleep(650);   // beat of suspense before the hero number
+        await stampStat(sumAccuracy, tileAcc, 'border-primary', { scale: 4.5, duration: 720, shakePx: 10, hero: true });
+
+        // Climax: bar fills, headline appears, confetti explodes
+        bar.animate([{ width: '0%' }, { width: accuracy + '%' }],
+            { duration: 900, easing: 'cubic-bezier(.2,.8,.2,1)' });
+        bar.style.width = accuracy + '%';
+
+        headline.textContent = headlineFor(accuracy);
+        headline.animate(
+            [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'translateY(0)' }],
+            { duration: 350, easing: 'ease-out' });
+
+        confettiBurst({ x: 0.5, y: 0.3, count: accuracy >= 80 ? 170 : 120, power: 17 });
+        const n = accuracy >= 80 ? 90 : 60;
+        confettiBurst({ x: 0, y: 0.75, count: n, angle: -Math.PI / 3, spread: Math.PI / 3, power: 22 });
+        confettiBurst({ x: 1, y: 0.75, count: n, angle: -2 * Math.PI / 3, spread: Math.PI / 3, power: 22 });
+    }
+
+    // A number slams in from huge and blurry, squashes on impact, then settles.
+    // Resolves at the moment of impact so the caller can chain the next beat.
+    function stampStat(el, tile, ringClass, { scale = 3, duration = 520, shakePx = 5, hero = false } = {}) {
+        return new Promise(resolve => {
+            el.style.opacity = '1';
+            el.animate([
+                { opacity: 0, transform: `scale(${scale}) rotate(-14deg)`, filter: 'blur(6px)', offset: 0, easing: 'cubic-bezier(.5,0,1,.6)' },
+                { opacity: 1, transform: 'scale(0.9) rotate(2deg)', filter: 'blur(0px)', offset: 0.55 },
+                { transform: 'scale(1.06) rotate(-1deg)', offset: 0.75 },
+                { transform: 'scale(1) rotate(0deg)', offset: 1 }
+            ], { duration, easing: 'linear' });
+
+            setTimeout(() => {
+                impactRing(tile, ringClass);
+                if (hero) setTimeout(() => impactRing(tile, ringClass), 130);
+                tile.animate(
+                    [{ transform: 'scale(1)' }, { transform: 'scale(0.96)' }, { transform: 'scale(1)' }],
+                    { duration: 260, easing: 'ease-out' });
+                shake(viewFinished, shakePx);
+                resolve();
+            }, duration * 0.55);
+        });
+    }
+
+    function impactRing(tile, colorClass) {
+        tile.classList.add('relative');
+        const ring = document.createElement('div');
+        ring.className = `absolute inset-0 rounded-2xl border-2 pointer-events-none ${colorClass}`;
+        tile.appendChild(ring);
+        ring.animate(
+            [{ opacity: 0.9, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(1.35)' }],
+            { duration: 520, easing: 'ease-out' }
+        ).finished.then(() => ring.remove());
+    }
+
+    function shake(el, px = 6, duration = 380) {
+        el.animate([
+            { transform: 'translate(0, 0)' },
+            { transform: `translate(${-px}px, ${px * 0.5}px)` },
+            { transform: `translate(${px}px, ${-px * 0.5}px)` },
+            { transform: `translate(${-px * 0.6}px, 0)` },
+            { transform: `translate(${px * 0.4}px, 0)` },
+            { transform: 'translate(0, 0)' }
+        ], { duration, easing: 'ease-out' });
+    }
+
+    // -----------------------------------------------------------------------
+    // Confetti (tiny canvas engine, no dependencies)
+    // -----------------------------------------------------------------------
+    const CONFETTI_COLORS = ['#10b981', '#34d399', '#6366f1', '#f59e0b', '#f43f5e', '#38bdf8'];
+    let confettiCanvas = null, confettiCtx = null, confettiParts = [], confettiRaf = null;
+
+    function confettiBurst({ x = 0.5, y = 0.4, count = 120, angle = -Math.PI / 2, spread = Math.PI * 2, power = 15 } = {}) {
+        if (reduceMotion) return;
+
+        const dpr = window.devicePixelRatio || 1;
+        if (!confettiCanvas) {
+            confettiCanvas = document.createElement('canvas');
+            confettiCanvas.className = 'fixed inset-0 w-full h-full pointer-events-none z-[60]';
+            document.body.appendChild(confettiCanvas);
+            confettiCtx = confettiCanvas.getContext('2d');
+        }
+        if (confettiCanvas.width !== Math.round(innerWidth * dpr)) {
+            confettiCanvas.width = Math.round(innerWidth * dpr);
+            confettiCanvas.height = Math.round(innerHeight * dpr);
+        }
+
+        for (let i = 0; i < count; i++) {
+            const a = angle + (Math.random() - 0.5) * spread;
+            const v = power * (0.5 + Math.random() * 0.7);
+            confettiParts.push({
+                x: x * innerWidth, y: y * innerHeight,
+                vx: Math.cos(a) * v, vy: Math.sin(a) * v,
+                w: 6 + Math.random() * 6, h: 4 + Math.random() * 5,
+                rot: Math.random() * Math.PI * 2, vr: (Math.random() - 0.5) * 0.35,
+                wobble: Math.random() * Math.PI * 2,
+                color: CONFETTI_COLORS[(Math.random() * CONFETTI_COLORS.length) | 0],
+                life: 0, ttl: 110 + Math.random() * 60
+            });
+        }
+        if (!confettiRaf) confettiRaf = requestAnimationFrame(stepConfetti);
+    }
+
+    function stepConfetti() {
+        const dpr = window.devicePixelRatio || 1;
+        confettiCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        confettiCtx.clearRect(0, 0, innerWidth, innerHeight);
+
+        confettiParts = confettiParts.filter(p => p.life < p.ttl && p.y < innerHeight + 40);
+        for (const p of confettiParts) {
+            p.life++;
+            p.vx *= 0.985;
+            p.vy = p.vy * 0.985 + 0.38;                 // drag + gravity
+            p.wobble += 0.12;
+            p.x += p.vx + Math.sin(p.wobble) * 0.6;
+            p.y += p.vy;
+            p.rot += p.vr;
+
+            confettiCtx.save();
+            confettiCtx.globalAlpha = Math.min(1, (p.ttl - p.life) / 30);
+            confettiCtx.translate(p.x, p.y);
+            confettiCtx.rotate(p.rot);
+            confettiCtx.scale(1, Math.abs(Math.cos(p.wobble)));   // flutter
+            confettiCtx.fillStyle = p.color;
+            confettiCtx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+            confettiCtx.restore();
+        }
+
+        if (confettiParts.length) {
+            confettiRaf = requestAnimationFrame(stepConfetti);
+        } else {
+            confettiRaf = null;
+            confettiCanvas.remove();
+            confettiCanvas = null;
+        }
+    }
 
     // Utilities
     function escapeHtml(text) {
