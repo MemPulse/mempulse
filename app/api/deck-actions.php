@@ -253,7 +253,7 @@ try {
         $cover_image = trim((string) ($input['cover_image'] ?? ''));
 
         // Validate path security to prevent path traversal (.jpg, .jpeg, .png, .webp)
-        if ($cover_image !== '' && !preg_match('/^\.\.\/assets\/images\/deck-header-banner\/[a-zA-Z0-9_\-]+\.(jpg|jpeg|png|webp)$/i', $cover_image)) {
+        if ($cover_image !== '' && !preg_match('/^\.\.\/assets\/images\/deck-header-banner\/[a-zA-Z0-9_\-]+\.(jpg|jpeg|png|webp|svg)$/i', $cover_image)) {
             respond(422, ['error' => 'Invalid image selected.']);
         }
 

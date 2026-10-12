@@ -72,84 +72,58 @@
         <?php else: ?>
 
             <!-- Grid view -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 transition-opacity duration-200" id="decks-grid-view">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 transition-opacity duration-200" id="decks-grid-view">
                 <?php foreach ($decks as $deck): ?>
-                <div data-deck-card="<?= $deck['id'] ?>" data-deck-id="<?= $deck['id'] ?>" class="deck-card deck-item bg-surface-container-lowest border border-outline-variant/30 rounded-2xl overflow-hidden shadow-sm hover:shadow-md hover:border-primary-fixed-dim/60 transition-all flex flex-col group">                        <!-- Cover -->
-                        <div class="relative h-44 w-full overflow-hidden border-b border-outline-variant/20 flex items-center justify-center" style="<?= DeckService::h($deck['cover_style']) ?>">
-                            <?php if ($deck['due_count'] > 0): ?>
-                                <div class="absolute top-3 left-3 z-10 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/45 backdrop-blur-md text-white text-[12px] font-semibold shadow-sm">
-                                    <span class="material-symbols-outlined text-[16px]">schedule</span>
-                                    <span><?= $deck['due_count'] ?> due now</span>
-                                </div>
-                            <?php endif; ?>
-                            <span class="material-symbols-outlined text-white/80 text-[56px]">style</span>
-                            <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
-                            <button class="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/30 backdrop-blur-md text-white hover:bg-black/50 transition-colors flex items-center justify-center" title="Deck Options" type="button" data-deck-menu data-deck-id="<?= $deck['id'] ?>" aria-haspopup="menu" aria-expanded="false">
-                                <span class="material-symbols-outlined text-[18px]">more_vert</span>
-                            </button>
-                        </div>
-                        <!-- Metadata -->
-                        <div class="p-5 flex-1 flex flex-col justify-between gap-4">
-                            <div>
-                                <a
-                                    href="deck.php?deck_id=<?= $deck['id'] ?>"
-                                    data-deck-title="<?= $deck['id'] ?>"
-                                    class="font-headline-sm text-[18px] font-bold text-on-surface tracking-tight group-hover:text-primary transition-colors"
-                                >
-                                    <?= DeckService::h(mb_strimwidth($deck['title'], 0, 45, '...')) ?>
-                                </a>
-                                <div class="mt-2.5 flex items-center justify-between font-label-md text-label-md text-on-surface-variant">
-                                    <div class="flex items-center gap-1.5">
-                                        <span class="material-symbols-outlined text-primary text-[18px]">style</span>
-                                        <span class="font-semibold text-on-surface"><?= $deck['card_count'] ?> <?= $deck['card_count'] === 1 ? 'Card' : 'Cards' ?></span>
-                                    </div>
-                                    <div class="flex items-center gap-1.5 px-2 py-0.5 rounded-md border font-semibold text-[12px] <?= $deck['theme']['badge'] ?>">
-                                        <span class="material-symbols-outlined text-[16px]"><?= $deck['theme']['icon'] ?></span>
-                                        <span><?= DeckService::h($deck['theme']['label']) ?></span>
-                                    </div>
-                                </div>
-                                <div class="w-full bg-surface-container-high rounded-full h-1.5 mt-3 overflow-hidden">
-                                    <div class="<?= $deck['theme']['bar'] ?> h-1.5 rounded-full" style="width: <?= (int) ($deck['accuracy'] ?? 0) ?>%"></div>
-                                </div>
+                <div data-deck-card="<?= $deck['id'] ?>" data-deck-id="<?= $deck['id'] ?>" class="deck-card deck-item bg-surface-container-lowest border border-outline-variant/30 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:border-primary-fixed-dim/60 transition-all flex flex-col group">
+                    <!-- Cover -->
+                    <div class="relative h-24 w-full border-b border-outline-variant/20" style="<?= DeckService::h($deck['cover_style']) ?>">
+                        <?php if ($deck['due_count'] > 0): ?>
+                            <div class="absolute top-2 left-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-black/50 backdrop-blur-md text-white text-[11px] font-semibold">
+                                <span class="material-symbols-outlined text-[14px]">schedule</span>
+                                <span><?= $deck['due_count'] ?> due</span>
+                            </div>
+                        <?php endif; ?>
+                        <button class="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/30 backdrop-blur-md text-white hover:bg-black/50 transition-colors flex items-center justify-center" title="Deck Options" type="button" data-deck-menu data-deck-id="<?= $deck['id'] ?>" aria-haspopup="menu" aria-expanded="false">
+                            <span class="material-symbols-outlined text-[18px]">more_vert</span>
+                        </button>
+                    </div>
 
-                                <!-- Grid View Action Button -->
-                                <?php if ($deck['due_count'] > 0): ?>
-                                    <button
-                                        type="button"
-                                        data-action="review"
-                                        data-deck-id="<?= $deck['id'] ?>"
-                                        class="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md font-bold shadow-sm hover:shadow-md transition-all"
-                                    >
-                                        <span class="material-symbols-outlined text-[19px]">play_arrow</span>
-                                        <span>Review <?= $deck['due_count'] ?> Due</span>
-                                    </button>
-                                <?php elseif ($deck['card_count'] === 0): ?>
-                                    <button
-                                        type="button"
-                                        disabled
-                                        class="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container-high text-on-surface-variant/60 font-label-md text-label-md font-semibold cursor-not-allowed"
-                                    >
-                                        <span class="material-symbols-outlined text-[19px]">inbox</span>
-                                        <span>Empty deck</span>
-                                    </button>
-                                <?php else: ?>
-                                    <button
-                                        type="button"
-                                        disabled
-                                        class="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container-high text-on-surface-variant/60 font-label-md text-label-md font-semibold cursor-not-allowed"
-                                    >
-                                        <span class="material-symbols-outlined text-[19px]">check_circle</span>
-                                        <span>All caught up!</span>
-                                    </button>
-                                <?php endif; ?>
+                    <!-- Body -->
+                    <div class="p-3.5 flex flex-col gap-3 flex-1">
+                        <div class="min-w-0">
+                            <a href="deck.php?deck_id=<?= $deck['id'] ?>" data-deck-title="<?= $deck['id'] ?>" title="<?= DeckService::h($deck['title']) ?>" class="block truncate font-headline-sm text-[15px] font-bold text-on-surface tracking-tight group-hover:text-primary transition-colors"><?= DeckService::h($deck['title']) ?></a>
+                            <div class="mt-1 flex items-center gap-1.5 text-[12px] text-on-surface-variant min-w-0">
+                                <span class="font-semibold text-on-surface flex-shrink-0"><?= $deck['card_count'] ?> <?= $deck['card_count'] === 1 ? 'Card' : 'Cards' ?></span>
+                                <span class="text-outline-variant">•</span>
+                                <span class="truncate"><?= DeckService::h($deck['due_text']) ?></span>
                             </div>
-                            <div class="pt-2 border-t border-outline-variant/20 flex items-center gap-2.5">
+                        </div>
+
+                        <div class="mt-auto pt-3 border-t border-outline-variant/20 flex items-center justify-between gap-2">
+                            <!-- Chip is a div on purpose: the archive handler in decks.js looks for a <span> containing '%' -->
+                            <div class="inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[12px] font-semibold <?= $deck['theme']['badge'] ?>" title="Accuracy">
+                                <span class="material-symbols-outlined text-[14px]"><?= $deck['theme']['icon'] ?></span>
+                                <span><?= $deck['accuracy'] === null ? '—' : $deck['accuracy'] . '%' ?></span>
                             </div>
+
+                            <?php if ($deck['due_count'] > 0): ?>
+                                <button type="button" data-action="review" data-deck-id="<?= $deck['id'] ?>" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-container text-on-primary text-[13px] font-bold shadow-sm transition-all">
+                                    <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+                                    <span>Review</span>
+                                </button>
+                            <?php else: ?>
+                                <span class="inline-flex items-center gap-1 text-[12px] font-medium text-on-surface-variant/70">
+                                    <span class="material-symbols-outlined text-[16px]"><?= $deck['card_count'] === 0 ? 'inbox' : 'check_circle' ?></span>
+                                    <span><?= $deck['card_count'] === 0 ? 'Empty' : 'Caught up' ?></span>
+                                </span>
+                            <?php endif; ?>
                         </div>
                     </div>
+                </div>
                 <?php endforeach; ?>
+
                 <!-- Create new deck tile -->
-                <div class="border-2 border-dashed border-outline-variant/50 hover:border-primary rounded-2xl min-h-[16rem] flex flex-col items-center justify-center gap-3 bg-surface-container-low/30 hover:bg-surface-container-low transition-all cursor-pointer group" id="new-deck-tile">
+                <div class="border-2 border-dashed border-outline-variant/50 hover:border-primary rounded-xl min-h-[14rem] flex flex-col items-center justify-center gap-3 bg-surface-container-low/30 hover:bg-surface-container-low transition-all cursor-pointer group" id="new-deck-tile">
                     <div class="w-14 h-14 rounded-xl bg-surface-container-lowest border border-outline-variant/30 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
                         <span class="material-symbols-outlined text-[24px]">add_circle</span>
                     </div>
@@ -158,88 +132,49 @@
             </div>
 
             <!-- List view -->
-            <div class="flex flex-col gap-4 hidden" id="decks-list-view">
+            <div class="flex flex-col gap-3 hidden" id="decks-list-view">
                 <?php foreach ($decks as $deck): ?>
-                    <div data-deck-card="<?= $deck['id'] ?>" data-deck-id="<?= $deck['id'] ?>" class="deck-card deck-item bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md hover:border-primary-fixed-dim/60 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4 group">                        <div class="flex items-center gap-4 min-w-0">
-                            <div class="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center" style="<?= DeckService::h($deck['cover_style']) ?>">
-                                <span class="material-symbols-outlined text-white/90 text-[26px]">style</span>
-                            </div>
-                            <div class="flex flex-col min-w-0">
-                                <a
-                                    href="deck.php?deck_id=<?= $deck['id'] ?>"
-                                    data-deck-title="<?= $deck['id'] ?>"
-                                    class="font-headline-sm text-[18px] font-bold text-on-surface tracking-tight group-hover:text-primary transition-colors"
-                                >
-                                    <?= DeckService::h(mb_strimwidth($deck['title'], 0, 45, '...')) ?>
-                                </a>
-                                <div class="flex items-center gap-4 mt-1 font-body-sm text-body-sm text-on-surface-variant">
-                                    <span class="inline-flex items-center gap-1 font-semibold text-on-surface">
-                                        <span class="material-symbols-outlined text-[16px] text-primary">style</span>
-                                        <?= $deck['card_count'] ?> <?= $deck['card_count'] === 1 ? 'Card' : 'Cards' ?>
-                                    </span>
-                                    <span class="text-outline-variant">•</span>
-                                    <span class="inline-flex items-center gap-1">
-                                        <span class="material-symbols-outlined text-[16px] text-primary">schedule</span>
-                                        <?= DeckService::h($deck['due_text']) ?>
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="flex items-center justify-between lg:justify-end gap-6 pt-3 lg:pt-0 border-t lg:border-t-0 border-outline-variant/20">
-                            <div class="flex flex-col gap-1.5 w-36 sm:w-44">
-                                <div class="flex items-center justify-between text-label-sm font-semibold">
-                                    <span class="text-on-surface-variant">Accuracy</span>
-                                    <span class="px-1.5 py-0.5 rounded border <?= $deck['theme']['badge'] ?>">
-                                        <?= $deck['accuracy'] === null ? '—' : $deck['accuracy'] . '%' ?>
-                                    </span>
-                                </div>
-                                <div class="w-full bg-surface-container-high rounded-full h-1.5 overflow-hidden">
-                                    <div class="<?= $deck['theme']['bar'] ?> h-1.5 rounded-full" style="width: <?= (int) ($deck['accuracy'] ?? 0) ?>%"></div>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-2 flex-shrink-0">
-                                <!-- List View Action Button -->
-                                <?php if ($deck['due_count'] > 0): ?>
-                                    <button
-                                        type="button"
-                                        data-action="review"
-                                        data-deck-id="<?= $deck['id'] ?>"
-                                        class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md font-bold shadow-sm hover:shadow-md transition-all"
-                                    >
-                                        <span class="material-symbols-outlined text-[19px]">play_arrow</span>
-                                        <span>Review</span>
-                                    </button>
-                                <?php elseif ($deck['card_count'] === 0): ?>
-                                    <button
-                                        type="button"
-                                        disabled
-                                        class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container-high text-on-surface-variant/60 font-label-md text-label-md font-semibold cursor-not-allowed"
-                                    >
-                                        <span class="material-symbols-outlined text-[19px]">inbox</span>
-                                        <span>Empty deck</span>
-                                    </button>
-                                <?php else: ?>
-                                    <button
-                                        type="button"
-                                        disabled
-                                        class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container-high text-on-surface-variant/60 font-label-md text-label-md font-semibold cursor-not-allowed"
-                                    >
-                                        <span class="material-symbols-outlined text-[19px]">check_circle</span>
-                                        <span>Reviewed</span>
-                                    </button>
-                                <?php endif; ?>
-                                <button class="w-8 h-8 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-on-surface transition-colors flex items-center justify-center" title="Deck Options" type="button" data-deck-menu data-deck-id="<?= $deck['id'] ?>" aria-haspopup="menu" aria-expanded="false">
-                                    <span class="material-symbols-outlined text-[18px]">more_vert</span>
-                                </button>
-                            </div>
+                <div data-deck-card="<?= $deck['id'] ?>" data-deck-id="<?= $deck['id'] ?>" class="deck-card deck-item bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-3 shadow-sm hover:shadow-md hover:border-primary-fixed-dim/60 transition-all flex items-center gap-3 group">
+                    <div class="hidden sm:block w-12 h-12 rounded-lg flex-shrink-0" style="<?= DeckService::h($deck['cover_style']) ?>"></div>
+
+                    <div class="flex-1 min-w-0">
+                        <a href="deck.php?deck_id=<?= $deck['id'] ?>" data-deck-title="<?= $deck['id'] ?>" title="<?= DeckService::h($deck['title']) ?>" class="block truncate font-headline-sm text-[15px] font-bold text-on-surface tracking-tight group-hover:text-primary transition-colors"><?= DeckService::h($deck['title']) ?></a>
+                        <div class="mt-0.5 flex items-center gap-1.5 text-[12px] text-on-surface-variant min-w-0">
+                            <span class="font-semibold text-on-surface flex-shrink-0"><?= $deck['card_count'] ?> <?= $deck['card_count'] === 1 ? 'Card' : 'Cards' ?></span>
+                            <span class="text-outline-variant">•</span>
+                            <span class="truncate"><?= DeckService::h($deck['due_text']) ?></span>
                         </div>
                     </div>
+
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <div class="inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[12px] font-semibold <?= $deck['theme']['badge'] ?>" title="Accuracy">
+                            <span class="material-symbols-outlined text-[14px] hidden sm:inline-block"><?= $deck['theme']['icon'] ?></span>
+                            <span><?= $deck['accuracy'] === null ? '—' : $deck['accuracy'] . '%' ?></span>
+                        </div>
+
+                        <?php if ($deck['due_count'] > 0): ?>
+                            <button type="button" data-action="review" data-deck-id="<?= $deck['id'] ?>" aria-label="Review" title="Review" class="inline-flex items-center justify-center gap-1 w-9 h-9 sm:w-auto sm:h-auto sm:px-3.5 sm:py-2 rounded-lg bg-primary hover:bg-primary-container text-on-primary text-[13px] font-bold shadow-sm transition-all">
+                                <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+                                <span class="hidden sm:inline">Review</span>
+                            </button>
+                        <?php else: ?>
+                            <span class="inline-flex items-center justify-center gap-1 w-9 sm:w-auto text-[12px] font-medium text-on-surface-variant/70" title="<?= $deck['card_count'] === 0 ? 'Empty deck' : 'All caught up' ?>">
+                                <span class="material-symbols-outlined text-[18px]"><?= $deck['card_count'] === 0 ? 'inbox' : 'check_circle' ?></span>
+                                <span class="hidden sm:inline"><?= $deck['card_count'] === 0 ? 'Empty' : 'Caught up' ?></span>
+                            </span>
+                        <?php endif; ?>
+
+                        <button class="w-8 h-8 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-on-surface transition-colors flex items-center justify-center" title="Deck Options" type="button" data-deck-menu data-deck-id="<?= $deck['id'] ?>" aria-haspopup="menu" aria-expanded="false">
+                            <span class="material-symbols-outlined text-[18px]">more_vert</span>
+                        </button>
+                    </div>
+                </div>
                 <?php endforeach; ?>
 
                 <!-- Create new deck row -->
-                <div class="border-2 border-dashed border-outline-variant/50 hover:border-primary rounded-2xl p-4 sm:p-5 flex items-center justify-between bg-surface-container-low/30 hover:bg-surface-container-low transition-all cursor-pointer group" id="new-deck-row">
+                <div class="border-2 border-dashed border-outline-variant/50 hover:border-primary rounded-xl p-3 flex items-center justify-between bg-surface-container-low/30 hover:bg-surface-container-low transition-all cursor-pointer group" id="new-deck-row">
                     <div class="flex items-center gap-4">
-                        <div class="w-14 h-14 rounded-xl bg-surface-container-lowest border border-outline-variant/30 flex items-center justify-center text-primary group-hover:scale-105 transition-transform flex-shrink-0">
+                        <div class="w-12 h-12 rounded-xl bg-surface-container-lowest border border-outline-variant/30 flex items-center justify-center text-primary group-hover:scale-105 transition-transform flex-shrink-0">
                             <span class="material-symbols-outlined text-[24px]">add_circle</span>
                         </div>
                         <h4 class="font-headline-sm text-[16px] font-bold text-on-surface group-hover:text-primary transition-colors">Create New Deck</h4>
@@ -278,7 +213,8 @@
 </div>
 
 <!-- Edit Banner Dialog -->
-<dialog id="banner-dialog" class="m-auto rounded-2xl p-0 w-full max-w-xl bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">    <div class="p-6 flex flex-col gap-5">
+<dialog id="banner-dialog" class="m-auto rounded-2xl p-0 w-full max-w-xl bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
+    <div class="p-6 flex flex-col gap-5">
         <div class="flex justify-between items-center">
             <h3 class="font-headline-sm text-[18px] font-bold">Select Deck Banner</h3>
             <button type="button" data-close-dialog class="text-on-surface-variant hover:text-on-surface transition-colors">
@@ -294,15 +230,15 @@
             <button type="button" data-banner-path="" class="banner-option border-2 border-primary rounded-xl h-20 flex items-center justify-center bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-semibold text-xs shadow-sm hover:opacity-90 transition-all">
                 Default Gradient
             </button>
-            
-            <?php 
+
+            <?php
             $bannerDir = __DIR__ . '/../assets/images/deck-header-banner/';
             $bannerFiles = glob($bannerDir . '*.{jpg,jpeg,png,webp}', GLOB_BRACE);
-            
+
             // Sort files numerically (e.g., dh1, dh2, dh10)
             natsort($bannerFiles);
 
-            foreach ($bannerFiles as $filePath): 
+            foreach ($bannerFiles as $filePath):
                 $fileName = basename($filePath);
                 $relativePath = '../assets/images/deck-header-banner/' . $fileName;
             ?>
@@ -320,7 +256,7 @@
 </dialog>
 
 <!-- Rename dialog -->
-<dialog id="rename-dialog" class="m-auto rounded-2xl p-0 w-full max-w-md bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
+<dialog id="rename-dialog" class="m-auto rounded-2xl p-0 w-full max-w-xl bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
     <form id="rename-form" class="p-6 flex flex-col gap-4" novalidate>
         <h3 class="font-headline-sm text-[18px] font-bold">Rename deck</h3>
         <div class="flex flex-col gap-1.5">
@@ -431,7 +367,7 @@
             <span id="archived-toast-message"></span>
             <button type="button" onclick="document.getElementById('archived-toast').classList.add('hidden')" class="text-xs underline ml-4">Dismiss</button>
         </div>
-        
+
         <div class="flex flex-col gap-3" id="archived-decks-list-container">
             <?php if (empty($archivedDecks)): ?>
                 <p id="no-archived-msg" class="text-on-surface-variant text-center py-6 text-sm">No archived decks found.</p>
