@@ -2,16 +2,25 @@
 session_start();
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || !isset($_SESSION['user_id'])) {
-    header("Location: ../authentication/login.php");
+    header("Location: ../../authentication/login.php");
     exit;
 }
 
 require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../api/DashboardService.php';
+require_once __DIR__ . '/../api/ReportsService.php';
 
-$user_id = $_SESSION['user_id'];
+$userId = (int) $_SESSION['user_id'];
 
-$pageTitle = "Reports"; 
+$filters     = ReportsService::parseFilters($conn, $userId, $_GET);
+$deckOptions = ReportsService::getDeckOptions($conn, $userId, $filters['includeArchived']);
+$profile     = DashboardService::getUserProfile($conn, $userId);
+$overview    = ReportsService::getOverview($conn, $userId, $filters);
+$decksReport = ReportsService::getDecksReport($conn, $userId, $filters);
+
+$pageTitle   = "Reports";
 $currentPage = "reports";
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -19,13 +28,17 @@ $currentPage = "reports";
 <?php include __DIR__ . '/../includes/head.php'; ?>
 
 <body class="bg-background font-body-md text-on-surface antialiased min-h-screen selection:bg-primary-fixed selection:text-on-primary-fixed">
-
+    <link rel="stylesheet" href="../assets/css/reports.css?v=<?= filemtime(__DIR__ . '/../assets/css/reports.css') ?>">
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
     <main class="pl-0 md:pl-72 pt-16 md:pt-6 transition-all duration-300 ease-in-out">
         
-        <!-- Page-specific content goes here -->
+    <?php include __DIR__ . '/reports-view.php'; ?>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.js" defer></script>
+    <script src="../assets/js/reports.js?v=<?= filemtime(__DIR__ . '/../assets/js/reports.js') ?>" defer></script>
+    <script src="../assets/js/reports-overview.js?v=<?= filemtime(__DIR__ . '/../assets/js/reports-overview.js') ?>" defer></script>
+    <script src="../assets/js/reports-decks.js?v=<?= filemtime(__DIR__ . '/../assets/js/reports-decks.js') ?>" defer></script>
 </body>
 </html>

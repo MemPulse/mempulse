@@ -1,0 +1,219 @@
+/* ==========================================================================
+   Reports page
+   ========================================================================== */
+
+/* Screen: print-only elements and chart snapshots stay hidden */
+.rp-print-only {
+    display: none;
+}
+
+.rp-chart-img {
+    display: none;
+}
+
+/* Never split a card or chart across two printed pages */
+.rp-avoid-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+/* Sortable table headers */
+.rp-sort-btn {
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+}
+
+.rp-sort-btn:hover {
+    color: #3525cd;
+}
+
+th[aria-sort="ascending"] .rp-sort-btn::after {
+    content: " \25B2";
+    font-size: 0.7em;
+}
+
+th[aria-sort="descending"] .rp-sort-btn::after {
+    content: " \25BC";
+    font-size: 0.7em;
+}
+
+/* ==========================================================================
+   PRINT / SAVE AS PDF
+   ========================================================================== */
+@page {
+    size: A4;
+    margin: 12mm;
+}
+
+@media print {
+
+    /* Keep colours (chart bars, badges) in the PDF */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    html,
+    body {
+        height: auto !important;
+        overflow: visible !important;
+        background: #ffffff !important;
+        color: #0b1c30 !important;
+    }
+
+    /* App chrome: sidebar, mobile header, menus */
+    aside,
+    nav,
+    header,
+    [id*="sidebar"],
+    [class*="sidebar"],
+    .rp-no-print {
+        display: none !important;
+    }
+
+    /* The page sits beside the sidebar on screen; use the full page when printing */
+    main {
+        padding: 0 !important;
+        margin: 0 !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+    }
+
+    #reports-root {
+        padding: 0 !important;
+    }
+
+    /* Show every tab, stacked, whichever one was open on screen */
+    .rp-panel,
+    .rp-panel.hidden {
+        display: block !important;
+    }
+
+    .rp-panel+.rp-panel {
+        margin-top: 8mm;
+    }
+
+    .rp-print-only {
+        display: block !important;
+    }
+
+    /* Print header */
+    .rp-print-header {
+        border-bottom: 2px solid #3525cd;
+        padding-bottom: 4mm;
+        margin-bottom: 4mm;
+    }
+
+    .rp-print-header h1 {
+        font-size: 20pt;
+        font-weight: 700;
+        margin: 0 0 3mm;
+    }
+
+    .rp-print-header table {
+        border-collapse: collapse;
+        font-size: 10pt;
+    }
+
+    .rp-print-header th {
+        text-align: left;
+        padding: 0.5mm 6mm 0.5mm 0;
+        color: #464555;
+        font-weight: 600;
+    }
+
+    .rp-print-header td {
+        padding: 0.5mm 0;
+    }
+
+    .rp-print-section {
+        font-size: 14pt;
+        font-weight: 700;
+        margin: 0 0 3mm;
+        padding-bottom: 1mm;
+        border-bottom: 1px solid #c7c4d8;
+        break-after: avoid;
+    }
+
+    /* Cards: flat, bordered, no shadows */
+    .rp-avoid-break,
+    .rp-kpi-grid>div {
+        box-shadow: none !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    /* KPI cards: 3 per row on paper */
+    .rp-kpi-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 3mm !important;
+    }
+
+    /* Charts: swap the live canvas for the snapshot <img> made in reports.js */
+    .rp-chart-box {
+        height: auto !important;
+    }
+
+    .rp-printing .rp-chart-box canvas {
+        display: none !important;
+    }
+
+    .rp-printing .rp-chart-img {
+        display: block !important;
+        width: 100% !important;
+        height: auto !important;
+    }
+
+    /* Tables: repeat header row on each page, don't split rows */
+    thead {
+        display: table-header-group;
+    }
+
+    tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    /* Report tables on paper */
+    .rp-table-wrap {
+        overflow: visible !important;
+    }
+
+    .rp-table {
+        font-size: 8.5pt;
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .rp-table th,
+    .rp-table td {
+        padding: 1.5mm 2mm !important;
+        border-bottom: 1px solid #c7c4d8;
+    }
+
+    .rp-table thead th {
+        background: #eff4ff !important;
+        color: #0b1c30 !important;
+    }
+
+    .rp-table tfoot td {
+        border-top: 1.5px solid #464555;
+        background: #eff4ff !important;
+    }
+
+    .rp-sort-btn::after {
+        content: none !important;
+    }
+
+    /* Remove link underlines/URLs */
+    a {
+        color: inherit !important;
+        text-decoration: none !important;
+    }
+}
