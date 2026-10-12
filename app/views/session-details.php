@@ -29,6 +29,20 @@ $logs = SessionService::getSessionLogs($conn, $sessionId);
 $pageTitle   = "Session Details";
 $currentPage = "review"; // Keep navigation active on Review Hub
 $h = [ReviewHubService::class, 'h'];
+
+// ---- Rows for the Tabulator grid (text is pre-formatted here; JS escapes it) ----
+$logRows = [];
+foreach ($logs as $log) {
+    $secs = $log['nextDueSeconds'];
+    $logRows[] = [
+        'front'     => (string) $log['front'],
+        'back'      => (string) $log['back'],
+        'isDeleted' => (bool) $log['isDeleted'],
+        'remembered'=> $log['rating'] === 'remembered',
+        'isDueNow'  => $secs !== null && $secs <= 0,
+        'nextText'  => $secs === null ? '—' : ($secs <= 0 ? 'Due Now' : 'in ' . ReviewHubService::formatSpan($secs)),
+    ];
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -39,10 +53,7 @@ $h = [ReviewHubService::class, 'h'];
 
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
-    <main class="pt-16 pl-0 md:pl-72 transition-all duration-300 ease-in-out min-h-screen flex flex-col">
-        <?php include __DIR__ . '/../includes/header-data.php'; ?>
-        <?php include __DIR__ . '/../includes/header.php'; ?>
-
+    <main class="pl-0 md:pl-72 pt-16 md:pt-6 transition-all duration-300 ease-in-out">
         <div class="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6">
 
             <div class="max-w-5xl mx-auto flex flex-col gap-6">
@@ -88,69 +99,88 @@ $h = [ReviewHubService::class, 'h'];
                     </div>
                 </div>
 
-                <!-- Cards Table -->
-                <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl shadow-xs overflow-hidden">
-                    <div class="px-5 py-4 border-b border-outline-variant/30 bg-surface-container-lowest">
-                        <h3 class="font-headline-sm text-base font-semibold text-on-surface m-0">Cards Reviewed</h3>
+                <!-- Cards Reviewed: title above the table, table below -->
+                <section class="flex flex-col gap-4 w-full min-w-0" id="cards-reviewed-section">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <h2 class="font-headline-md text-headline-md font-bold tracking-tight text-on-surface whitespace-nowrap">Cards Reviewed</h2>
+                        <span class="px-2.5 py-0.5 rounded-full bg-primary-container text-on-primary font-label-sm text-label-sm font-semibold tracking-wide shadow-xs whitespace-nowrap">
+                            <?= count($logRows) ?> <?= count($logRows) === 1 ? 'Card' : 'Cards' ?>
+                        </span>
                     </div>
 
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
-                            <thead>
-                                <tr class="text-left text-[11px] font-bold uppercase tracking-wider text-on-surface-variant bg-surface-container border-b border-outline-variant/30">
-                                    <th scope="col" class="py-3 px-5 font-bold w-1/3">Front</th>
-                                    <th scope="col" class="py-3 px-5 font-bold w-1/3">Back</th>
-                                    <th scope="col" class="py-3 px-5 font-bold">Result</th>
-                                    <th scope="col" class="py-3 px-5 font-bold text-right">Next Due</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-outline-variant/20">
-                                <?php foreach ($logs as $log): ?>
-                                    <tr class="hover:bg-surface-container-low/50 transition-colors">
-                                        <td class="py-3 px-5 align-top">
-                                            <?php if ($log['isDeleted']): ?>
-                                                <span class="inline-block mb-1 text-[10px] font-bold uppercase text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">Deleted</span><br>
-                                            <?php endif; ?>
-                                            <div class="line-clamp-2" title="<?= $h($log['front']) ?>"><?= nl2br($h($log['front'])) ?></div>
-                                        </td>
-                                        <td class="py-3 px-5 align-top text-on-surface-variant">
-                                            <div class="line-clamp-2" title="<?= $h($log['back']) ?>"><?= nl2br($h($log['back'])) ?></div>
-                                        </td>
-                                        <td class="py-3 px-5 align-top">
-                                            <?php if ($log['rating'] === 'remembered'): ?>
-                                                <span class="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-md">
-                                                    <span class="material-symbols-outlined text-[14px]">check_circle</span>
-                                                    Remembered
-                                                </span>
-                                            <?php else: ?>
-                                                <span class="inline-flex items-center gap-1 text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-1 rounded-md">
-                                                    <span class="material-symbols-outlined text-[14px]">cancel</span>
-                                                    Forgotten
-                                                </span>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td class="py-3 px-5 align-top text-right text-on-surface-variant whitespace-nowrap">
-                                            <?php
-                                                if ($log['nextDueSeconds'] !== null) {
-                                                    if ($log['nextDueSeconds'] <= 0) {
-                                                        echo '<span class="text-rose-600 font-medium">Due Now</span>';
-                                                    } else {
-                                                        echo 'in ' . $h(ReviewHubService::formatSpan($log['nextDueSeconds']));
-                                                    }
-                                                } else {
-                                                    echo '—';
-                                                }
-                                            ?>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                    <?php if (empty($logRows)): ?>
+                        <div class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs py-10 text-center text-on-surface-variant text-sm">
+                            No card records were saved for this session.
+                        </div>
+                    <?php else: ?>
+                        <div class="mp-table rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs overflow-hidden">
+                            <div id="session-cards-table"></div>
+                        </div>
+                    <?php endif; ?>
+                </section>
 
             </div>
         </div>
     </main>
+
+    <!-- Colour probe: lets the table CSS reuse your Tailwind design tokens -->
+    <div id="mp-token-probe" class="hidden" aria-hidden="true">
+        <span data-t="head"    class="bg-surface-container text-on-surface-variant"></span>
+        <span data-t="text"    class="text-on-surface"></span>
+        <span data-t="hover"   class="bg-surface-container-low/50"></span>
+        <span data-t="border"  class="border border-outline-variant/30"></span>
+        <span data-t="divider" class="border border-outline-variant/20"></span>
+    </div>
+
+    <!-- Same Tabulator build + theme as deck-view.php -->
+    <link href="https://unpkg.com/tabulator-tables@5.5.0/dist/css/tabulator_simple.min.css" rel="stylesheet">
+    <style>
+        /* Read-only records: plain cursor */
+        #session-cards-table .tabulator-row,
+        #session-cards-table .tabulator-row .tabulator-cell { cursor: default; }
+    </style>
+
+    <script type="application/json" id="session-cards-data"><?= json_encode($logRows, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?></script>
+    <script src="../assets/js/mp-tables.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var dataEl = document.getElementById('session-cards-data');
+        if (!dataEl || !document.getElementById('session-cards-table')) return;
+        var rows = JSON.parse(dataEl.textContent);
+        var esc = MPTable.esc;
+
+        // Card text: keep line breaks, show at most 2 lines, full text on hover
+        var textCell = function (key, extraCls) {
+            return function (c) {
+                var r = c.getRow().getData();
+                var badge = (key === 'front' && r.isDeleted)
+                    ? '<span class="inline-block mb-1 text-[10px] font-bold uppercase text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">Deleted</span>'
+                    : '';
+                return badge + '<div class="line-clamp-2 whitespace-pre-line break-words ' + extraCls + '" title="' + esc(r[key]) + '">' + esc(r[key]) + '</div>';
+            };
+        };
+
+        MPTable.applyTokens(document.getElementById('mp-token-probe'));
+        MPTable.ensure(function () {
+            MPTable.make('#session-cards-table', rows, [
+                { title: 'Front', field: 'front', widthGrow: 3, minWidth: 160, responsive: 0, formatter: textCell('front', '') },
+                { title: 'Back',  field: 'back',  widthGrow: 3, minWidth: 160, responsive: 1, formatter: textCell('back', 'text-on-surface-variant') },
+                { title: 'Result', field: 'remembered', width: 160, responsive: 0,
+                  formatter: function (c) {
+                      return c.getValue()
+                          ? '<span class="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-md"><span class="material-symbols-outlined text-[14px]">check_circle</span>Remembered</span>'
+                          : '<span class="inline-flex items-center gap-1 text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-1 rounded-md"><span class="material-symbols-outlined text-[14px]">cancel</span>Forgotten</span>';
+                  } },
+                { title: 'Next Due', field: 'nextText', width: 140, hozAlign: 'right', headerHozAlign: 'right', responsive: 2,
+                  formatter: function (c) {
+                      var r = c.getRow().getData();
+                      return r.isDueNow
+                          ? '<span class="text-rose-600 font-medium">Due Now</span>'
+                          : '<span class="text-on-surface-variant tabular-nums whitespace-nowrap">' + esc(r.nextText) + '</span>';
+                  } }
+            ]);
+        });
+    });
+    </script>
 </body>
 </html>

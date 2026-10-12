@@ -34,6 +34,22 @@ $h = [ReviewHubService::class, 'h'];
 // Page-number window (current page +/- 2)
 $firstShown = max(1, $page - 2);
 $lastShown  = min($totalPages, $page + 2);
+
+// ---- Rows for the Tabulator grid (text is pre-formatted here; JS escapes it) ----
+$sessionRows = [];
+foreach ($sessions as $s) {
+    $sessionRows[] = [
+        'title'       => (string) $s['deckTitle'],
+        'detailsUrl'  => 'session-details.php?id=' . (int) $s['id'],
+        'date'        => date('M j, Y, g:i A', strtotime($s['startedAt'])),
+        'cards'       => (int) $s['totalReviewed'],
+        'remembered'  => (int) $s['rememberedCount'],
+        'accuracy'    => (int) $s['accuracy'],
+        'accuracyCls' => ReviewHubService::accuracyBadgeClass((int) $s['accuracy']),
+        'duration'    => ReviewHubService::formatDuration($s['durationSeconds']),
+    ];
+}
+unset($s);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -44,9 +60,7 @@ $lastShown  = min($totalPages, $page + 2);
 
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
-    <main class="pt-16 pl-0 md:pl-72 transition-all duration-300 ease-in-out min-h-screen flex flex-col">
-        <?php include __DIR__ . '/../includes/header-data.php'; ?>
-        <?php include __DIR__ . '/../includes/header.php'; ?>
+    <main class="pl-0 md:pl-72 pt-16 md:pt-6 transition-all duration-300 ease-in-out">
 
         <div class="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6">
 
@@ -73,14 +87,10 @@ $lastShown  = min($totalPages, $page + 2);
                             <?= (int) $totalCount ?> completed <?= $totalCount === 1 ? 'session' : 'sessions' ?>
                         </p>
                     </div>
-                    <!-- <a href="review.php" class="hidden sm:inline-flex items-center gap-1 px-4 py-2 rounded-xl bg-surface-container-high border border-outline-variant/30 text-sm font-semibold text-on-surface hover:text-primary transition-colors">
-                        <span class="material-symbols-outlined text-[18px]">arrow_back</span>
-                        Back to Review Hub
-                    </a> -->
                 </div>
 
                 <!-- Sessions table -->
-                <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl shadow-xs overflow-hidden">
+                <div class="mp-table bg-surface-container-lowest border border-outline-variant/30 rounded-2xl shadow-xs overflow-hidden">
 
                     <?php if (empty($sessions)): ?>
                         <div class="flex flex-col items-center justify-center p-10 text-center text-on-surface-variant">
@@ -90,58 +100,7 @@ $lastShown  = min($totalPages, $page + 2);
                             <a href="review.php" class="mt-4 px-4 py-2 rounded-xl bg-primary text-on-primary text-sm font-bold hover:bg-primary-container transition-colors">Go to Review Hub</a>
                         </div>
                     <?php else: ?>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-sm">
-                                <caption class="sr-only">All completed review sessions, newest first</caption>
-                                <thead>
-                                    <tr class="text-left text-[11px] font-bold uppercase tracking-wider text-on-surface-variant bg-surface-container border-b border-outline-variant/30">
-                                        <th scope="col" class="py-3 px-5 font-bold">Deck</th>
-                                        <th scope="col" class="hidden sm:table-cell py-3 px-3 font-bold">Date</th>
-                                        <th scope="col" class="py-3 px-3 font-bold text-right">Cards</th>
-                                        <th scope="col" class="hidden md:table-cell py-3 px-3 font-bold text-right">Remembered</th>
-                                        <th scope="col" class="py-3 px-3 font-bold text-right">Accuracy</th>
-                                        <th scope="col" class="hidden md:table-cell py-3 px-3 font-bold text-right">Duration</th>
-                                        <th scope="col" class="py-3 px-5 font-bold text-right"><span class="sr-only">View</span></th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-outline-variant/20">
-                                    <?php foreach ($sessions as $s): ?>
-                                        <tr class="hover:bg-surface-container-low/50 transition-colors">
-                                            <td class="py-3 px-5">
-                                                <a href="session-details.php?id=<?= (int) $s['id'] ?>"
-                                                   title="<?= $h($s['deckTitle']) ?>"
-                                                   class="block truncate max-w-[10rem] sm:max-w-xs font-semibold text-on-surface hover:text-primary transition-colors">
-                                                    <?= $h($s['deckTitle']) ?>
-                                                </a>
-                                                <span class="sm:hidden text-[11px] text-on-surface-variant">
-                                                    <?= $h(date('M j, Y', strtotime($s['startedAt']))) ?>
-                                                </span>
-                                            </td>
-                                            <td class="hidden sm:table-cell py-3 px-3 text-on-surface-variant whitespace-nowrap">
-                                                <?= $h(date('M j, Y, g:i A', strtotime($s['startedAt']))) ?>
-                                            </td>
-                                            <td class="py-3 px-3 text-right text-on-surface-variant tabular-nums"><?= (int) $s['totalReviewed'] ?></td>
-                                            <td class="hidden md:table-cell py-3 px-3 text-right text-on-surface-variant tabular-nums"><?= (int) $s['rememberedCount'] ?></td>
-                                            <td class="py-3 px-3 text-right">
-                                                <span class="inline-block text-xs font-bold border px-2 py-0.5 rounded-md tabular-nums <?= ReviewHubService::accuracyBadgeClass($s['accuracy']) ?>">
-                                                    <?= (int) $s['accuracy'] ?>%
-                                                </span>
-                                            </td>
-                                            <td class="hidden md:table-cell py-3 px-3 text-right text-on-surface-variant tabular-nums whitespace-nowrap">
-                                                <?= $h(ReviewHubService::formatDuration($s['durationSeconds'])) ?>
-                                            </td>
-                                            <td class="py-3 px-5 text-right">
-                                                <a href="session-details.php?id=<?= (int) $s['id'] ?>"
-                                                   aria-label="View details for <?= $h($s['deckTitle']) ?>"
-                                                   class="inline-flex items-center text-on-surface-variant hover:text-primary transition-colors">
-                                                    <span class="material-symbols-outlined text-[20px]">chevron_right</span>
-                                                </a>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
+                        <div id="sessions-table"></div>
 
                         <?php if ($totalPages > 1): ?>
                             <!-- Pagination -->
@@ -181,5 +140,66 @@ $lastShown  = min($totalPages, $page + 2);
             </div>
         </div>
     </main>
+
+    <!-- Colour probe: lets the table CSS reuse your Tailwind design tokens -->
+    <div id="mp-token-probe" class="hidden" aria-hidden="true">
+        <span data-t="head"    class="bg-surface-container text-on-surface-variant"></span>
+        <span data-t="text"    class="text-on-surface"></span>
+        <span data-t="hover"   class="bg-surface-container-low/50"></span>
+        <span data-t="border"  class="border border-outline-variant/30"></span>
+        <span data-t="divider" class="border border-outline-variant/20"></span>
+    </div>
+
+    <!-- Same Tabulator build + theme as deck-view.php -->
+    <link href="https://unpkg.com/tabulator-tables@5.5.0/dist/css/tabulator_simple.min.css" rel="stylesheet">
+    <style>
+        /* Rows open the session, so they look clickable */
+        #sessions-table .tabulator-row,
+        #sessions-table .tabulator-row .tabulator-cell { cursor: pointer; }
+    </style>
+
+    <script type="application/json" id="sessions-table-data"><?= json_encode($sessionRows, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?></script>
+    <script src="../assets/js/mp-tables.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var dataEl = document.getElementById('sessions-table-data');
+        if (!dataEl || !document.getElementById('sessions-table')) return;
+        var rows = JSON.parse(dataEl.textContent);
+        var esc = MPTable.esc;
+        var muted = 'text-on-surface-variant tabular-nums whitespace-nowrap';
+        var right = { hozAlign: 'right', headerHozAlign: 'right' };
+        var mutedCell = function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; };
+
+        MPTable.applyTokens(document.getElementById('mp-token-probe'));
+        MPTable.ensure(function () {
+            MPTable.make('#sessions-table', rows, [
+                { title: 'Deck', field: 'title', widthGrow: 3, minWidth: 150, responsive: 0,
+                  formatter: function (c) {
+                      var r = c.getRow().getData();
+                      return '<a href="' + esc(r.detailsUrl) + '" title="' + esc(r.title) + '" class="block truncate font-semibold text-on-surface hover:text-primary transition-colors">' + esc(r.title) + '</a>';
+                  } },
+                { title: 'Date', field: 'date', width: 190, responsive: 1, formatter: mutedCell },
+                Object.assign({ title: 'Cards', field: 'cards', width: 100, responsive: 2, formatter: mutedCell }, right),
+                Object.assign({ title: 'Remembered', field: 'remembered', width: 140, responsive: 4, formatter: mutedCell }, right),
+                Object.assign({ title: 'Accuracy', field: 'accuracy', width: 120, responsive: 0,
+                  formatter: function (c) {
+                      var r = c.getRow().getData();
+                      return '<span class="inline-block text-xs font-bold border px-2 py-0.5 rounded-md tabular-nums ' + esc(r.accuracyCls) + '">' + esc(r.accuracy) + '%</span>';
+                  } }, right),
+                Object.assign({ title: 'Duration', field: 'duration', width: 120, responsive: 3, formatter: mutedCell }, right),
+                Object.assign({ title: '', field: 'detailsUrl', width: 70, responsive: 0,
+                  formatter: function (c) {
+                      var r = c.getRow().getData();
+                      return '<a href="' + esc(r.detailsUrl) + '" aria-label="View details for ' + esc(r.title) + '" class="inline-flex items-center text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">chevron_right</span></a>';
+                  } }, right)
+            ], {
+                rowClick: function (e, row) {
+                    if (e.target.closest('a')) return;               // links handle themselves
+                    window.location.href = row.getData().detailsUrl; // anywhere else on the row opens details
+                }
+            });
+        });
+    });
+    </script>
 </body>
 </html>

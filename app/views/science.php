@@ -22,10 +22,7 @@ $currentPage = "science";
 
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
-    <main class="pt-16 pl-0 md:pl-72 transition-all duration-300 ease-in-out">
-        <?php include __DIR__ . '/../includes/header-data.php'; ?>    
-        <?php include __DIR__ . '/../includes/header.php'; ?>
-        
+    <main class="pl-0 md:pl-72 pt-16 md:pt-6 transition-all duration-300 ease-in-out">
         <!-- Page-specific content goes here -->
     </main>
 

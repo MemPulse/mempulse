@@ -38,10 +38,8 @@ $currentPage = "decks";
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
     <!-- MAIN: Viewport Shell Offset for Mobile/Desktop Navigation Bar -->
-    <main class="pl-0 md:pl-72 pt-16 md:pt-12 transition-all duration-300 ease-in-out">
-        <?php include __DIR__ . '/../includes/header-data.php'; ?>
-        <?php include __DIR__ . '/../includes/header.php'; ?>
-        <?php include __DIR__ . '/decks-view.php'; ?>
+    <main class="pl-0 md:pl-72 pt-16 md:pt-6 transition-all duration-300 ease-in-out">
+            <?php include __DIR__ . '/decks-view.php'; ?>
     </main>
 
     <!-- 1. DATA INJECTION: Server-side PHP variables passed safely to client-side JS -->

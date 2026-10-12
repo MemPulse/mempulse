@@ -79,9 +79,7 @@ $currentPage = "review";
 
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
-    <main class="pt-16 pl-0 md:pl-72 transition-all duration-300 ease-in-out h-screen flex flex-col">
-        <?php include __DIR__ . '/../includes/header-data.php'; ?>    
-        <?php include __DIR__ . '/../includes/header.php'; ?>
+    <main class="pl-0 md:pl-72 pt-16 md:pt-6 transition-all duration-300 ease-in-out">
         
         <div class="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6 lg:px-8 py-6">
                         
