@@ -4,15 +4,12 @@ Volume serial number is 8E4B-9250
 C:.
 │   comebine_files.py
 │   dashboard-checking.md
-│   dashboard-checking.txt
 │   database-design.md
-│   decks-management-checking.txt
-│   decks.txt
 │   generate_mock.py
+│   mempulse-home-decks-flashcard-review-pages.txt
 │   MempulseTree.txt
 │   mempulse_mock_data.sql
-│   review-page.txt
-│   review.txt
+│   sessions.txt
 │   
 ├───app
 │   ├───api
@@ -24,6 +21,7 @@ C:.
 │   │       FlashcardService.php
 │   │       ReviewHubService.php
 │   │       save-session.php
+│   │       SessionService.php
 │   │       
 │   ├───assets
 │   │   ├───css
@@ -43,9 +41,8 @@ C:.
 │   │   │           dh12.jpg
 │   │   │           dh2.jpg
 │   │   │           dh3.jpg
-│   │   │           dh4.jpg
-│   │   │           dh5.jpg
-│   │   │           dh6.jpg
+│   │   │           dh5.webp
+│   │   │           dh6.webp
 │   │   │           dh7.jpg
 │   │   │           dh8.jpg
 │   │   │           dh9.jpg
@@ -74,6 +71,7 @@ C:.
 │           review-hub-view.php
 │           review.php
 │           science.php
+│           session.php
 │           settings.php
 │           
 ├───authentication
@@ -92,3 +90,4 @@ C:.
         about.html
         index.html
         style.css
+        

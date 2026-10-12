@@ -16,15 +16,14 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || !isset(
 require_once __DIR__ . '/../../config/db.php';
 
 $userId = (int) $_SESSION['user_id'];
-
 $input = json_decode(file_get_contents('php://input'), true);
+
 if (!is_array($input)) {
     http_response_code(400);
     echo json_encode(['error' => 'Invalid request.']);
     exit;
 }
 
-// Anti-CSRF: same session token the card endpoints use
 $token = $input['csrf_token'] ?? '';
 if (empty($_SESSION['csrf_token']) || !is_string($token) || !hash_equals($_SESSION['csrf_token'], $token)) {
     http_response_code(403);
@@ -32,19 +31,13 @@ if (empty($_SESSION['csrf_token']) || !is_string($token) || !hash_equals($_SESSI
     exit;
 }
 
-$deckId  = filter_var($input['deck_id'] ?? null, FILTER_VALIDATE_INT);
+$deckId = filter_var($input['deck_id'] ?? null, FILTER_VALIDATE_INT);
 $results = $input['results'] ?? null;
-
 $durationSeconds = filter_var($input['duration_seconds'] ?? 0, FILTER_VALIDATE_INT);
 $durationSeconds = ($durationSeconds === false) ? 0 : max(0, min($durationSeconds, 6 * 3600));
 
-if (!$deckId || $deckId < 1) {
-    http_response_code(400);
-    echo json_encode(['error' => 'Invalid deck.']);
-    exit;
-}
-if (!is_array($results) || empty($results)) {
-    echo json_encode(['ok' => true, 'saved' => 0, 'msg' => 'No data to save']);
+if (!$deckId || $deckId < 1 || !is_array($results) || empty($results)) {
+    echo json_encode(['ok' => true, 'saved' => 0, 'msg' => 'No data to save or invalid deck.']);
     exit;
 }
 if (count($results) > 1000) {
@@ -53,7 +46,7 @@ if (count($results) > 1000) {
     exit;
 }
 
-// Verify the deck belongs to this user (and is not archived)
+// Verify ownership
 $ownStmt = mysqli_prepare($conn, "SELECT id FROM decks WHERE id = ? AND user_id = ? AND deleted_at IS NULL");
 mysqli_stmt_bind_param($ownStmt, "ii", $deckId, $userId);
 mysqli_stmt_execute($ownStmt);
@@ -67,82 +60,86 @@ if (!$ownsDeck) {
     exit;
 }
 
+// 1. Sanitize IDs and fetch current interval data
+$validIds = [];
+$rememberedCount = 0;
+foreach ($results as $cardId => $status) {
+    $cid = filter_var($cardId, FILTER_VALIDATE_INT);
+    if ($cid && ($status === 'remembered' || $status === 'forgotten')) {
+        $validIds[] = $cid;
+        if ($status === 'remembered') $rememberedCount++;
+    }
+}
+$savedCount = count($validIds);
+
+if ($savedCount === 0) {
+    echo json_encode(['ok' => true, 'saved' => 0, 'msg' => 'No valid cards to save.']);
+    exit;
+}
+
+$idString = implode(',', $validIds);
+$cardData = [];
+$res = mysqli_query($conn, "SELECT id, interval_days FROM flashcards WHERE id IN ($idString) AND deck_id = $deckId AND deleted_at IS NULL");
+while ($row = mysqli_fetch_assoc($res)) {
+    $cardData[$row['id']] = (int) $row['interval_days'];
+}
+
 mysqli_begin_transaction($conn);
 
 try {
-    // NOTE: single-table SET assignments run left to right, so next_review_at
-    // must come BEFORE interval_days to see the old interval. Keep this order,
-    // and do not turn these into JOIN updates (order is not guaranteed there).
-    $stmtRemember = mysqli_prepare($conn, "UPDATE flashcards
-        SET review_count = review_count + 1,
-            next_review_at = DATE_ADD(NOW(), INTERVAL GREATEST(1, interval_days * 2) DAY),
-            interval_days = GREATEST(1, interval_days * 2),
-            updated_at = NOW()
-        WHERE id = ? AND deck_id = ? AND deleted_at IS NULL AND next_review_at <= NOW()");
-
-    $stmtForgot = mysqli_prepare($conn, "UPDATE flashcards
-        SET review_count = review_count + 1,
-            lapses = lapses + 1,
-            interval_days = 0,
-            next_review_at = NOW(),
-            updated_at = NOW()
-        WHERE id = ? AND deck_id = ? AND deleted_at IS NULL AND next_review_at <= NOW()");
-
-    if (!$stmtRemember || !$stmtForgot) {
-        throw new RuntimeException('Could not prepare statements.');
-    }
-
-    $saved = 0;
-    $rememberedCount = 0;
-
-    foreach ($results as $cardId => $status) {
-        $cid = filter_var($cardId, FILTER_VALIDATE_INT);
-        if (!$cid || $cid < 1) continue;
-
-        if ($status === 'remembered')    $stmt = $stmtRemember;
-        elseif ($status === 'forgotten') $stmt = $stmtForgot;
-        else continue;
-
-        mysqli_stmt_bind_param($stmt, "ii", $cid, $deckId);
-        if (!mysqli_stmt_execute($stmt)) {
-            throw new RuntimeException('Card update failed.');
-        }
-        if (mysqli_stmt_affected_rows($stmt) > 0) {   // only count cards actually updated
-            $saved++;
-            if ($status === 'remembered') $rememberedCount++;
-        }
-    }
-
-    mysqli_stmt_close($stmtRemember);
-    mysqli_stmt_close($stmtForgot);
-
-    if ($saved === 0) {
-        mysqli_rollback($conn);
-        echo json_encode(['ok' => true, 'saved' => 0, 'msg' => 'Nothing to save']);
-        exit;
-    }
-
-    // Session log for dashboard analytics
-    $accuracy = (int) round(($rememberedCount / $saved) * 100);
-
-    $logStmt = mysqli_prepare($conn, "INSERT INTO review_sessions
-        (user_id, deck_id, total_reviewed, remembered_count, accuracy_percentage, started_at, ended_at)
+    // 2. Insert Session Record First
+    $accuracy = (int) round(($rememberedCount / $savedCount) * 100);
+    $logStmt = mysqli_prepare($conn, "INSERT INTO review_sessions 
+        (user_id, deck_id, total_reviewed, remembered_count, accuracy_percentage, started_at, ended_at) 
         VALUES (?, ?, ?, ?, ?, DATE_SUB(NOW(), INTERVAL ? SECOND), NOW())");
-    if (!$logStmt) {
-        throw new RuntimeException('Could not prepare session log.');
-    }
-    mysqli_stmt_bind_param($logStmt, "iiiiii", $userId, $deckId, $saved, $rememberedCount, $accuracy, $durationSeconds);
-    if (!mysqli_stmt_execute($logStmt)) {
-        throw new RuntimeException('Session log failed.');
-    }
+    
+    mysqli_stmt_bind_param($logStmt, "iiiiii", $userId, $deckId, $savedCount, $rememberedCount, $accuracy, $durationSeconds);
+    mysqli_stmt_execute($logStmt);
+    $sessionId = mysqli_insert_id($conn);
     mysqli_stmt_close($logStmt);
 
+    // 3. Prepare Statements for Cards and Logs
+    $stmtCard = mysqli_prepare($conn, "UPDATE flashcards 
+        SET review_count = review_count + 1, lapses = lapses + ?, interval_days = ?, next_review_at = DATE_ADD(NOW(), INTERVAL ? DAY), updated_at = NOW() 
+        WHERE id = ? AND deck_id = ?");
+        
+    $stmtLog = mysqli_prepare($conn, "INSERT INTO review_logs 
+        (session_id, card_id, rating, previous_interval, new_interval) 
+        VALUES (?, ?, ?, ?, ?)");
+
+    $actuallySaved = 0;
+
+    foreach ($validIds as $cid) {
+        if (!isset($cardData[$cid])) continue; // Skip if card was deleted or doesn't belong to deck
+        
+        $status = $results[$cid];
+        $prevInterval = $cardData[$cid];
+        
+        // Calculate intervals
+        $isLapse = ($status === 'forgotten') ? 1 : 0;
+        $newInterval = ($status === 'remembered') ? max(1, $prevInterval * 2) : 0;
+        
+        // Update Card
+        mysqli_stmt_bind_param($stmtCard, "iiiii", $isLapse, $newInterval, $newInterval, $cid, $deckId);
+        mysqli_stmt_execute($stmtCard);
+        
+        if (mysqli_stmt_affected_rows($stmtCard) > 0) {
+            // Insert Log
+            mysqli_stmt_bind_param($stmtLog, "iisii", $sessionId, $cid, $status, $prevInterval, $newInterval);
+            mysqli_stmt_execute($stmtLog);
+            $actuallySaved++;
+        }
+    }
+
+    mysqli_stmt_close($stmtCard);
+    mysqli_stmt_close($stmtLog);
+
     mysqli_commit($conn);
-    echo json_encode(['ok' => true, 'saved' => $saved]);
+    echo json_encode(['ok' => true, 'saved' => $actuallySaved]);
 
 } catch (Throwable $e) {
     mysqli_rollback($conn);
-    error_log('save-session.php: ' . $e->getMessage());
+    error_log('save-session.php error: ' . $e->getMessage());
     http_response_code(500);
     echo json_encode(['error' => 'Database exception occurred']);
 }

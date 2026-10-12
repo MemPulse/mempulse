@@ -259,7 +259,7 @@ $nextDueLabel = ($nextDueSecs !== null && $nextDueSecs > 0)
                     </div>
                     <p class="text-[11px] text-on-surface-variant mt-1 ml-7">Your latest spaced repetition drills</p>
                 </div>
-                <a href="sessions.php" class="text-xs text-primary hover:underline font-semibold flex items-center gap-1 transition-all">
+                <a href="session.php" class="text-xs text-primary hover:underline font-semibold flex items-center gap-1 transition-all">
                     <span>View All</span>
                     <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
                 </a>

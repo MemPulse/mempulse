@@ -103,7 +103,7 @@ class ReviewHubService
     {
         $limit = max(1, min($limit, 50));
 
-        $sql = "SELECT rs.deck_id, d.title AS deck_title, rs.total_reviewed, rs.remembered_count,
+        $sql = "SELECT rs.id AS session_id, rs.deck_id, d.title AS deck_title, rs.total_reviewed, rs.remembered_count,
                        rs.accuracy_percentage,
                        TIMESTAMPDIFF(SECOND, rs.started_at, rs.ended_at) AS duration_seconds,
                        TIMESTAMPDIFF(SECOND, rs.ended_at, NOW()) AS ended_ago_seconds
@@ -120,6 +120,7 @@ class ReviewHubService
             $result = mysqli_stmt_get_result($stmt);
             while ($row = mysqli_fetch_assoc($result)) {
                 $sessions[] = [
+                    'sessionID'       => (int) $row['session_id'],
                     'deckId'          => (int) $row['deck_id'],
                     'deckTitle'       => (string) $row['deck_title'],
                     'cardsReviewed'   => (int) $row['total_reviewed'],
