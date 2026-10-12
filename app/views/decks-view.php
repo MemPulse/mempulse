@@ -135,7 +135,7 @@
             <div class="flex flex-col gap-3 hidden" id="decks-list-view">
                 <?php foreach ($decks as $deck): ?>
                 <div data-deck-card="<?= $deck['id'] ?>" data-deck-id="<?= $deck['id'] ?>" class="deck-card deck-item bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-3 shadow-sm hover:shadow-md hover:border-primary-fixed-dim/60 transition-all flex items-center gap-3 group">
-                    <div class="hidden sm:block w-12 h-12 rounded-lg flex-shrink-0" style="<?= DeckService::h($deck['cover_style']) ?>"></div>
+                    <div class="hidden sm:block w-12 h-12 rounded-lg flex-shrink-0" style="<?= DeckService::h($deck['cover_style']) ?>; background-position: left center !important;"></div>
 
                     <div class="flex-1 min-w-0">
                         <a href="deck.php?deck_id=<?= $deck['id'] ?>" data-deck-title="<?= $deck['id'] ?>" title="<?= DeckService::h($deck['title']) ?>" class="block truncate font-headline-sm text-[15px] font-bold text-on-surface tracking-tight group-hover:text-primary transition-colors"><?= DeckService::h($deck['title']) ?></a>
