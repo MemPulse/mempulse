@@ -50,6 +50,9 @@ document.addEventListener("DOMContentLoaded", () => {
     let missedCount = 0;
     let statsDone = Promise.resolve();
 
+    const btnPrev = document.getElementById('prev-card-btn');
+    const btnNext = document.getElementById('next-card-btn');
+
     // 1. Core Navigation & Display Logic
     function renderCard() {
         if (currentIndex >= queue.length) {
@@ -86,6 +89,7 @@ document.addEventListener("DOMContentLoaded", () => {
         projRemember.textContent = `in ${remDays} ${remDays === 1 ? 'day' : 'days'}`;
 
         hideAnswer();
+        updateNavButtons();
     }
 
     function showAnswer() {
@@ -165,18 +169,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 3. Backward/Forward Queue Navigation
     function prevCard() {
-        if (currentIndex > 0) {
+        if (sessionEnded || isAnimating || currentIndex === 0) return; {
             currentIndex--;
             renderCard();
+            slideIn(-1);
         }
     }
 
+    // Back is available after the first card; Next only once the current card has a rating
+    function updateNavButtons() {
+        btnPrev.disabled = currentIndex === 0;
+        const card = queue[currentIndex];
+        btnNext.disabled = !(card && ratings[card.id]);
+    }
+
+    function slideIn(dir) {
+        if (reduceMotion) return;
+        stage.animate([
+            { opacity: 0, transform: `translateX(${dir * 28}px)` },
+            { opacity: 1, transform: 'translateX(0)' }
+        ], { duration: 200, easing: 'ease-out' });
+    }
+
     function skipToNext() {
-        // Allows skipping forward without rating IF it was already rated
-        if (ratings[queue[currentIndex].id]) {
-            currentIndex++;
-            renderCard();
-        }
+        if (sessionEnded || isAnimating) return;
+        const card = queue[currentIndex];
+        if (!card || !ratings[card.id]) return;   // only skip cards already rated
+        currentIndex++;
+        renderCard();
+        if (!sessionEnded) slideIn(1);
     }
 
     // 4. Batch Save & Session End
@@ -280,6 +301,8 @@ document.addEventListener("DOMContentLoaded", () => {
     btnForgot.addEventListener('click', () => rateCard('forgotten'));
     btnRemember.addEventListener('click', () => rateCard('remembered'));
     document.getElementById('end-session-btn').addEventListener('click', endSession);
+    btnPrev.addEventListener('click', e => { prevCard(); e.currentTarget.blur(); });
+    btnNext.addEventListener('click', e => { skipToNext(); e.currentTarget.blur(); });
 
     document.addEventListener('keydown', (e) => {
         if (sessionEnded || isAnimating) return;

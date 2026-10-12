@@ -83,17 +83,17 @@ $currentPage = "review";
         <?php include __DIR__ . '/../includes/header-data.php'; ?>    
         <?php include __DIR__ . '/../includes/header.php'; ?>
         
-        <div class="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6">
-            
+        <div class="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6 lg:px-8 py-6">
+                        
             <?php if (!$isReviewing): ?>
                 <?php include __DIR__ . '/review-hub-view.php'; ?>
 
             <?php else: ?>
                 <!-- STATE B: ACTIVE REVIEW INTERFACE -->
-                <div id="active-review-container" class="max-w-3xl mx-auto flex flex-col h-full <?= empty($dueCards) ? 'hidden' : '' ?>">
+                <div id="active-review-container" class="max-w-[55rem] mx-auto flex flex-col h-full <?= empty($dueCards) ? 'hidden' : '' ?>">
                     
                     <!-- Session Header -->
-                    <div class="mb-6">
+                    <div class="mb-6 sm:px-14">
                         <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                             <button id="end-session-btn" class="justify-self-start p-1 -ml-1 text-on-surface-variant hover:text-rose-600 transition-colors" title="End session">
                                 <span class="material-symbols-outlined">close</span>
@@ -124,24 +124,40 @@ $currentPage = "review";
 
                     <!-- Flashcard Stage -->
                     <div class="flex-1 flex flex-col items-center justify-center min-h-[350px]">
-                        <div id="flashcard-stage" class="w-full bg-surface-container-lowest border border-outline-variant/30 shadow-md rounded-2xl p-8 sm:p-12 text-center relative overflow-hidden transition-all">
-                            
-                            <!-- Rating Badge (shows briefly when navigating backwards) -->
-                            <div id="historical-rating-badge" class="hidden absolute top-4 right-4 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider"></div>
+                        <div class="flex items-center gap-2 sm:gap-4 w-full">
 
-                            <!-- Front -->
-                            <div id="card-front-content" class="text-xl sm:text-2xl font-medium text-on-surface"></div>
-                            
-                            <!-- Divider -->
-                            <hr id="card-divider" class="my-8 border-outline-variant/30 hidden">
-                            
-                            <!-- Back -->
-                            <div id="card-back-content" class="text-lg sm:text-xl text-on-surface-variant hidden"></div>
+                            <!-- Prev: left margin -->
+                            <button id="prev-card-btn" type="button" title="Previous card (←)" aria-label="Previous card"
+                                class="shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-surface-container-lowest border border-outline-variant/40 text-on-surface-variant hover:text-primary hover:border-primary/50 hover:bg-surface-container-low transition disabled:opacity-30 disabled:pointer-events-none">
+                                <span class="material-symbols-outlined text-[22px]">chevron_left</span>
+                            </button>
+
+                            <div id="flashcard-stage" class="flex-1 min-w-0 bg-surface-container-lowest border border-outline-variant/30 shadow-md rounded-2xl p-8 sm:p-12 text-center relative overflow-hidden">
+
+                                <!-- Rating Badge (shows briefly when navigating backwards) -->
+                                <div id="historical-rating-badge" class="hidden absolute top-4 right-4 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider"></div>
+
+                                <!-- Front -->
+                                <div id="card-front-content" class="text-xl sm:text-2xl font-medium text-on-surface"></div>
+
+                                <!-- Divider -->
+                                <hr id="card-divider" class="my-8 border-outline-variant/30 hidden">
+
+                                <!-- Back -->
+                                <div id="card-back-content" class="text-lg sm:text-xl text-on-surface-variant hidden"></div>
+                            </div>
+
+                            <!-- Next: right margin -->
+                            <button id="next-card-btn" type="button" title="Next card (→)" aria-label="Next card"
+                                class="shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-surface-container-lowest border border-outline-variant/40 text-on-surface-variant hover:text-primary hover:border-primary/50 hover:bg-surface-container-low transition disabled:opacity-30 disabled:pointer-events-none">
+                                <span class="material-symbols-outlined text-[22px]">chevron_right</span>
+                            </button>
+
                         </div>
                     </div>
 
                     <!-- Controls -->
-                    <div class="mt-6 flex flex-col items-center gap-3">
+                    <div class="mt-6 flex flex-col items-center gap-3 sm:px-14">
                         <div class="flex justify-center w-full min-h-[56px]">
                             <button id="show-answer-btn" class="px-8 py-3 rounded-xl bg-primary text-on-primary font-bold shadow-md hover:bg-primary-container hover:-translate-y-0.5 transition-all w-full max-w-sm">
                                 Show Answer
