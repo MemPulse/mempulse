@@ -165,6 +165,8 @@ if (!isset($displayName) || !isset($displayRole)) {
         <span class="material-symbols-outlined text-[16px]">left_panel_close</span>
     </button>
 
+
+
     <!-- Top Section: Logo & Search -->
     <div class="flex flex-col gap-4 px-4 pt-6 pb-2 transition-all">
         <!-- Logo -->
@@ -181,6 +183,9 @@ if (!isset($displayName) || !isset($displayRole)) {
         </div>
     </div>
 
+    <!-- Divider between top section and navigation -->
+    <hr class="mx-4 border-0 border-t border-outline-variant/40">
+    
     <!-- Middle Section: Scrollable Navigation -->
     <nav class="sidebar-navigation flex-1 overflow-y-auto px-4 py-2 flex flex-col gap-1.5" data-active-classes="bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm">
         
