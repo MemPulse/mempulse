@@ -278,8 +278,7 @@
 </div>
 
 <!-- Edit Banner Dialog -->
-<dialog id="banner-dialog" class="m-auto rounded-2xl p-0 w-full max-w-xl bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
-    <div class="p-6 flex flex-col gap-5">
+<dialog id="banner-dialog" class="m-auto rounded-2xl p-0 w-full max-w-xl bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">    <div class="p-6 flex flex-col gap-5">
         <div class="flex justify-between items-center">
             <h3 class="font-headline-sm text-[18px] font-bold">Select Deck Banner</h3>
             <button type="button" data-close-dialog class="text-on-surface-variant hover:text-on-surface transition-colors">
@@ -321,7 +320,8 @@
 </dialog>
 
 <!-- Rename dialog -->
-<dialog id="banner-dialog" class="m-auto rounded-2xl p-0 w-full max-w-xl bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">    <form id="rename-form" class="p-6 flex flex-col gap-4" novalidate>
+<dialog id="rename-dialog" class="m-auto rounded-2xl p-0 w-full max-w-md bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
+    <form id="rename-form" class="p-6 flex flex-col gap-4" novalidate>
         <h3 class="font-headline-sm text-[18px] font-bold">Rename deck</h3>
         <div class="flex flex-col gap-1.5">
             <label for="rename-input" class="text-on-surface-variant text-[13px] font-semibold">Deck name</label>

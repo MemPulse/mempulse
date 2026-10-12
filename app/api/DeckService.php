@@ -53,7 +53,7 @@ class DeckService
             $defaultGradient = "linear-gradient(135deg, hsl({$hue} 65% 45%), hsl(" . (($hue + 45) % 360) . " 65% 28%))";
 
             if (!empty($row['cover_image'])) {
-                $coverStyle = "background-image: url('" . self::h($row['cover_image']) . "'); background-size: cover; background-position: center;";
+                $coverStyle = "background-image: url('" .$row['cover_image'] . "'); background-size: cover; background-position: center;";
                 $hasCustomImage = true;
             } else {
                 $coverStyle = "background: {$defaultGradient};";
@@ -71,8 +71,8 @@ class DeckService
                 'theme'              => self::accuracyTheme($accuracy),
                 'due_text'           => self::dueLabel((int) $row['due_count'], $cardCount, $row['next_due']),
                 'last_reviewed_text' => self::lastReviewedLabel($row['last_reviewed']),
-                'cover_style'        => "background: linear-gradient(135deg, hsl({$hue} 65% 45%), hsl(" . (($hue + 45) % 360) . " 65% 28%));",
-            ];
+                'cover_style' => $coverStyle,            
+                ];
         }
         mysqli_stmt_close($stmt);
 
