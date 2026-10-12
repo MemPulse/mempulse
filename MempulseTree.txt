@@ -3,13 +3,11 @@ Folder PATH listing
 Volume serial number is 8E4B-9250
 C:.
 │   comebine_files.py
-│   dashboard-checking.md
 │   database-design.md
 │   generate_mock.py
-│   mempulse-home-decks-flashcard-review-pages.txt
 │   MempulseTree.txt
 │   mempulse_mock_data.sql
-│   sessions.txt
+│   reports-page.txt
 │   
 ├───app
 │   ├───api
@@ -19,6 +17,7 @@ C:.
 │   │       DeckService.php
 │   │       flashcard-actions.php
 │   │       FlashcardService.php
+│   │       ReportsService.php
 │   │       ReviewHubService.php
 │   │       save-session.php
 │   │       SessionService.php
@@ -26,6 +25,7 @@ C:.
 │   ├───assets
 │   │   ├───css
 │   │   │       app.css
+│   │   │       reports.css
 │   │   │       
 │   │   ├───images
 │   │   │   │   decks-hero-icon.png
@@ -52,12 +52,14 @@ C:.
 │   │           deck.js
 │   │           decks.js
 │   │           hero-carousel.js
+│   │           mp-tables.js
+│   │           reports-deck.js
+│   │           reports-overview.js
+│   │           reports.js
 │   │           review.js
 │   │           
 │   ├───includes
 │   │       head.php
-│   │       header-data.php
-│   │       header.php
 │   │       sidebar.php
 │   │       
 │   └───views
@@ -67,11 +69,15 @@ C:.
 │           decks-view.php
 │           decks.php
 │           index.php
+│           reports-decks.php
+│           reports-overview.php
+│           reports-view.php
 │           reports.php
 │           review-hub-view.php
 │           review.php
 │           science.php
-│           session.php
+│           session-details.php
+│           sessions.php
 │           settings.php
 │           
 ├───authentication
@@ -90,4 +96,3 @@ C:.
         about.html
         index.html
         style.css
-        

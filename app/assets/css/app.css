@@ -70,9 +70,47 @@ main::-webkit-scrollbar-thumb:hover {
 /* --- Base Collapsed Sidebar Rules (Desktop Only) --- */
 @media (min-width: 768px) {
     #sidebar.collapsed {
+        box-sizing: border-box !important;
         width: 80px !important;
-        padding-left: 12px !important;
-        padding-right: 12px !important;
+        min-width: 80px !important;
+        max-width: 80px !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        /* Allow the desktop toggle to protrude beyond the sidebar edge. */
+        overflow-x: visible !important;
+        overflow-y: visible !important;
+    }
+
+    /* Keep the toggle attached to the sidebar edge in either state. */
+    #sidebar-toggle {
+        position: absolute !important;
+        right: -14px !important;
+        top: 2rem !important;
+        z-index: 60 !important;
+    }
+
+    #sidebar.collapsed>.flex.flex-col.gap-4 {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        align-items: center !important;
+    }
+
+    #sidebar.collapsed .sidebar-navigation {
+        box-sizing: border-box !important;
+        min-width: 0 !important;
+        width: 100% !important;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        scrollbar-width: thin;
+    }
+
+    #sidebar.collapsed .sidebar-navigation>.sidebar-row {
+        width: 44px !important;
+        min-width: 44px !important;
+        max-width: 44px !important;
+        flex: 0 0 44px !important;
     }
 
     /* Hide standard layout text elements */

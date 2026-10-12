@@ -57,73 +57,89 @@ if (!isset($displayName) || !isset($displayRole)) {
 ?>
 
 <style>
-/* Outer Sidebar must not hide overflow so tooltips and toggle button can overlap the edge */
-#sidebar {
-    overflow: visible !important;
-}
+    /* Keep the sidebar itself from creating horizontal scrolling. Tooltips are
+       rendered under <body> with position: fixed, outside this clipping area. */
+    #sidebar {
+        box-sizing: border-box;
+        /* Do not clip the desktop collapse toggle hanging off the right edge. */
+        overflow-x: visible;
+        overflow-y: visible;
+    }
 
-/* Custom Tooltip Logic - Only active when sidebar is collapsed */
-#sidebar.collapsed .sidebar-tooltip {
-    position: relative;
-}
+    #sidebar.collapsed .hide-collapsed {
+        display: none !important;
+    }
 
-#sidebar.collapsed .sidebar-tooltip::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    left: calc(100% + 14px);
-    top: 50%;
-    transform: translateY(-50%);
-    background: #1e293b;
-    color: #ffffff;
-    font-size: 12px;
-    font-weight: 500;
-    padding: 6px 10px;
-    border-radius: 8px;
-    white-space: nowrap;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s ease, transform 0.2s ease;
-    z-index: 99999;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
+    #sidebar.collapsed .sidebar-row {
+        box-sizing: border-box !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex: 0 0 44px !important;
+        width: 44px !important;
+        min-width: 44px !important;
+        max-width: 44px !important;
+        height: 44px !important;
+        min-height: 44px !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
 
-#sidebar.collapsed .sidebar-tooltip::before {
-    content: '';
-    position: absolute;
-    left: calc(100% + 6px);
-    top: 50%;
-    transform: translateY(-50%);
-    border: 4px solid transparent;
-    border-right-color: #1e293b;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s ease;
-    z-index: 99999;
-}
+    #sidebar.collapsed .sidebar-gap {
+        gap: 0 !important;
+    }
 
-#sidebar.collapsed .sidebar-tooltip:hover::after,
-#sidebar.collapsed .sidebar-tooltip:hover::before {
-    opacity: 1;
-    transform: translateY(-50%) translateX(4px);
-}
+    #sidebar.collapsed #settings-popover {
+        left: calc(100% + 12px);
+        right: auto;
+        bottom: 0;
+    }
 
-/* Collapsed layout fixes */
-#sidebar.collapsed .hide-collapsed {
-    display: none !important;
-}
-#sidebar.collapsed .sidebar-row {
-    justify-content: center !important;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-}
-#sidebar.collapsed .sidebar-gap {
-    gap: 0 !important;
-}
-#sidebar.collapsed #settings-popover {
-    left: calc(100% + 12px);
-    right: auto;
-    bottom: 0;
-}
+    /* Floating tooltip lives under document.body, so sidebar overflow and its
+       scroll container cannot clip it. */
+    #sidebar-floating-tooltip {
+        position: fixed;
+        z-index: 99999;
+        max-width: min(280px, calc(100vw - 24px));
+        padding: 6px 10px;
+        border-radius: 8px;
+        background: #1e293b;
+        color: #fff;
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1.4;
+        white-space: nowrap;
+        pointer-events: none;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(-50%);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, .18);
+        transition: opacity .12s ease;
+    }
+
+    #sidebar-floating-tooltip.is-visible {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    #sidebar-floating-tooltip::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: -8px;
+        transform: translateY(-50%);
+        border: 4px solid transparent;
+        border-right-color: #1e293b;
+    }
+
+    #sidebar-floating-tooltip.tooltip-left::before {
+        left: auto;
+        right: -8px;
+        border-right-color: transparent;
+        border-left-color: #1e293b;
+    }
 </style>
 
 <!-- Floating Mobile Menu Button -->
@@ -166,7 +182,7 @@ if (!isset($displayName) || !isset($displayRole)) {
     </div>
 
     <!-- Middle Section: Scrollable Navigation -->
-    <nav class="flex-1 overflow-y-auto overflow-x-visible px-4 py-2 flex flex-col gap-1.5" data-active-classes="bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm">
+    <nav class="sidebar-navigation flex-1 overflow-y-auto px-4 py-2 flex flex-col gap-1.5" data-active-classes="bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm">
         
         <a data-tooltip="Home" aria-current="<?= $currentPage === 'home' ? 'page' : 'false' ?>"
            class="sidebar-tooltip sidebar-row sidebar-gap flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group <?= $currentPage === 'home' ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm' : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface' ?>"
@@ -306,6 +322,59 @@ if (!isset($displayName) || !isset($displayRole)) {
 
         if (!sidebar) return;
 
+        // A body-level fixed tooltip is not clipped by the sidebar/nav scroll area.
+        let floatingTooltip = document.getElementById("sidebar-floating-tooltip");
+        if (!floatingTooltip) {
+            floatingTooltip = document.createElement("div");
+            floatingTooltip.id = "sidebar-floating-tooltip";
+            floatingTooltip.setAttribute("role", "tooltip");
+            document.body.appendChild(floatingTooltip);
+        }
+
+        let tooltipTarget = null;
+        function hideSidebarTooltip() {
+            floatingTooltip.classList.remove("is-visible");
+            tooltipTarget = null;
+        }
+        function showSidebarTooltip(target) {
+            const label = target.getAttribute("data-tooltip") || target.getAttribute("aria-label");
+            if (!label || !sidebar.classList.contains("collapsed") || window.innerWidth < 768) {
+                hideSidebarTooltip();
+                return;
+            }
+            tooltipTarget = target;
+            floatingTooltip.textContent = label;
+            floatingTooltip.style.left = "0px";
+            floatingTooltip.style.top = "0px";
+            floatingTooltip.classList.add("is-visible");
+            const rect = target.getBoundingClientRect();
+            const tipRect = floatingTooltip.getBoundingClientRect();
+            const gap = 12;
+            let left = rect.right + gap;
+            // If there is not enough room to the right, place the tooltip to the left.
+            if (left + tipRect.width > window.innerWidth - 8) {
+                left = Math.max(8, rect.left - tipRect.width - gap);
+                floatingTooltip.classList.add("tooltip-left");
+            } else {
+                floatingTooltip.classList.remove("tooltip-left");
+            }
+            const top = Math.min(window.innerHeight - 8, Math.max(8, rect.top + rect.height / 2));
+            floatingTooltip.style.left = `${left}px`;
+            floatingTooltip.style.top = `${top}px`;
+        }
+
+        sidebar.querySelectorAll(".sidebar-tooltip").forEach((item) => {
+            item.addEventListener("mouseenter", () => showSidebarTooltip(item));
+            item.addEventListener("mouseleave", hideSidebarTooltip);
+            item.addEventListener("focus", () => showSidebarTooltip(item));
+            item.addEventListener("blur", hideSidebarTooltip);
+        });
+        sidebar.addEventListener("scroll", hideSidebarTooltip, true);
+        window.addEventListener("resize", hideSidebarTooltip);
+        window.addEventListener("scroll", () => {
+            if (tooltipTarget) showSidebarTooltip(tooltipTarget);
+        }, true);
+
         const toggleIcon = toggleBtn ? toggleBtn.querySelector(".material-symbols-outlined") : null;
 
         // Apply visual collapsed state
@@ -321,6 +390,7 @@ if (!isset($displayName) || !isset($displayRole)) {
         if (toggleBtn) {
             toggleBtn.addEventListener("click", () => {
                 const isCollapsed = sidebar.classList.toggle("collapsed");
+                hideSidebarTooltip();
                 if (mainContent) {
                     mainContent.classList.toggle("collapsed", isCollapsed);
                 }
