@@ -1,4 +1,9 @@
 <?php
+/**
+ * Session Details (single session)
+ * Subpage of Session History:  Review Hub > Session History > Session Details
+ * This is the OLD sessions.php, renamed.
+ */
 session_start();
 
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || !isset($_SESSION['user_id'])) {
@@ -10,18 +15,18 @@ require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../api/SessionService.php';
 require_once __DIR__ . '/../api/ReviewHubService.php';
 
-$userId = (int) $_SESSION['user_id'];
+$userId    = (int) $_SESSION['user_id'];
 $sessionId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
 $session = SessionService::getSessionDetails($conn, $sessionId, $userId);
 if (!$session) {
-    header("Location: review.php"); // Redirect to hub if session is invalid or belongs to someone else
+    header("Location: sessions.php"); // invalid id or belongs to someone else -> back to the history list
     exit;
 }
 
 $logs = SessionService::getSessionLogs($conn, $sessionId);
 
-$pageTitle = "Session Details";
+$pageTitle   = "Session Details";
 $currentPage = "review"; // Keep navigation active on Review Hub
 $h = [ReviewHubService::class, 'h'];
 ?>
@@ -35,18 +40,20 @@ $h = [ReviewHubService::class, 'h'];
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
     <main class="pt-16 pl-0 md:pl-72 transition-all duration-300 ease-in-out min-h-screen flex flex-col">
-        <?php include __DIR__ . '/../includes/header-data.php'; ?>    
+        <?php include __DIR__ . '/../includes/header-data.php'; ?>
         <?php include __DIR__ . '/../includes/header.php'; ?>
-        
+
         <div class="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6">
-            
+
             <div class="max-w-5xl mx-auto flex flex-col gap-6">
                 <!-- Breadcrumb -->
                 <nav class="flex items-center gap-2 text-sm font-medium text-on-surface-variant mb-2" aria-label="Breadcrumb">
                     <a href="review.php" class="hover:text-primary transition-colors flex items-center gap-1">
-                        <span class="material-symbols-outlined text-[18px]">home</span>
-                        Review Hub
+                        <!-- <span class="material-symbols-outlined text-[18px]">home</span> -->
+                        Review
                     </a>
+                    <span class="material-symbols-outlined text-[16px] opacity-50">chevron_right</span>
+                    <a href="sessions.php" class="hover:text-primary transition-colors">Session History</a>
                     <span class="material-symbols-outlined text-[16px] opacity-50">chevron_right</span>
                     <span class="text-on-surface" aria-current="page">Session Details</span>
                 </nav>
@@ -59,9 +66,9 @@ $h = [ReviewHubService::class, 'h'];
                             <h1 class="font-headline-md text-2xl font-bold text-on-surface m-0">Session Details</h1>
                         </div>
                         <p class="text-sm text-on-surface-variant">
-                            Deck: <a href="deck.php?deck_id=<?= $session['deckId'] ?>" class="font-semibold text-on-surface hover:text-primary hover:underline transition-colors"><?= $h($session['deckTitle']) ?></a>
+                            Deck: <a href="deck.php?deck_id=<?= (int) $session['deckId'] ?>" class="font-semibold text-on-surface hover:text-primary hover:underline transition-colors"><?= $h($session['deckTitle']) ?></a>
                             <span class="mx-2">•</span>
-                            <?= date('M j, Y, g:i A', strtotime($session['startedAt'])) ?>
+                            <?= $h(date('M j, Y, g:i A', strtotime($session['startedAt']))) ?>
                         </p>
                     </div>
 
@@ -72,25 +79,25 @@ $h = [ReviewHubService::class, 'h'];
                         </div>
                         <div class="bg-surface-container-high px-4 py-2.5 rounded-xl border border-outline-variant/30 flex flex-col items-center min-w-[80px]">
                             <span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Cards</span>
-                            <span class="text-lg font-extrabold text-on-surface mt-0.5 tabular-nums"><?= $session['totalReviewed'] ?></span>
+                            <span class="text-lg font-extrabold text-on-surface mt-0.5 tabular-nums"><?= (int) $session['totalReviewed'] ?></span>
                         </div>
                         <div class="<?= ReviewHubService::accuracyBadgeClass($session['accuracy']) ?> px-4 py-2.5 rounded-xl border flex flex-col items-center min-w-[80px]">
                             <span class="text-[10px] font-bold uppercase tracking-wider opacity-80">Accuracy</span>
-                            <span class="text-lg font-extrabold mt-0.5 tabular-nums"><?= $session['accuracy'] ?>%</span>
+                            <span class="text-lg font-extrabold mt-0.5 tabular-nums"><?= (int) $session['accuracy'] ?>%</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- Cards Table -->
                 <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl shadow-xs overflow-hidden">
-                    <div class="px-5 py-4 border-b border-outline-variant/20 bg-surface-container-low/50">
+                    <div class="px-5 py-4 border-b border-outline-variant/30 bg-surface-container-lowest">
                         <h3 class="font-headline-sm text-base font-semibold text-on-surface m-0">Cards Reviewed</h3>
                     </div>
-                    
+
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm">
                             <thead>
-                                <tr class="text-left text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70 bg-surface-container-low">
+                                <tr class="text-left text-[11px] font-bold uppercase tracking-wider text-on-surface-variant bg-surface-container border-b border-outline-variant/30">
                                     <th scope="col" class="py-3 px-5 font-bold w-1/3">Front</th>
                                     <th scope="col" class="py-3 px-5 font-bold w-1/3">Back</th>
                                     <th scope="col" class="py-3 px-5 font-bold">Result</th>
