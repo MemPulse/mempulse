@@ -2,6 +2,11 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+
+if (empty($_SESSION['settings_csrf'])) {
+    $_SESSION['settings_csrf'] = bin2hex(random_bytes(32));
+}
+
 if (!defined('BASE_URL')) {
     define('BASE_URL', '/mempulse/app/');
 }
@@ -89,6 +94,40 @@ if (!isset($displayName) || !isset($displayRole)) {
 
     #sidebar.collapsed .sidebar-gap {
         gap: 0 !important;
+    }
+
+    /* Footer controls become a compact vertical stack when collapsed:
+       system settings first, then the profile avatar. */
+    #sidebar-account-controls {
+        min-width: 0;
+    }
+
+    #sidebar.collapsed #sidebar-account-controls {
+        flex-direction: column-reverse !important;
+        justify-content: center !important;
+        align-items: center !important;
+        gap: 8px !important;
+    }
+
+    #sidebar.collapsed #profile-popover-trigger,
+    #sidebar.collapsed #settings-popover-trigger {
+        box-sizing: border-box !important;
+        width: 44px !important;
+        min-width: 44px !important;
+        max-width: 44px !important;
+        height: 44px !important;
+        min-height: 44px !important;
+        padding: 0 !important;
+        justify-content: center !important;
+    }
+
+    #sidebar.collapsed #profile-popover-trigger img {
+        width: 36px;
+        height: 36px;
+    }
+
+    #sidebar.collapsed #settings-popover-trigger {
+        flex: 0 0 44px !important;
     }
 
     #sidebar.collapsed #settings-popover {
@@ -185,7 +224,7 @@ if (!isset($displayName) || !isset($displayRole)) {
 
     <!-- Divider between top section and navigation -->
     <hr class="mx-4 border-0 border-t border-outline-variant/40">
-    
+
     <!-- Middle Section: Scrollable Navigation -->
     <nav class="sidebar-navigation flex-1 overflow-y-auto px-4 py-2 flex flex-col gap-1.5" data-active-classes="bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm">
         
@@ -246,12 +285,17 @@ if (!isset($displayName) || !isset($displayRole)) {
         </a>
     </nav>
 
-    <!-- Bottom Section: Profile & Settings Anchor -->
+    <!-- Bottom Section: System Settings, Profile Menu -->
     <div class="border-t border-outline-variant/30 p-4 relative">
-        <div class="flex items-center justify-between">
-            <!-- Left: Avatar, Name & Dynamic Role -->
-            <button id="profile-popover-trigger" class="sidebar-tooltip sidebar-row flex items-center gap-3 text-left group hover:opacity-80 transition-opacity w-full outline-none" data-tooltip="Account Settings">
-                <img alt="User Avatar" class="w-9 h-9 rounded-full object-cover ring-2 ring-surface-container-highest group-hover:ring-primary/50 transition-all flex-shrink-0" src="../assets/images/profile-picture.webp.jpg">
+        <div id="sidebar-account-controls" class="flex items-center gap-2">
+            <!-- Profile opens the account menu (Account Settings + Logout). -->
+            <button type="button" id="profile-popover-trigger"
+                class="sidebar-tooltip sidebar-row flex items-center gap-3 text-left group hover:opacity-80 transition-opacity flex-1 min-w-0 outline-none rounded-xl"
+                data-tooltip="Account menu" title="Account menu" aria-label="Open account menu"
+                aria-haspopup="true" aria-controls="settings-popover" aria-expanded="false">
+                <img alt="User Avatar"
+                    class="w-9 h-9 rounded-full object-cover ring-2 ring-surface-container-highest group-hover:ring-primary/50 transition-all flex-shrink-0"
+                    src="../assets/images/profile-picture.webp.jpg">
                 <div class="flex flex-col min-w-0 hide-collapsed">
                     <span class="font-label-sm font-semibold text-on-surface leading-tight truncate">
                         <?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?>
@@ -261,29 +305,30 @@ if (!isset($displayName) || !isset($displayRole)) {
                     </span>
                 </div>
             </button>
-            
-            <!-- Right: Settings Menu Icon (Visible when expanded) -->
-            <button id="settings-popover-trigger" class="hide-collapsed p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors flex-shrink-0" aria-label="Settings Menu">
-                <span class="material-symbols-outlined text-[22px]">more_vert</span>
+
+            <!-- System settings opens the settings modal directly. -->
+            <button type="button" id="settings-popover-trigger" data-open-settings="system"
+                class="sidebar-tooltip sidebar-row flex items-center justify-center flex-shrink-0 w-11 h-11 rounded-xl text-on-surface-variant hover:bg-surface-container-low hover:text-primary transition-colors outline-none"
+                data-tooltip="System settings" title="System settings" aria-label="Open system settings">
+                <span class="material-symbols-outlined text-[22px]">settings</span>
             </button>
         </div>
 
-        <!-- Popover Menu (Hidden by default) -->
-        <div id="settings-popover" class="hidden absolute bottom-[calc(100%+8px)] right-4 w-52 bg-surface-container-lowest border border-outline-variant/30 shadow-xl rounded-xl py-1.5 z-[100] transform origin-bottom-right">
-            <div class="px-3 py-2 border-b border-outline-variant/20 mb-1 hide-collapsed">
+        <!-- Account menu: only Account Settings and Logout. -->
+        <div id="settings-popover"
+            class="hidden absolute bottom-[calc(100%+8px)] right-4 w-52 bg-surface-container-lowest border border-outline-variant/30 shadow-xl rounded-xl py-1.5 z-[100] transform origin-bottom-right">
+            <div class="px-3 py-2 border-b border-outline-variant/20 mb-1">
                 <p class="text-xs font-semibold text-on-surface truncate"><?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?></p>
                 <p class="text-[10px] text-on-surface-variant truncate"><?php echo htmlspecialchars($displayRole, ENT_QUOTES, 'UTF-8'); ?></p>
             </div>
-            <a href="<?php echo BASE_URL; ?>views/settings.php" class="flex items-center gap-3 px-4 py-2 text-sm font-medium text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors">
-                <span class="material-symbols-outlined text-[18px]">settings</span>
-                System Settings
-            </a>
-            <a href="<?php echo BASE_URL; ?>views/account.php" class="flex items-center gap-3 px-4 py-2 text-sm font-medium text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors">
+            <button type="button" data-open-settings="account"
+                class="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors text-left">
                 <span class="material-symbols-outlined text-[18px]">manage_accounts</span>
                 Account Settings
-            </a>
+            </button>
             <div class="h-px bg-outline-variant/20 my-1"></div>
-            <button type="button" id="logout-btn" class="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-error hover:bg-rose-50 hover:text-error transition-colors text-left">
+            <button type="button" id="logout-btn"
+                class="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-error hover:bg-rose-50 hover:text-error transition-colors text-left">
                 <span class="material-symbols-outlined text-[18px]">logout</span>
                 Logout
             </button>
@@ -309,6 +354,187 @@ if (!isset($displayName) || !isset($displayRole)) {
     </div>
 </dialog>
 
+
+<!-- Settings Modal -->
+<dialog id="settings-dialog"
+    aria-labelledby="settings-title"
+    class="w-[calc(100%-2rem)] max-w-2xl max-h-[85vh] p-0 m-auto
+           rounded-2xl bg-surface-container-lowest text-on-surface
+           border border-outline-variant/40 shadow-2xl
+           backdrop:bg-black/50 backdrop:backdrop-blur-sm"
+    data-csrf="<?= htmlspecialchars($_SESSION['settings_csrf'], ENT_QUOTES, 'UTF-8') ?>">
+
+    <div class="flex flex-col max-h-[85vh]">
+
+        <!-- Header -->
+        <header class="flex items-start justify-between gap-4 p-6 border-b border-outline-variant/30">
+            <div>
+                <h2 id="settings-title"
+                    class="text-xl font-bold tracking-tight">
+                    Settings
+                </h2>
+                <p class="text-sm text-on-surface-variant mt-1">
+                    Manage your account and learning preferences.
+                </p>
+            </div>
+
+            <button type="button" id="settings-close"
+                aria-label="Close settings"
+                class="p-2 rounded-lg hover:bg-surface-container-low transition-colors">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </header>
+
+        <!-- Tabs -->
+        <div class="px-6 pt-4">
+            <div class="flex gap-2 border-b border-outline-variant/30"
+                 role="tablist" aria-label="Settings sections">
+
+                <button type="button" id="settings-tab-system"
+                    role="tab" aria-controls="settings-panel-system"
+                    aria-selected="true" data-settings-tab="system"
+                    class="px-4 py-3 text-sm font-semibold border-b-2 border-primary text-primary">
+                    <span class="material-symbols-outlined text-[18px] align-middle mr-1">tune</span>
+                    System
+                </button>
+
+                <button type="button" id="settings-tab-account"
+                    role="tab" aria-controls="settings-panel-account"
+                    aria-selected="false" data-settings-tab="account"
+                    class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-on-surface-variant">
+                    <span class="material-symbols-outlined text-[18px] align-middle mr-1">person</span>
+                    Account
+                </button>
+            </div>
+        </div>
+
+        <!-- Scrollable Content -->
+        <div class="overflow-y-auto p-6 flex-1">
+
+            <!-- System Settings -->
+            <section id="settings-panel-system"
+                role="tabpanel" aria-labelledby="settings-tab-system"
+                class="space-y-5">
+
+                <div>
+                    <h3 class="font-semibold text-base">Learning preferences</h3>
+                    <p class="text-sm text-on-surface-variant mt-1">
+                        Configure how MemPulse schedules your flashcard reviews.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                    <label class="block space-y-2">
+                        <span class="text-sm font-medium">Remember multiplier</span>
+                        <input id="remember-multiplier" name="remember_multiplier" type="number" step="0.01" min="0.01" max="10" required
+                            value="2.00"
+                            class="w-full rounded-xl border border-outline-variant/50
+                                   bg-surface-container-low px-3 py-2.5 text-sm
+                                   focus:outline-none focus:ring-2 focus:ring-primary/40">
+                        <span class="block text-xs text-on-surface-variant">
+                            Default: 2.00
+                        </span>
+                    </label>
+
+                    <label class="block space-y-2">
+                        <span class="text-sm font-medium">Forgot multiplier</span>
+                        <input id="forgot-multiplier" name="forgot_multiplier" type="number" step="0.01" min="0.01" max="10" required
+                            value="0.50"
+                            class="w-full rounded-xl border border-outline-variant/50
+                                   bg-surface-container-low px-3 py-2.5 text-sm
+                                   focus:outline-none focus:ring-2 focus:ring-primary/40">
+                        <span class="block text-xs text-on-surface-variant">
+                            Default: 0.50
+                        </span>
+                    </label>
+
+                    <label class="block space-y-2">
+                        <span class="text-sm font-medium">Initial interval (days)</span>
+                        <input id="initial-interval" name="initial_interval_days" type="number" min="1" max="36500" step="1" value="1" required
+                            class="w-full rounded-xl border border-outline-variant/50
+                                   bg-surface-container-low px-3 py-2.5 text-sm
+                                   focus:outline-none focus:ring-2 focus:ring-primary/40">
+                    </label>
+
+                    <label class="block space-y-2">
+                        <span class="text-sm font-medium">Maximum interval (days)</span>
+                        <input id="maximum-interval" name="maximum_interval_days" type="number" min="1" max="36500" step="1" value="365" required
+                            class="w-full rounded-xl border border-outline-variant/50
+                                   bg-surface-container-low px-3 py-2.5 text-sm
+                                   focus:outline-none focus:ring-2 focus:ring-primary/40">
+                    </label>
+
+                </div>
+            </section>
+
+            <!-- Account Settings -->
+            <section id="settings-panel-account"
+                role="tabpanel" aria-labelledby="settings-tab-account"
+                class="hidden space-y-5">
+
+                <div>
+                    <h3 class="font-semibold text-base">Account information</h3>
+                    <p class="text-sm text-on-surface-variant mt-1">
+                        Manage your profile and account security.
+                    </p>
+                </div>
+
+                <div class="flex items-start gap-3 p-4 rounded-xl
+                            border border-outline-variant/30">
+                    <span class="material-symbols-outlined text-2xl text-primary">
+                        account_circle
+                    </span>
+                    <div>
+                        <p class="font-medium text-sm">Profile information</p>
+                        <p class="text-sm text-on-surface-variant mt-1">
+                            Your name and email address.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex items-start gap-3 p-4 rounded-xl
+                            border border-outline-variant/30">
+                    <span class="material-symbols-outlined text-2xl text-primary">
+                        lock
+                    </span>
+                    <div>
+                        <p class="font-medium text-sm">Password and security</p>
+                        <p class="text-sm text-on-surface-variant mt-1">
+                            Manage your password and account security.
+                        </p>
+                    </div>
+                </div>
+
+                <p class="text-xs text-on-surface-variant">
+                    Account editing will be implemented in a later phase.
+                </p>
+            </section>
+        </div>
+
+        
+        <p  id="settings-status" class="px-6 pb-2 text-sm"
+            role="status" aria-live="polite"></p>
+
+        <!-- Footer -->
+        <footer class="flex justify-end gap-3 p-4 sm:px-6 border-t border-outline-variant/30">
+            <button type="button" id="settings-cancel"
+                class="px-4 py-2.5 rounded-xl text-sm font-semibold
+                       bg-surface-container-low hover:bg-surface-container-high">
+                Close
+            </button>
+
+            <button type="button" id="settings-save"
+                class="px-4 py-2.5 rounded-xl text-sm font-semibold
+                    bg-primary text-on-primary hover:opacity-90">
+                Save changes
+            </button>
+        </footer>
+
+    </div>
+</dialog>
+
+
 <script>
     document.addEventListener("DOMContentLoaded", () => {
         const sidebar = document.querySelector("#sidebar");
@@ -322,7 +548,6 @@ if (!isset($displayName) || !isset($displayRole)) {
 
         // Popover Elements
         const profileTrigger = document.querySelector("#profile-popover-trigger");
-        const settingsTrigger = document.querySelector("#settings-popover-trigger");
         const settingsPopover = document.querySelector("#settings-popover");
 
         if (!sidebar) return;
@@ -406,7 +631,7 @@ if (!isset($displayName) || !isset($displayRole)) {
                     isCollapsed ? reviewDot.classList.remove("hidden") : reviewDot.classList.add("hidden");
                 }
                 // Close popover if sidebar collapses
-                settingsPopover.classList.add('hidden');
+                setAccountPopoverOpen(false);
                 
                 localStorage.setItem("sidebarCollapsed", isCollapsed);
             });
@@ -429,18 +654,197 @@ if (!isset($displayName) || !isset($displayRole)) {
         if (mobileOverlay) mobileOverlay.addEventListener("click", closeMobileSidebar);
 
         // Popover Toggle Logic
+        function setAccountPopoverOpen(isOpen) {
+            if (!settingsPopover || !profileTrigger) return;
+            settingsPopover.classList.toggle('hidden', !isOpen);
+            profileTrigger.setAttribute('aria-expanded', String(isOpen));
+        }
+
         function togglePopover(e) {
             e.stopPropagation();
-            settingsPopover.classList.toggle('hidden');
+            setAccountPopoverOpen(settingsPopover?.classList.contains('hidden'));
         }
 
         if (profileTrigger) profileTrigger.addEventListener('click', togglePopover);
-        if (settingsTrigger) settingsTrigger.addEventListener('click', togglePopover);
 
-        // Click outside to close popover
+        // Click outside the avatar/menu closes the account popover.
         document.addEventListener('click', (e) => {
-            if (!settingsPopover.contains(e.target) && !profileTrigger.contains(e.target) && !settingsTrigger.contains(e.target)) {
-                settingsPopover.classList.add('hidden');
+            if (
+                settingsPopover &&
+                !settingsPopover.contains(e.target) &&
+                !profileTrigger?.contains(e.target)
+            ) {
+                setAccountPopoverOpen(false);
+            }
+        });
+
+        
+        // Settings Modal
+        const settingsDialog = document.getElementById('settings-dialog');
+        const settingsClose = document.getElementById('settings-close');
+        const settingsCancel = document.getElementById('settings-cancel');
+
+        const settingsTabs = document.querySelectorAll('[data-settings-tab]');
+        const settingsOpeners = document.querySelectorAll('[data-open-settings]');
+
+        function switchSettingsTab(tabName) {
+            settingsTabs.forEach((tab) => {
+                const active = tab.dataset.settingsTab === tabName;
+
+                tab.setAttribute('aria-selected', String(active));
+                tab.classList.toggle('border-primary', active);
+                tab.classList.toggle('text-primary', active);
+                tab.classList.toggle('font-semibold', active);
+                tab.classList.toggle('border-transparent', !active);
+                tab.classList.toggle('text-on-surface-variant', !active);
+                tab.classList.toggle('font-medium', !active);
+
+                const panel = document.getElementById(
+                    `settings-panel-${tab.dataset.settingsTab}`
+                );
+
+                if (panel) {
+                    panel.classList.toggle('hidden', !active);
+                }
+            });
+        }
+
+        
+        const settingsSave = document.getElementById('settings-save');
+        const settingsStatus = document.getElementById('settings-status');
+
+        const settingsFields = {
+            remember_multiplier: document.getElementById('remember-multiplier'),
+            forgot_multiplier: document.getElementById('forgot-multiplier'),
+            initial_interval_days: document.getElementById('initial-interval'),
+            maximum_interval_days: document.getElementById('maximum-interval')
+        };
+
+        const settingsApi = <?= json_encode(BASE_URL . 'api/settings-actions.php') ?>;
+
+        function showSettingsStatus(message, isError = false) {
+            if (!settingsStatus) return;
+
+            settingsStatus.textContent = message;
+            settingsStatus.classList.toggle('text-error', isError);
+            settingsStatus.classList.toggle('text-primary', !isError);
+        }
+
+        function displaySettings(settings) {
+            Object.entries(settingsFields).forEach(([key, input]) => {
+                if (input) input.value = settings[key];
+            });
+        }
+
+        async function loadSettings() {
+            showSettingsStatus('Loading settings...');
+
+            try {
+                const response = await fetch(settingsApi, {
+                    credentials: 'same-origin'
+                });
+
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    throw new Error(result.message || 'Could not load settings.');
+                }
+
+                displaySettings(result.settings);
+                showSettingsStatus('');
+            } catch (error) {
+                showSettingsStatus(error.message, true);
+            }
+        }
+
+        async function saveSettings() {
+            const payload = {};
+
+            for (const [key, input] of Object.entries(settingsFields)) {
+                if (!input || !input.checkValidity()) {
+                    input?.reportValidity();
+                    return;
+                }
+
+                payload[key] = input.value;
+            }
+
+            const initialValue = Number(payload.initial_interval_days);
+            const maximumValue = Number(payload.maximum_interval_days);
+            if (maximumValue < initialValue) {
+                settingsFields.maximum_interval_days.setCustomValidity('Maximum interval must be at least the initial interval.');
+                settingsFields.maximum_interval_days.reportValidity();
+                settingsFields.maximum_interval_days.setCustomValidity('');
+                return;
+            }
+
+            settingsSave.disabled = true;
+            showSettingsStatus('Saving settings...');
+
+            try {
+                const response = await fetch(settingsApi, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': settingsDialog.dataset.csrf
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    throw new Error(result.message || 'Could not save settings.');
+                }
+
+                displaySettings(result.settings);
+                showSettingsStatus(result.message);
+            } catch (error) {
+                showSettingsStatus(error.message, true);
+            } finally {
+                settingsSave.disabled = false;
+            }
+        }
+
+        settingsSave?.addEventListener('click', saveSettings);
+
+
+        settingsOpeners.forEach((button) => {
+            button.addEventListener('click', () => {
+                const tabName = button.dataset.openSettings;
+
+                setAccountPopoverOpen(false);
+                switchSettingsTab(tabName);
+
+                if (settingsDialog) {
+                    if (!settingsDialog.open) {
+                        settingsDialog.showModal();
+                    }
+                    loadSettings();
+                }
+            });
+        });
+
+        settingsTabs.forEach((tab) => {
+            tab.addEventListener('click', () => {
+                switchSettingsTab(tab.dataset.settingsTab);
+            });
+        });
+
+        function closeSettings() {
+            if (settingsDialog?.open) {
+                settingsDialog.close();
+            }
+        }
+
+        settingsClose?.addEventListener('click', closeSettings);
+        settingsCancel?.addEventListener('click', closeSettings);
+
+        // Close when clicking the backdrop
+        settingsDialog?.addEventListener('click', (event) => {
+            if (event.target === settingsDialog) {
+                closeSettings();
             }
         });
 
@@ -451,7 +855,7 @@ if (!isset($displayName) || !isset($displayRole)) {
 
         if (logoutBtn && logoutDialog) {
             logoutBtn.addEventListener('click', () => {
-                settingsPopover.classList.add('hidden'); // Close popover
+                setAccountPopoverOpen(false); // Close account menu
                 logoutDialog.showModal();
             });
 
