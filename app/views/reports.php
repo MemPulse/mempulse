@@ -34,7 +34,7 @@ $currentPage = "reports";
     <link rel="stylesheet" href="../assets/css/reports.css?v=<?= filemtime(__DIR__ . '/../assets/css/reports.css') ?>">
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
-    <main class="pl-0 md:pl-72 pt-16 md:pt-6 transition-all duration-300 ease-in-out">
+    <main id="main-content" class="pl-0 md:pl-72 pt-16 md:pt-6 transition-all duration-300 ease-in-out">
         
     <?php include __DIR__ . '/reports-view.php'; ?>
     </main>

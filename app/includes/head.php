@@ -7,13 +7,35 @@ if (!defined('BASE_URL')) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+
     <script>
         (function () {
-        var pref = 'system';
-        try { pref = localStorage.getItem('mempulseTheme') || 'system'; } catch (e) {}
-        var dark = pref === 'dark' || (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
-        document.documentElement.classList.toggle('dark', dark);
-        document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+            var root = document.documentElement;
+
+            // Apply the theme before rendering.
+            var pref = 'system';
+
+            try {
+                pref = localStorage.getItem('mempulseTheme') || 'system';
+            } catch (e) {}
+
+            var dark = pref === 'dark' ||
+                (pref === 'system' &&
+                window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+            root.classList.toggle('dark', dark);
+            root.style.colorScheme = dark ? 'dark' : 'light';
+
+            // Apply sidebar preference before the first paint.
+            try {
+                var collapsed =
+                    window.innerWidth >= 768 &&
+                    localStorage.getItem('sidebarCollapsed') === 'true';
+
+                root.classList.toggle('sidebar-collapsed', collapsed);
+            } catch (e) {
+                root.classList.remove('sidebar-collapsed');
+            }
         })();
     </script>
 

@@ -760,6 +760,12 @@ if ($user_id && isset($conn)) {
         if (toggleBtn) {
             toggleBtn.addEventListener("click", () => {
                 const isCollapsed = sidebar.classList.toggle("collapsed");
+                
+                document.documentElement.classList.toggle(
+                    "sidebar-collapsed",
+                    isCollapsed
+                );
+                
                 hideSidebarTooltip();
                 if (mainContent) {
                     mainContent.classList.toggle("collapsed", isCollapsed);

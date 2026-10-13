@@ -79,6 +79,16 @@ main::-webkit-scrollbar-thumb:hover {
 /* Sidebar Toggle */
 /* --- Base Collapsed Sidebar Rules (Desktop Only) --- */
 @media (min-width: 768px) {
+
+    /* Prevent initial main-content layout shift */
+    html.sidebar-collapsed #main-content {
+        padding-left: 80px !important;
+    }
+
+    html.sidebar-collapsed #main-content header {
+        left: 80px !important;
+    }
+
     #sidebar.collapsed {
         box-sizing: border-box !important;
         width: 80px !important;
