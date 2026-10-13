@@ -132,14 +132,13 @@ $periodLabel = ($filters['range'] === 'all' ? 'All time' : $rangeLabels[$filters
                  class="rp-panel <?= $activeTab === 'decks' ? '' : 'hidden' ?>">
             <h2 class="rp-print-only rp-print-section">Decks</h2>
             <?php include __DIR__ . '/reports-decks.php'; ?>
-            <p class="rp-no-print text-sm text-on-surface-variant">Decks report coming next.</p>
         </section>
 
         <section role="tabpanel" id="panel-cards" data-tab="cards" aria-labelledby="tab-cards"
                  class="rp-panel <?= $activeTab === 'cards' ? '' : 'hidden' ?>">
             <?php /* include __DIR__ . '/reports-cards.php'; (task 3) */ ?>
-            <p class="rp-no-print text-sm text-on-surface-variant">Cards report coming next.</p>
-        </section>
+            <h2 class="rp-print-only rp-print-section">Cards</h2>
+            <?php include __DIR__ . '/reports-cards.php'; ?>        </section>
 
         <section role="tabpanel" id="panel-sessions" data-tab="sessions" aria-labelledby="tab-sessions"
                  class="rp-panel <?= $activeTab === 'sessions' ? '' : 'hidden' ?>">

@@ -37,6 +37,40 @@ if (empty($_SESSION['csrf_token']) || !is_string($token) || !hash_equals($_SESSI
     exit;
 }
 
+/**
+ * Load the user's SRS settings, falling back to the same defaults
+ * used by settings-actions.php / the user_settings table.
+ */
+function loadSrsSettings(mysqli $conn, int $userId): array {
+    $defaults = [
+        'remember_multiplier'   => 2.00,
+        'forgot_multiplier'     => 0.50,
+        'initial_interval_days' => 1,
+        'maximum_interval_days' => 365,
+    ];
+
+    $stmt = mysqli_prepare($conn, "SELECT remember_multiplier, forgot_multiplier,
+                                          initial_interval_days, maximum_interval_days
+                                   FROM user_settings WHERE user_id = ?");
+    mysqli_stmt_bind_param($stmt, 'i', $userId);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_bind_result($stmt, $remember, $forgot, $initial, $maximum);
+
+    if (!mysqli_stmt_fetch($stmt)) {
+        mysqli_stmt_close($stmt);
+        return $defaults;
+    }
+    mysqli_stmt_close($stmt);
+
+    $initial = max(1, (int) $initial);
+    return [
+        'remember_multiplier'   => (float) $remember,
+        'forgot_multiplier'     => (float) $forgot,
+        'initial_interval_days' => $initial,
+        'maximum_interval_days' => max($initial, (int) $maximum),
+    ];
+}
+
 $deckId = filter_var($input['deck_id'] ?? null, FILTER_VALIDATE_INT);
 $results = $input['results'] ?? null;
 $durationSeconds = filter_var($input['duration_seconds'] ?? 0, FILTER_VALIDATE_INT);
@@ -66,6 +100,12 @@ try {
         echo json_encode(['error' => 'Deck not found or access denied.']);
         exit;
     }
+
+    $settings = loadSrsSettings($conn, $userId);
+    $rememberMult = $settings['remember_multiplier'];
+    $forgotMult   = $settings['forgot_multiplier'];
+    $minInterval  = $settings['initial_interval_days'];
+    $maxInterval  = $settings['maximum_interval_days'];
 
     // 1. Sanitize IDs
     $requested = [];
@@ -104,9 +144,9 @@ try {
 
     // 3. Insert session record
     $sessStmt = mysqli_prepare($conn, "INSERT INTO review_sessions
-        (user_id, deck_id, total_reviewed, remembered_count, accuracy_percentage, started_at, ended_at)
-        VALUES (?, ?, ?, ?, ?, DATE_SUB(NOW(), INTERVAL ? SECOND), NOW())");
-    mysqli_stmt_bind_param($sessStmt, "iiiiii", $userId, $deckId, $savedCount, $rememberedCount, $accuracy, $durationSeconds);
+    (user_id, deck_id, total_reviewed, remembered_count, started_at, ended_at)
+    VALUES (?, ?, ?, ?, DATE_SUB(NOW(), INTERVAL ? SECOND), NOW())");
+    mysqli_stmt_bind_param($sessStmt, "iiiii", $userId, $deckId, $savedCount, $rememberedCount, $durationSeconds);    mysqli_stmt_bind_param($sessStmt, "iiiiii", $userId, $deckId, $savedCount, $rememberedCount, $accuracy, $durationSeconds);
     mysqli_stmt_execute($sessStmt);
     $sessionId = mysqli_insert_id($conn);
     mysqli_stmt_close($sessStmt);
@@ -124,11 +164,16 @@ try {
     foreach ($toSave as $cid => $status) {
         $prevInterval = $cardData[$cid];
         $isLapse      = ($status === 'forgotten') ? 1 : 0;
-        $newInterval  = ($status === 'remembered') ? max(1, $prevInterval * 2) : 0;
+
+        $multiplier  = ($status === 'remembered') ? $rememberMult : $forgotMult;
+        $newInterval = (int) round($prevInterval * $multiplier);
+
+        // Never below the initial interval, never above the maximum.
+        $newInterval = max($minInterval, min($maxInterval, $newInterval));
 
         // The review_logs.rating ENUM is ('remembered', 'forgot'), NOT 'forgotten'
         $dbRating = ($status === 'remembered') ? 'remembered' : 'forgot';
-
+        
         mysqli_stmt_bind_param($stmtCard, "iiiii", $isLapse, $newInterval, $newInterval, $cid, $deckId);
         mysqli_stmt_execute($stmtCard);
 

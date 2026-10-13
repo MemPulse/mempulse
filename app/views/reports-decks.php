@@ -96,11 +96,13 @@ $chartHeight = function (?array $chart): int {
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-outline-variant/20">
-                    <?php foreach ($rows as $r):
-                        $lastTs = $r['lastStudied'] ? strtotime($r['lastStudied']) : 0;
+                        <?php foreach ($rows as $r):
+                        $lastTs     = $r['lastStudied'] ? strtotime($r['lastStudied']) : 0;
+                        $isFocus    = ($filters['focusId'] === $r['id']);
+                        $detailsUrl = 'reports.php?' . ReportsService::buildQuery($filters, ['focus' => $r['id'], 'tab' => 'decks']) . '#rp-deck-drilldown';
                     ?>
-                        <tr class="hover:bg-surface-container-low/60 transition-colors">
-                            <td class="px-4 py-2.5 font-semibold text-on-surface" data-value="<?= ReportsService::h(mb_strtolower($r['title'])) ?>">
+                        <tr class="rp-deck-row cursor-pointer transition-colors <?= $isFocus ? 'bg-primary/5' : 'hover:bg-surface-container-low/60' ?>"
+                            data-href="<?= ReportsService::h($detailsUrl) ?>">                            <td class="px-4 py-2.5 font-semibold text-on-surface" data-value="<?= ReportsService::h(mb_strtolower($r['title'])) ?>">
                                 <?= ReportsService::h($r['title']) ?>
                                 <?php if ($r['archived']): ?><span class="ml-1 text-[10px] font-bold uppercase text-on-surface-variant/70">archived</span><?php endif; ?>
                             </td>
@@ -121,9 +123,9 @@ $chartHeight = function (?array $chart): int {
                             <td class="px-3 py-2.5 text-right tabular-nums whitespace-nowrap" data-value="<?= $r['seconds'] ?>"><?= $r['seconds'] > 0 ? ReportsService::h(ReportsService::formatDuration($r['seconds'])) : '—' ?></td>
                             <td class="px-3 py-2.5 whitespace-nowrap text-on-surface-variant" data-value="<?= $lastTs ?>"><?= $lastTs ? ReportsService::h(date('M j, Y', $lastTs)) : '—' ?></td>
                             <td class="rp-no-print px-3 py-2.5 whitespace-nowrap text-right">
-                                <?php if ($filters['deckId'] !== $r['id']): ?>
-                                    <a href="reports.php?<?= ReportsService::h(ReportsService::buildQuery($filters, ['deck' => $r['id'], 'tab' => 'overview'])) ?>"
-                                       class="text-xs font-semibold text-primary hover:underline" title="Show this deck's overview">Focus</a>
+                                <?php if (!$isFocus): ?>
+                                    <a href="<?= ReportsService::h($detailsUrl) ?>"
+                                       class="text-xs font-semibold text-primary hover:underline" title="Accuracy trend and hardest cards">Details</a>
                                 <?php endif; ?>
                                 <?php if (!$r['archived']): ?>
                                     <a href="deck.php?deck_id=<?= (int) $r['id'] ?>"
@@ -153,10 +155,75 @@ $chartHeight = function (?array $chart): int {
             </table>
         </div>
     </div>
+
+        <!-- DRILL-DOWN (one deck) -->
+    <?php if ($drilldown): ?>
+        <div id="rp-deck-drilldown" class="flex flex-col gap-4 sm:gap-6 scroll-mt-4">
+            <div class="flex items-center justify-between gap-3">
+                <h3 class="font-headline-sm text-lg font-bold text-on-surface">Drill-down: <?= ReportsService::h($filters['focusTitle']) ?></h3>
+                <a href="reports.php?<?= ReportsService::h(ReportsService::buildQuery($filters, ['focus' => null, 'tab' => 'decks'])) ?>"
+                   class="rp-no-print text-sm font-semibold text-primary hover:underline">Close</a>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                <div class="rp-avoid-break bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 sm:p-5 min-w-0">
+                    <h4 class="font-headline-sm text-base font-bold text-on-surface">Accuracy trend</h4>
+                    <p class="text-xs text-on-surface-variant mb-3">
+                        Reviews and accuracy per <?= $drilldown['trend']['granularity'] === 'day' ? 'day' : 'week' ?> for this deck in the selected period.
+                    </p>
+                    <?php if ($drilldown['hasTrend']): ?>
+                        <div class="rp-chart-box relative" style="height: 260px">
+                            <canvas id="rp-chart-deck-trend" aria-label="Reviews and accuracy trend for this deck" role="img"></canvas>
+                        </div>
+                    <?php else: ?>
+                        <div class="h-32 flex items-center justify-center text-sm text-on-surface-variant text-center">No completed sessions for this deck in this period.</div>
+                    <?php endif; ?>
+                </div>
+
+                <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl overflow-hidden min-w-0">
+                    <div class="px-4 sm:px-5 pt-4 pb-3">
+                        <h4 class="font-headline-sm text-base font-bold text-on-surface">Hardest cards</h4>
+                        <p class="text-xs text-on-surface-variant">Top 10 by lapses. Current state, not limited by the period.</p>
+                    </div>
+                    <?php if ($drilldown['cards']): ?>
+                        <div class="rp-table-wrap overflow-x-auto">
+                            <table class="rp-table w-full text-sm">
+                                <thead>
+                                    <tr class="bg-surface-container-low text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+                                        <th class="text-left px-4 py-2.5">Card</th>
+                                        <th class="text-right px-3 py-2.5">Lapses</th>
+                                        <th class="text-right px-3 py-2.5">Reviews</th>
+                                        <th class="text-right px-3 py-2.5">Interval</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-outline-variant/20">
+                                    <?php foreach ($drilldown['cards'] as $c): ?>
+                                        <tr>
+                                            <td class="px-4 py-2.5 text-on-surface" title="<?= ReportsService::h($c['front']) ?>">
+                                                <?= ReportsService::h(mb_strimwidth($c['front'], 0, 70, '…', 'UTF-8')) ?>
+                                            </td>
+                                            <td class="px-3 py-2.5 text-right tabular-nums <?= $c['lapses'] >= 8 ? 'text-error font-semibold' : '' ?>"><?= number_format($c['lapses']) ?></td>
+                                            <td class="px-3 py-2.5 text-right tabular-nums"><?= number_format($c['reviews']) ?></td>
+                                            <td class="px-3 py-2.5 text-right tabular-nums whitespace-nowrap"><?= number_format($c['interval']) ?>d</td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php else: ?>
+                        <div class="h-32 flex items-center justify-center text-sm text-on-surface-variant text-center px-4">No cards with lapses in this deck. Nice work.</div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
 </div>
 <?php endif; ?>
 
 <?php
-$decksPayload = ['reviews' => $charts['reviews'] ?? null, 'mastery' => $charts['mastery'] ?? null];
-?>
+$decksPayload = [
+    'reviews' => $charts['reviews'] ?? null,
+    'mastery' => $charts['mastery'] ?? null,
+    'trend'   => ($drilldown && $drilldown['hasTrend']) ? $drilldown['trend'] : null,
+];?>
 <script type="application/json" id="rp-decks-data"><?= json_encode($decksPayload, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?></script>

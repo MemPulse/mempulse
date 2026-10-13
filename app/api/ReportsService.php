@@ -77,6 +77,22 @@ class ReportsService
             }
         }
 
+        // Drill-down deck (separate from the deck filter so the table keeps all decks).
+        $focusId    = 0;
+        $focusTitle = '';
+        $rawFocus   = (string) ($get['focus'] ?? '');
+
+        if ($rawFocus !== '' && ctype_digit($rawFocus) && (int) $rawFocus > 0) {
+            $fd = self::fetchDeckOwned($conn, $userId, (int) $rawFocus);
+            if ($fd !== null && ($deckId === 0 || $deckId === (int) $fd['id'])) {
+                $focusId    = (int) $fd['id'];
+                $focusTitle = $fd['title'];
+                if ($fd['deleted_at'] !== null) {
+                    $includeArchived = true;
+                }
+            }
+        }
+
         $tab = (string) ($get['tab'] ?? 'overview');
         if (!in_array($tab, self::TABS, true)) {
             $tab = 'overview';
@@ -93,6 +109,8 @@ class ReportsService
             'deckTitle'       => $deckTitle,
             'includeArchived' => $includeArchived,
             'tab'             => $tab,
+            'focusId'         => $focusId,
+            'focusTitle'      => $focusTitle,
         ];
     }
 
@@ -128,6 +146,9 @@ class ReportsService
         }
         if ($f['includeArchived']) {
             $q['archived'] = '1';
+        }
+        if (($f['focusId'] ?? 0) > 0) {
+            $q['focus'] = $f['focusId'];
         }
         $q['tab'] = $f['tab'];
 
@@ -456,6 +477,268 @@ class ReportsService
             ],
         ];
     }
+
+    /**
+     * Drill-down for the focused deck: accuracy trend in the period + hardest cards.
+     * Returns null when no deck is focused.
+     */
+    public static function getDeckDrilldown(mysqli $conn, int $userId, array $f): ?array
+    {
+        if (($f['focusId'] ?? 0) <= 0) {
+            return null;
+        }
+
+        // Same day/week bucketing as the Overview chart, scoped to the focused deck.
+        $trend = self::getTimeline($conn, $userId, array_merge($f, ['deckId' => $f['focusId']]));
+
+        $sql = "SELECT f.id, f.front, f.lapses, f.review_count, f.interval_days, f.next_review_at
+                FROM flashcards f
+                JOIN decks d ON d.id = f.deck_id
+                WHERE d.user_id = ? AND f.deck_id = ? AND f.deleted_at IS NULL AND f.lapses > 0
+                ORDER BY f.lapses DESC, f.review_count DESC, f.id ASC
+                LIMIT 10";
+
+        $cards = [];
+        foreach (self::fetchAll($conn, $sql, 'ii', [$userId, $f['focusId']]) as $r) {
+            $cards[] = [
+                'id'       => (int) $r['id'],
+                'front'    => (string) $r['front'],
+                'lapses'   => (int) $r['lapses'],
+                'reviews'  => (int) $r['review_count'],
+                'interval' => (int) $r['interval_days'],
+                'next'     => $r['next_review_at'],
+            ];
+        }
+
+        return [
+            'trend'    => $trend,
+            'hasTrend' => array_sum($trend['reviewed']) > 0,
+            'cards'    => $cards,
+        ];
+    }
+
+        /* ------------------------------------------------------------------ */
+    /*  CARDS TAB                                                          */
+    /* ------------------------------------------------------------------ */
+
+    public static function getCardsReport(mysqli $conn, int $userId, array $f): array
+    {
+        return [
+            'maturity' => self::getMaturity($conn, $userId, $f),
+            'leeches'  => self::getLeeches($conn, $userId, $f),
+            'interval' => self::getIntervalGrowth($conn, $userId, $f),
+            'response' => self::getResponseTimes($conn, $userId, $f),
+        ];
+    }
+
+    /**
+     * New = never reviewed. Learning < 7 days, Young 7-20, Mastered 21+.
+     * Current state: the date range does not apply.
+     */
+    private static function getMaturity(mysqli $conn, int $userId, array $f): array
+    {
+        [$where, $types, $params] = self::cardScope($userId, $f);
+
+        $sql = "SELECT COUNT(*) AS total,
+                       COALESCE(SUM(f.review_count = 0), 0) AS new_cnt,
+                       COALESCE(SUM(f.review_count > 0 AND f.interval_days < 7), 0) AS learning,
+                       COALESCE(SUM(f.review_count > 0 AND f.interval_days >= 7 AND f.interval_days < 21), 0) AS young,
+                       COALESCE(SUM(f.review_count > 0 AND f.interval_days >= 21), 0) AS mastered,
+                       COALESCE(SUM(f.lapses >= 8), 0) AS leeches
+                FROM flashcards f
+                JOIN decks d ON d.id = f.deck_id
+                WHERE $where";
+
+        $row   = self::fetchAll($conn, $sql, $types, $params)[0] ?? [];
+        $total = (int) ($row['total'] ?? 0);
+
+        $defs = [
+            ['New',      'Never reviewed',       (int) ($row['new_cnt'] ?? 0),  '#94a3b8'],
+            ['Learning', 'Interval under 7 days', (int) ($row['learning'] ?? 0), '#f59e0b'],
+            ['Young',    'Interval 7-20 days',    (int) ($row['young'] ?? 0),    '#6366f1'],
+            ['Mastered', 'Interval 21+ days',     (int) ($row['mastered'] ?? 0), '#14b8a6'],
+        ];
+
+        $segments = [];
+        foreach ($defs as [$label, $rule, $count, $color]) {
+            $segments[] = [
+                'label' => $label,
+                'rule'  => $rule,
+                'count' => $count,
+                'pct'   => $total > 0 ? (int) round(($count / $total) * 100) : 0,
+                'color' => $color,
+            ];
+        }
+
+        return [
+            'total'       => $total,
+            'segments'    => $segments,
+            'leechTotal'  => (int) ($row['leeches'] ?? 0),
+        ];
+    }
+
+    /**
+     * Cards with lapses >= 8 (same threshold as the dashboard). Top 25.
+     */
+    private static function getLeeches(mysqli $conn, int $userId, array $f): array
+    {
+        [$where, $types, $params] = self::cardScope($userId, $f);
+
+        $sql = "SELECT f.id, f.front, f.lapses, f.review_count, f.interval_days,
+                       d.id AS deck_id, d.title AS deck_title, d.deleted_at AS deck_deleted
+                FROM flashcards f
+                JOIN decks d ON d.id = f.deck_id
+                WHERE $where AND f.lapses >= 8
+                ORDER BY f.lapses DESC, f.review_count DESC, f.id ASC
+                LIMIT 25";
+
+        $rows = [];
+        foreach (self::fetchAll($conn, $sql, $types, $params) as $r) {
+            $rows[] = [
+                'id'       => (int) $r['id'],
+                'front'    => (string) $r['front'],
+                'lapses'   => (int) $r['lapses'],
+                'reviews'  => (int) $r['review_count'],
+                'interval' => (int) $r['interval_days'],
+                'deckId'   => (int) $r['deck_id'],
+                'deck'     => $r['deck_title'],
+                'archived' => $r['deck_deleted'] !== null,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Average previous vs new interval per week (Monday buckets) from review_logs.
+     */
+    private static function getIntervalGrowth(mysqli $conn, int $userId, array $f): array
+    {
+        [$where, $types, $params] = self::logScope($userId, $f);
+
+        $sql = "SELECT DATE_SUB(DATE(l.reviewed_at), INTERVAL WEEKDAY(l.reviewed_at) DAY) AS bucket,
+                       AVG(l.previous_interval) AS avg_prev,
+                       AVG(l.new_interval)      AS avg_new,
+                       COUNT(*)                 AS n
+                FROM review_logs l
+                JOIN review_sessions s ON s.id = l.session_id
+                JOIN decks d ON d.id = s.deck_id
+                WHERE $where
+                GROUP BY bucket
+                ORDER BY bucket ASC";
+
+        $byWeek = [];
+        foreach (self::fetchAll($conn, $sql, $types, $params) as $r) {
+            $byWeek[$r['bucket']] = [round((float) $r['avg_prev'], 1), round((float) $r['avg_new'], 1), (int) $r['n']];
+        }
+
+        $from = new DateTimeImmutable($f['from']);
+        $to   = new DateTimeImmutable($f['to']);
+        $from = $from->modify('-' . ((int) $from->format('N') - 1) . ' days'); // snap to Monday
+
+        $labels = $prev = $new = $counts = [];
+        for ($cursor = $from; $cursor <= $to; $cursor = $cursor->modify('+7 days')) {
+            $key = $cursor->format('Y-m-d');
+            $labels[] = $cursor->format('M j');
+            $prev[]   = $byWeek[$key][0] ?? null;
+            $new[]    = $byWeek[$key][1] ?? null;
+            $counts[] = $byWeek[$key][2] ?? 0;
+        }
+
+        return [
+            'hasData' => !empty($byWeek),
+            'labels'  => $labels,
+            'prev'    => $prev,
+            'new'     => $new,
+            'counts'  => $counts,
+        ];
+    }
+
+    /**
+     * Average and median response time (ms) by rating, plus the slowest cards.
+     * Median uses window functions (MariaDB 10.2+ / MySQL 8). If the server
+     * lacks them the query fails quietly and the median shows as n/a.
+     */
+    private static function getResponseTimes(mysqli $conn, int $userId, array $f): array
+    {
+        [$where, $types, $params] = self::logScope($userId, $f);
+
+        $out = [];
+        foreach (['remembered', 'forgot'] as $rating) {
+            $out[$rating] = ['total' => 0, 'timed' => 0, 'avg' => null, 'median' => null];
+        }
+
+        // COUNT(col) and AVG(col) both skip NULL response times.
+        $sql = "SELECT l.rating,
+                       COUNT(*) AS total,
+                       COUNT(l.response_time_ms) AS timed,
+                       AVG(l.response_time_ms)   AS avg_ms
+                FROM review_logs l
+                JOIN review_sessions s ON s.id = l.session_id
+                JOIN decks d ON d.id = s.deck_id
+                WHERE $where
+                GROUP BY l.rating";
+
+        foreach (self::fetchAll($conn, $sql, $types, $params) as $r) {
+            if (!isset($out[$r['rating']])) {
+                continue;
+            }
+            $out[$r['rating']]['total'] = (int) $r['total'];
+            $out[$r['rating']]['timed'] = (int) $r['timed'];
+            $out[$r['rating']]['avg']   = $r['avg_ms'] !== null ? (int) round((float) $r['avg_ms']) : null;
+        }
+
+        $sql = "SELECT t.rating, AVG(t.ms) AS med
+                FROM (
+                    SELECT l.rating, l.response_time_ms AS ms,
+                           ROW_NUMBER() OVER (PARTITION BY l.rating ORDER BY l.response_time_ms) AS rn,
+                           COUNT(*)     OVER (PARTITION BY l.rating) AS cnt
+                    FROM review_logs l
+                    JOIN review_sessions s ON s.id = l.session_id
+                    JOIN decks d ON d.id = s.deck_id
+                    WHERE $where AND l.response_time_ms IS NOT NULL
+                ) t
+                WHERE t.rn IN (FLOOR((t.cnt + 1) / 2), FLOOR(t.cnt / 2) + 1)
+                GROUP BY t.rating";
+
+        foreach (self::fetchAll($conn, $sql, $types, $params) as $r) {
+            if (isset($out[$r['rating']])) {
+                $out[$r['rating']]['median'] = (int) round((float) $r['med']);
+            }
+        }
+
+        // Slowest cards: average time per card, needs 2+ timed reviews.
+        $sql = "SELECT f.id, f.front, fd.title AS deck_title,
+                       AVG(l.response_time_ms) AS avg_ms, COUNT(*) AS n
+                FROM review_logs l
+                JOIN review_sessions s ON s.id = l.session_id
+                JOIN decks d ON d.id = s.deck_id
+                JOIN flashcards f ON f.id = l.card_id AND f.deleted_at IS NULL
+                JOIN decks fd ON fd.id = f.deck_id
+                WHERE $where AND l.response_time_ms IS NOT NULL
+                GROUP BY f.id, f.front, fd.title
+                HAVING COUNT(*) >= 2
+                ORDER BY avg_ms DESC, f.id ASC
+                LIMIT 10";
+
+        $slowest = [];
+        foreach (self::fetchAll($conn, $sql, $types, $params) as $r) {
+            $slowest[] = [
+                'id'    => (int) $r['id'],
+                'front' => (string) $r['front'],
+                'deck'  => $r['deck_title'],
+                'avg'   => (int) round((float) $r['avg_ms']),
+                'n'     => (int) $r['n'],
+            ];
+        }
+
+        return [
+            'remembered' => $out['remembered'],
+            'forgot'     => $out['forgot'],
+            'hasData'    => ($out['remembered']['total'] + $out['forgot']['total']) > 0,
+            'slowest'    => $slowest,
+        ];
+    }
  
 
     /* ------------------------------------------------------------------ */
@@ -485,6 +768,49 @@ class ReportsService
     private static function sessionScope(int $userId, array $f): array
     {
         $sql    = "s.user_id = ? AND s.started_at >= ? AND s.started_at < ?";
+        $types  = 'iss';
+        $params = [$userId, $f['fromDt'], $f['toExclusive']];
+
+        if ($f['deckId'] > 0) {
+            $sql    .= " AND s.deck_id = ?";
+            $types  .= 'i';
+            $params[] = $f['deckId'];
+        }
+        if (!$f['includeArchived']) {
+            $sql .= " AND d.deleted_at IS NULL";
+        }
+
+        return [$sql, $types, $params];
+    }
+
+        /**
+     * WHERE for flashcards f (joined to decks d): current state, active cards only.
+     */
+    private static function cardScope(int $userId, array $f): array
+    {
+        $sql    = "d.user_id = ? AND f.deleted_at IS NULL";
+        $types  = 'i';
+        $params = [$userId];
+
+        if ($f['deckId'] > 0) {
+            $sql    .= " AND d.id = ?";
+            $types  .= 'i';
+            $params[] = $f['deckId'];
+        }
+        if (!$f['includeArchived']) {
+            $sql .= " AND d.deleted_at IS NULL";
+        }
+
+        return [$sql, $types, $params];
+    }
+
+    /**
+     * WHERE for review_logs l joined to review_sessions s and decks d (the session's deck).
+     * Scoped to the user through the session; period applies to reviewed_at.
+     */
+    private static function logScope(int $userId, array $f): array
+    {
+        $sql    = "s.user_id = ? AND l.reviewed_at >= ? AND l.reviewed_at < ?";
         $types  = 'iss';
         $params = [$userId, $f['fromDt'], $f['toExclusive']];
 

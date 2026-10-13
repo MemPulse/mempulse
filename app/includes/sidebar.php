@@ -210,10 +210,10 @@ if (!isset($displayName) || !isset($displayRole)) {
     <div class="flex flex-col gap-4 px-4 pt-6 pb-2 transition-all">
         <!-- Logo -->
         <div class="sidebar-row flex items-center gap-3 h-8">
-            <span class="material-symbols-outlined text-[28px] text-primary hide-collapsed" style="display: none;">neurology</span>
+            <span class="material-symbols-outlined text-[28px] text-primary">neurology</span>
             <span class="logo-text font-headline-sm text-xl font-bold tracking-tight text-on-surface transition-all duration-200">MemPulse</span>
-            <span class="material-symbols-outlined text-primary text-[28px] md:hidden hidden block-collapsed">neurology</span>
         </div>
+                
 
         <!-- Search Command Palette -->
         <div data-tooltip="Search (CTRL+K)" class="sidebar-tooltip sidebar-row flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-container-low border border-outline-variant/30 text-on-surface-variant cursor-pointer hover:border-primary/40 hover:text-on-surface transition-colors">

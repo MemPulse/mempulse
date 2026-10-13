@@ -64,6 +64,18 @@
         });
     })();
 
+    /* ---------------- Row click -> drill-down ---------------- */
+    (function initRowLinks() {
+        var table = document.getElementById('rp-decks-table');
+        if (!table || !table.tBodies.length) return;
+
+        table.tBodies[0].addEventListener('click', function (e) {
+            if (e.target.closest('a, button')) return;   // let real links work normally
+            var row = e.target.closest('tr[data-href]');
+            if (row) window.location.href = row.getAttribute('data-href');
+        });
+    })();
+
     /* ---------------- Charts ---------------- */
     function truncate(label, max) {
         label = String(label);
@@ -142,6 +154,53 @@
         }));
     }
 
+    function buildTrend(data) {
+        var canvas = document.getElementById('rp-chart-deck-trend');
+        if (!canvas || !data) return;
+
+        RP.track(new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: data.labels,
+                datasets: [
+                    {
+                        type: 'bar', label: 'Reviewed', data: data.reviewed, backgroundColor: COLORS.primarySoft,
+                        borderRadius: 4, maxBarThickness: 28, yAxisID: 'y', order: 2
+                    },
+                    {
+                        type: 'line', label: 'Accuracy', data: data.accuracy, borderColor: COLORS.teal,
+                        backgroundColor: COLORS.teal, borderWidth: 2, pointRadius: 3, tension: 0.25,
+                        spanGaps: true, yAxisID: 'y1', order: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, color: COLORS.text } },
+                    tooltip: {
+                        callbacks: {
+                            label: function (ctx) {
+                                if (ctx.parsed.y === null) return null;
+                                return ctx.dataset.label + ': ' + ctx.parsed.y + (ctx.dataset.yAxisID === 'y1' ? '%' : '');
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: COLORS.text, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 } },
+                    y: { beginAtZero: true, grid: { color: COLORS.grid }, ticks: { color: COLORS.text, precision: 0 } },
+                    y1: {
+                        position: 'right', min: 0, max: 100, grid: { drawOnChartArea: false },
+                        ticks: { color: COLORS.text, callback: function (v) { return v + '%'; } }
+                    }
+                }
+            }
+        }));
+    }
+
     RP.register('decks', function () {
         if (!window.Chart) {
             console.error('Reports: Chart.js did not load.');
@@ -150,5 +209,6 @@
         var payload = RP.json('rp-decks-data') || {};
         buildReviews(payload.reviews);
         buildMastery(payload.mastery);
+        buildTrend(payload.trend);
     });
 })();

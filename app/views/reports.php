@@ -17,6 +17,8 @@ $deckOptions = ReportsService::getDeckOptions($conn, $userId, $filters['includeA
 $profile     = DashboardService::getUserProfile($conn, $userId);
 $overview    = ReportsService::getOverview($conn, $userId, $filters);
 $decksReport = ReportsService::getDecksReport($conn, $userId, $filters);
+$drilldown   = ReportsService::getDeckDrilldown($conn, $userId, $filters);
+$cardsReport = ReportsService::getCardsReport($conn, $userId, $filters);
 
 $pageTitle   = "Reports";
 $currentPage = "reports";
@@ -40,5 +42,6 @@ $currentPage = "reports";
     <script src="../assets/js/reports.js?v=<?= filemtime(__DIR__ . '/../assets/js/reports.js') ?>" defer></script>
     <script src="../assets/js/reports-overview.js?v=<?= filemtime(__DIR__ . '/../assets/js/reports-overview.js') ?>" defer></script>
     <script src="../assets/js/reports-decks.js?v=<?= filemtime(__DIR__ . '/../assets/js/reports-decks.js') ?>" defer></script>
+    <script src="../assets/js/reports-cards.js?v=<?= filemtime(__DIR__ . '/../assets/js/reports-cards.js') ?>" defer></script>
 </body>
 </html>
