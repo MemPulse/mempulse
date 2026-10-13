@@ -142,3 +142,28 @@ html.dark .tabulator .tabulator-header .tabulator-col.tabulator-frozen {
     background-color: rgb(var(--c-surface-container-low)) !important;
     box-shadow: 2px 0 6px rgba(0, 0, 0, 0.35) !important;
 }
+
+/* Again button classes (temporary until Tailwind is rebuilt) */
+.bg-amber-50 {
+    background-color: #fffbeb;
+}
+
+.bg-amber-100 {
+    background-color: #fef3c7;
+}
+
+.hover\:bg-amber-100:hover {
+    background-color: #fef3c7;
+}
+
+.border-amber-200 {
+    border-color: #fde68a;
+}
+
+.text-amber-700 {
+    color: #b45309;
+}
+
+.max-w-lg {
+    max-width: 32rem;
+}

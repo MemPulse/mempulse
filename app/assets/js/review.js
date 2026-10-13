@@ -16,6 +16,11 @@ document.addEventListener("DOMContentLoaded", () => {
     let sessionDuration = 0;
     let unsavedRatings = false;
 
+    // "Again" puts the card back into this session's queue a few cards later.
+    // It never writes to `ratings`, so nothing extra is saved for it.
+    const AGAIN_OFFSET = 3;
+    let uniqueTotal = queue.length;   // cards in this session, ignoring repeats
+
     // Scheduling rules, same as save-session.php. These defaults are replaced
     // by the user's saved settings as soon as they load (see loadSrsSettings).
     let srs = {
@@ -60,6 +65,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const boxRates = document.getElementById('rate-actions');
     const btnForgot = document.getElementById('rate-forgot-btn');
     const btnRemember = document.getElementById('rate-remember-btn');
+    const btnAgain = document.getElementById('rate-again-btn');
     const projForgot = document.getElementById('projected-forgot-date');
     const projRemember = document.getElementById('projected-remember-date');
 
@@ -101,19 +107,24 @@ document.addEventListener("DOMContentLoaded", () => {
         elBack.innerHTML = escapeHtml(card.back).replace(/\n/g, '<br>');
 
         txtProgress.textContent = `Card ${currentIndex + 1} of ${queue.length}`;
-        barProgress.style.width = `${((currentIndex) / queue.length) * 100}%`;
+        barProgress.style.width = `${(Object.keys(ratings).length / uniqueTotal) * 100}%`;
 
-        // Check if previously rated (via back navigation)
+        // Badge: the earlier rating (via Back), or a note on Again / repeated cards
         const prevRating = ratings[card.id];
-        if (prevRating) {
-            badgeHist.classList.remove('hidden', 'bg-emerald-100', 'text-emerald-700', 'bg-rose-100', 'text-rose-700');
-            if (prevRating === 'remembered') {
-                badgeHist.textContent = 'Rated: Remembered';
-                badgeHist.classList.add('bg-emerald-100', 'text-emerald-700');
-            } else {
-                badgeHist.textContent = 'Rated: Forgotten';
-                badgeHist.classList.add('bg-rose-100', 'text-rose-700');
-            }
+        badgeHist.classList.remove('hidden', 'bg-emerald-100', 'text-emerald-700',
+            'bg-rose-100', 'text-rose-700', 'bg-amber-100', 'text-amber-700');
+        if (prevRating === 'remembered') {
+            badgeHist.textContent = 'Rated: Remembered';
+            badgeHist.classList.add('bg-emerald-100', 'text-emerald-700');
+        } else if (prevRating) {
+            badgeHist.textContent = 'Rated: Forgotten';
+            badgeHist.classList.add('bg-rose-100', 'text-rose-700');
+        } else if (card._again) {
+            badgeHist.textContent = 'Again: comes back later';
+            badgeHist.classList.add('bg-amber-100', 'text-amber-700');
+        } else if (card._repeat) {
+            badgeHist.textContent = 'Repeat';
+            badgeHist.classList.add('bg-amber-100', 'text-amber-700');
         } else {
             badgeHist.classList.add('hidden');
         }
@@ -159,6 +170,13 @@ document.addEventListener("DOMContentLoaded", () => {
         unsavedRatings = true;
         updateTally(status);
 
+        const dir = status === 'remembered' ? 1 : -1;
+        const glow = status === 'remembered' ? 'rgba(16,185,129,0.35)' : 'rgba(244,63,94,0.35)';
+        return advanceCard(dir, glow);
+    }
+
+    // Plays the exit animation for the current card, then deals the next one.
+    async function advanceCard(dir, glow) {
         if (reduceMotion) {
             currentIndex++;
             renderCard();
@@ -166,9 +184,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         isAnimating = true;
-        const dir = status === 'remembered' ? 1 : -1;
-        const glow = status === 'remembered' ? 'rgba(16,185,129,0.35)' : 'rgba(244,63,94,0.35)';
-
         const out = stage.animate([
             { opacity: 1, transform: 'translateX(0) rotate(0deg)', boxShadow: `0 0 0 0 ${glow}` },
             { opacity: 0, transform: `translateX(${dir * 64}px) rotate(${dir * 2}deg)`, boxShadow: `0 0 0 6px ${glow}` }
@@ -186,6 +201,27 @@ document.addEventListener("DOMContentLoaded", () => {
             ], { duration: 240, easing: 'ease-out' });
         }
         isAnimating = false;
+    }
+
+    // Again: no rating is saved; a copy of the card comes back a few cards later.
+    async function againCard() {
+        if (sessionEnded || isAnimating) return;
+        const card = queue[currentIndex];
+
+        if (ratings[card.id]) {              // reached with Back: un-rate it
+            delete ratings[card.id];
+            updateTally();
+            unsavedRatings = Object.keys(ratings).length > 0;
+        }
+
+        card._again = true;                  // this slot can be skipped with Next
+
+        // Remove any copy already waiting ahead, then insert a fresh one
+        queue = queue.filter((c, i) => i <= currentIndex || c.id !== card.id);
+        const insertAt = Math.min(currentIndex + 1 + AGAIN_OFFSET, queue.length);
+        queue.splice(insertAt, 0, { ...card, _again: false, _repeat: true });
+
+        return advanceCard(0, 'rgba(245, 158, 11, 0.35)');
     }
 
     function updateTally(bumpStatus) {
@@ -209,11 +245,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // Back is available after the first card; Next only once the current card has a rating
+    // Back is available after the first card; Next only once the current card has a rating (or was sent to Again)
     function updateNavButtons() {
         btnPrev.disabled = currentIndex === 0;
         const card = queue[currentIndex];
-        btnNext.disabled = !(card && ratings[card.id]);
+        btnNext.disabled = !(card && (ratings[card.id] || card._again));
     }
 
     function slideIn(dir) {
@@ -227,7 +263,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function skipToNext() {
         if (sessionEnded || isAnimating) return;
         const card = queue[currentIndex];
-        if (!card || !ratings[card.id]) return;   // only skip cards already rated
+        if (!card || !(ratings[card.id] || card._again)) return;   // only skip cards already rated or sent to Again
         currentIndex++;
         renderCard();
         if (!sessionEnded) slideIn(1);
@@ -333,6 +369,7 @@ document.addEventListener("DOMContentLoaded", () => {
     btnShow.addEventListener('click', showAnswer);
     btnForgot.addEventListener('click', () => rateCard('forgotten'));
     btnRemember.addEventListener('click', () => rateCard('remembered'));
+    btnAgain.addEventListener('click', againCard);
     document.getElementById('end-session-btn').addEventListener('click', endSession);
     btnPrev.addEventListener('click', e => { prevCard(); e.currentTarget.blur(); });
     btnNext.addEventListener('click', e => { skipToNext(); e.currentTarget.blur(); });
@@ -345,6 +382,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 e.preventDefault();
                 if (!isAnswerShown) showAnswer();
                 else rateCard('remembered'); // Second spacebar defaults to remember & advance
+                break;
+            case 'a':
+            case 'A':
+                if (isAnswerShown) againCard();
                 break;
             case 'f':
             case 'F':
@@ -383,7 +424,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function startMissedSession() {
-        const missed = queue.filter(c => ratings[c.id] === 'forgotten');
+        // A card can sit in the queue twice (Again), so keep one entry per card
+        const seen = new Set();
+        const missed = queue
+            .filter(c => ratings[c.id] === 'forgotten' && !seen.has(c.id) && seen.add(c.id))
+            .map(c => ({ ...c, _again: false, _repeat: false }));
         if (missed.length === 0) return;
 
         // save-session.php just gave these cards their "forgot" interval, so mirror it locally
@@ -391,6 +436,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Fresh session state
         queue = missed;
+        uniqueTotal = missed.length;
         currentIndex = 0;
         ratings = {};
         isAnswerShown = false;

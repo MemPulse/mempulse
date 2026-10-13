@@ -161,7 +161,11 @@ $currentPage = "review";
                                 Show Answer
                             </button>
 
-                            <div id="rate-actions" class="hidden flex gap-3 w-full max-w-md">
+                            <div id="rate-actions" class="hidden flex gap-3 w-full max-w-lg">
+                                <button id="rate-again-btn" type="button" class="flex-1 flex flex-col items-center justify-center py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 active:scale-[0.97] transition shadow-sm">
+                                    <span class="font-bold">Again</span>
+                                    <span id="projected-again-date" class="text-[11px] font-medium opacity-80 mt-0.5">this session</span>
+                                </button>
                                 <button id="rate-forgot-btn" class="flex-1 flex flex-col items-center justify-center py-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 active:scale-[0.97] transition shadow-sm">
                                     <span class="font-bold">Forgot</span>
                                     <span id="projected-forgot-date" class="text-[11px] font-medium opacity-80 mt-0.5">Again today</span>
@@ -176,6 +180,8 @@ $currentPage = "review";
                         <p class="hidden md:block text-[11px] text-on-surface-variant/60 select-none">
                             <span id="hint-reveal"><kbd class="px-1.5 py-0.5 rounded border border-outline-variant/50 bg-surface-container-low font-mono text-[10px]">Space</kbd> reveal</span>
                             <span id="hint-rate" class="hidden">
+                                <kbd class="px-1.5 py-0.5 rounded border border-outline-variant/50 bg-surface-container-low font-mono text-[10px]">A</kbd> again
+                                <span class="mx-1" aria-hidden="true">·</span>
                                 <kbd class="px-1.5 py-0.5 rounded border border-outline-variant/50 bg-surface-container-low font-mono text-[10px]">F</kbd> forgot
                                 <span class="mx-1" aria-hidden="true">·</span>
                                 <kbd class="px-1.5 py-0.5 rounded border border-outline-variant/50 bg-surface-container-low font-mono text-[10px]">Space</kbd> remember
