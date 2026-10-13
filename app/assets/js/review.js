@@ -16,6 +16,42 @@ document.addEventListener("DOMContentLoaded", () => {
     let sessionDuration = 0;
     let unsavedRatings = false;
 
+    // Scheduling rules, same as save-session.php. These defaults are replaced
+    // by the user's saved settings as soon as they load (see loadSrsSettings).
+    let srs = {
+        remember_multiplier: 2,
+        forgot_multiplier: 0.5,
+        initial_interval_days: 1,
+        maximum_interval_days: 365
+    };
+
+    function nextInterval(prevDays, status) {
+        const multiplier = status === 'remembered' ? srs.remember_multiplier : srs.forgot_multiplier;
+        const days = Math.round(prevDays * multiplier);
+        return Math.max(srs.initial_interval_days, Math.min(srs.maximum_interval_days, days));
+    }
+
+    const formatDays = (d) => `in ${d} ${d === 1 ? 'day' : 'days'}`;
+
+    function updateProjections() {
+        const card = queue[currentIndex];
+        if (!card) return;
+        const interval = parseInt(card.interval_days, 10) || 0;
+        projForgot.textContent = formatDays(nextInterval(interval, 'forgotten'));
+        projRemember.textContent = formatDays(nextInterval(interval, 'remembered'));
+    }
+
+    async function loadSrsSettings() {
+        try {
+            const res = await fetch('../api/settings-actions.php', { credentials: 'same-origin' });
+            const body = await res.json();
+            if (res.ok && body.success && body.settings) {
+                srs = { ...srs, ...body.settings };
+                updateProjections();
+            }
+        } catch (_) { /* keep the defaults */ }
+    }
+
     // DOM Elements
     const elFront = document.getElementById('card-front-content');
     const elBack = document.getElementById('card-back-content');
@@ -82,11 +118,8 @@ document.addEventListener("DOMContentLoaded", () => {
             badgeHist.classList.add('hidden');
         }
 
-        // Calculate and show projected dates
-        const interval = parseInt(card.interval_days, 10) || 0;
-        const remDays = Math.max(1, interval * 2); // mirrors GREATEST(1, interval_days * 2) in save-session.php
-        projForgot.textContent = 'Again today';
-        projRemember.textContent = `in ${remDays} ${remDays === 1 ? 'day' : 'days'}`;
+        // Show when this card will come back for each rating
+        updateProjections();
 
         hideAnswer();
         updateNavButtons();
@@ -353,8 +386,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const missed = queue.filter(c => ratings[c.id] === 'forgotten');
         if (missed.length === 0) return;
 
-        // save-session.php left these at interval 0, so mirror that locally
-        missed.forEach(c => { c.interval_days = 0; });
+        // save-session.php just gave these cards their "forgot" interval, so mirror it locally
+        missed.forEach(c => { c.interval_days = nextInterval(parseInt(c.interval_days, 10) || 0, 'forgotten'); });
 
         // Fresh session state
         queue = missed;
@@ -576,5 +609,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // Init
+    loadSrsSettings();
     renderCard();
 });

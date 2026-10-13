@@ -136,6 +136,31 @@
         });
     });
 
+    /* ---------------- CSV export menu ---------------- */
+    var exportMenu = document.getElementById('rp-export-menu');
+    if (exportMenu) {
+        var metaBox = document.getElementById('rp-export-meta');
+
+        exportMenu.querySelectorAll('a[data-export]').forEach(function (a) {
+            a.addEventListener('click', function () {
+                // Add or remove the optional metadata header before the download starts.
+                var url = new URL(a.getAttribute('href'), window.location.href);
+                if (metaBox && metaBox.checked) url.searchParams.set('meta', '1');
+                else url.searchParams.delete('meta');
+                a.href = url.toString();
+                exportMenu.removeAttribute('open');
+            });
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!exportMenu.contains(e.target)) exportMenu.removeAttribute('open');
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') exportMenu.removeAttribute('open');
+        });
+    }
+
+
     /* ---------------- Print ---------------- */
     var printBtn = document.getElementById('rp-print-btn');
     if (printBtn) printBtn.addEventListener('click', function () { window.print(); });

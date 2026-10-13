@@ -14,6 +14,7 @@ CREATE TABLE users (
     last_name VARCHAR(100) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
+    password_changed_at DATETIME NULL,
     role ENUM('admin', 'user') NOT NULL DEFAULT 'user',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -29,6 +30,7 @@ CREATE TABLE user_settings (
     forgot_multiplier DECIMAL(4,2) NOT NULL DEFAULT 0.50,
     initial_interval_days INT UNSIGNED NOT NULL DEFAULT 1,
     maximum_interval_days INT UNSIGNED NOT NULL DEFAULT 365,
+    theme ENUM('light', 'dark', 'system')NOT NULL DEFAULT 'system',
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id)

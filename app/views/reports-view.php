@@ -22,6 +22,16 @@ $tabs = [
     'sessions' => ['label' => 'Sessions', 'icon' => 'history'],
 ];
 
+$exportDatasets = [
+    'sessions' => ['Session history',  'One row per study session'],
+    'decks'    => ['Deck summary',     'One row per deck, with totals'],
+    'cards'    => ['Card performance', 'Front, back, interval, lapses, reviews, next review'],
+    'logs'     => ['Review log detail', 'One row per rating'],
+    'full'     => ['Full report',      'Summary plus all of the above in one file'],
+];
+// Current filters, without tab or drill-down deck.
+$exportBase = ReportsService::buildQuery($filters, ['tab' => null, 'focus' => null]);
+
 $activeTab   = $filters['tab'];
 $isCustom    = ($filters['range'] === 'custom');
 $periodLabel = ($filters['range'] === 'all' ? 'All time' : $rangeLabels[$filters['range']])
@@ -48,8 +58,27 @@ $periodLabel = ($filters['range'] === 'all' ? 'All time' : $rangeLabels[$filters
                 <p class="text-sm text-on-surface-variant mt-0.5">Your study activity, retention and card progress.</p>
             </div>
             <div class="flex items-center gap-2">
-                <!-- EXPORT CSV control goes here (task 5) -->
-                <button type="button" id="rp-print-btn"
+                <details id="rp-export-menu" class="relative">
+                    <summary class="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-outline-variant/40 bg-surface-container-lowest text-sm font-semibold text-on-surface hover:bg-surface-container-low transition-colors cursor-pointer select-none">
+                        <span class="material-symbols-outlined text-[18px]">download</span>
+                        <span>Export CSV</span>
+                        <span class="material-symbols-outlined text-[18px]">expand_more</span>
+                    </summary>
+                    <div class="absolute right-0 mt-2 w-80 max-w-[90vw] z-30 rounded-xl border border-outline-variant/40 bg-surface-container-lowest shadow-lg p-2">
+                        <?php foreach ($exportDatasets as $key => [$label, $hint]): ?>
+                            <a data-export="<?= $h($key) ?>"
+                               href="../api/report-export.php?<?= $h($exportBase . '&dataset=' . $key) ?>"
+                               class="block rounded-lg px-3 py-2 hover:bg-surface-container-low">
+                                <span class="block text-sm font-semibold text-on-surface"><?= $h($label) ?></span>
+                                <span class="block text-xs text-on-surface-variant"><?= $h($hint) ?></span>
+                            </a>
+                        <?php endforeach; ?>
+                        <label class="flex items-center gap-2 px-3 pt-2 pb-1 mt-1 border-t border-outline-variant/30 text-xs text-on-surface-variant cursor-pointer">
+                            <input type="checkbox" id="rp-export-meta" class="rounded border-outline-variant/60 text-primary focus:ring-primary">
+                            Add student, period and filters at the top
+                        </label>
+                    </div>
+                </details>                <button type="button" id="rp-print-btn"
                         class="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-outline-variant/40 bg-surface-container-lowest text-sm font-semibold text-on-surface hover:bg-surface-container-low transition-colors">
                     <span class="material-symbols-outlined text-[18px]">print</span>
                     <span>Print / Save as PDF</span>

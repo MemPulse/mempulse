@@ -43,6 +43,15 @@ th[aria-sort="descending"] .rp-sort-btn::after {
     font-size: 0.7em;
 }
 
+/* Export menu: hide the default <details> marker */
+#rp-export-menu>summary {
+    list-style: none;
+}
+
+#rp-export-menu>summary::-webkit-details-marker {
+    display: none;
+}
+
 /* ==========================================================================
    PRINT / SAVE AS PDF
    ========================================================================== */

@@ -4,13 +4,19 @@ Volume serial number is 8E4B-9250
 C:.
 │   comebine_files.py
 │   database-design.md
+│   decks-ui layout.txt
 │   generate_mock.py
 │   MempulseTree.txt
 │   mempulse_mock_data.sql
 │   reports-page.txt
+│   settings-save-session-database.txt
+│   settings.txt
+│   tailwind.config.js
+│   tailwindcss.exe
 │   
 ├───app
 │   ├───api
+│   │       account-actions.php
 │   │       ArchiveService.php
 │   │       DashboardService.php
 │   │       deck-actions.php
@@ -21,13 +27,19 @@ C:.
 │   │       ReviewHubService.php
 │   │       save-session.php
 │   │       SessionService.php
+│   │       settings-actions.php
 │   │       
 │   ├───assets
 │   │   ├───css
 │   │   │       app.css
 │   │   │       reports.css
+│   │   │       tailwind-input.css
+│   │   │       tailwind.css
+│   │   │       theme.css
 │   │   │       
 │   │   ├───images
+│   │   │   │   brain-dark.svg
+│   │   │   │   brain-white.svg
 │   │   │   │   decks-hero-icon.png
 │   │   │   │   flashcards-hero-icon.png
 │   │   │   │   forgetting-curve-hero-image.webp
@@ -48,13 +60,16 @@ C:.
 │   │   │           dh9.jpg
 │   │   │           
 │   │   └───js
+│   │           account-settings.js
 │   │           archive-ui.js
 │   │           deck.js
 │   │           decks.js
 │   │           hero-carousel.js
 │   │           mp-tables.js
-│   │           reports-deck.js
+│   │           reports-cards.js
+│   │           reports-decks.js
 │   │           reports-overview.js
+│   │           reports-sessions.js
 │   │           reports.js
 │   │           review.js
 │   │           
@@ -69,8 +84,10 @@ C:.
 │           decks-view.php
 │           decks.php
 │           index.php
+│           reports-cards.php
 │           reports-decks.php
 │           reports-overview.php
+│           reports-sessions.php
 │           reports-view.php
 │           reports.php
 │           review-hub-view.php
@@ -96,3 +113,4 @@ C:.
         about.html
         index.html
         style.css
+        

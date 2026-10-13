@@ -1,0 +1,144 @@
+/* MemPulse theme tokens. Light values come from the old Tailwind config; dark values are new.
+   Tailwind colors read these as rgb(var(--c-name) / alpha). */
+
+:root {
+    --c-primary: 53 37 205;
+    --c-on-surface-variant: 70 69 85;
+    --c-on-secondary-fixed-variant: 90 0 198;
+    --c-primary-fixed: 226 223 255;
+    --c-on-tertiary-fixed: 42 23 0;
+    --c-background: 248 249 255;
+    --c-on-surface: 11 28 48;
+    --c-secondary-container: 138 76 252;
+    --c-secondary-fixed: 234 221 255;
+    --c-primary-container: 79 70 229;
+    --c-tertiary-fixed: 255 221 184;
+    --c-surface-container-low: 239 244 255;
+    --c-on-primary-container: 218 215 255;
+    --c-inverse-surface: 33 49 69;
+    --c-surface-container-lowest: 255 255 255;
+    --c-on-primary: 255 255 255;
+    --c-error: 186 26 26;
+    --c-on-tertiary-fixed-variant: 101 62 0;
+    --c-on-tertiary-container: 255 212 164;
+    --c-surface-container-highest: 211 228 254;
+    --c-on-tertiary: 255 255 255;
+    --c-primary-fixed-dim: 195 192 255;
+    --c-surface-container-high: 220 233 255;
+    --c-on-secondary: 255 255 255;
+    --c-surface-dim: 203 219 245;
+    --c-surface: 248 249 255;
+    --c-tertiary-fixed-dim: 255 185 95;
+    --c-outline-variant: 199 196 216;
+    --c-on-secondary-container: 255 251 255;
+    --c-on-background: 11 28 48;
+    --c-surface-bright: 248 249 255;
+    --c-secondary-fixed-dim: 210 187 255;
+    --c-secondary: 113 42 226;
+    --c-on-error-container: 147 0 10;
+    --c-inverse-primary: 195 192 255;
+    --c-surface-tint: 77 68 227;
+    --c-surface-container: 229 238 255;
+    --c-on-primary-fixed: 15 0 105;
+    --c-outline: 119 117 135;
+    --c-surface-variant: 211 228 254;
+    --c-inverse-on-surface: 234 241 255;
+    --c-on-secondary-fixed: 37 0 90;
+    --c-on-error: 255 255 255;
+    --c-on-primary-fixed-variant: 51 35 204;
+    --c-tertiary: 104 64 0;
+    --c-tertiary-container: 136 85 0;
+    --c-error-container: 255 218 214;
+}
+
+html.dark {
+    --c-background: 11 18 32;
+    --c-surface: 11 18 32;
+    --c-surface-dim: 8 14 26;
+    --c-surface-bright: 43 54 80;
+    --c-surface-container-lowest: 18 26 43;
+    --c-surface-container-low: 23 32 51;
+    --c-surface-container: 28 38 64;
+    --c-surface-container-high: 36 48 73;
+    --c-surface-container-highest: 46 59 87;
+    --c-surface-variant: 46 59 87;
+    --c-on-background: 221 228 245;
+    --c-on-surface: 221 228 245;
+    --c-on-surface-variant: 199 196 216;
+    --c-outline: 145 143 161;
+    --c-outline-variant: 70 76 105;
+    --c-inverse-surface: 221 228 245;
+    --c-inverse-on-surface: 28 38 64;
+    --c-inverse-primary: 53 37 205;
+    --c-surface-tint: 195 192 255;
+    --c-primary: 195 192 255;
+    --c-on-primary: 29 0 165;
+    --c-primary-container: 79 70 229;
+    --c-on-primary-container: 226 223 255;
+    --c-primary-fixed: 41 37 110;
+    --c-primary-fixed-dim: 195 192 255;
+    --c-on-primary-fixed: 226 223 255;
+    --c-on-primary-fixed-variant: 195 192 255;
+    --c-secondary: 210 187 255;
+    --c-on-secondary: 63 0 142;
+    --c-secondary-container: 111 54 217;
+    --c-on-secondary-container: 243 232 255;
+    --c-secondary-fixed: 53 32 107;
+    --c-secondary-fixed-dim: 210 187 255;
+    --c-on-secondary-fixed: 234 221 255;
+    --c-on-secondary-fixed-variant: 210 187 255;
+    --c-tertiary: 255 185 95;
+    --c-on-tertiary: 71 42 0;
+    --c-tertiary-container: 136 85 0;
+    --c-on-tertiary-container: 255 226 192;
+    --c-tertiary-fixed: 74 46 0;
+    --c-tertiary-fixed-dim: 255 185 95;
+    --c-on-tertiary-fixed: 255 221 184;
+    --c-on-tertiary-fixed-variant: 255 203 133;
+    --c-error: 255 180 171;
+    --c-on-error: 105 0 5;
+    --c-error-container: 147 0 10;
+    --c-on-error-container: 255 218 214;
+
+    /* app.css reads these (with light fallbacks) for the flashcard table */
+    --color-surface-container-lowest: rgb(var(--c-surface-container-lowest));
+    --color-surface-container-low: rgb(var(--c-surface-container-low));
+    --color-on-surface: rgb(var(--c-on-surface));
+    --color-on-surface-variant: rgb(var(--c-on-surface-variant));
+}
+
+/* Dark versions of the colors that are hard-coded in app.css (flashcard table) */
+html.dark .tabulator .tabulator-tableholder .tabulator-table .tabulator-row:hover {
+    background-color: rgb(var(--c-surface-container-low) / 0.7) !important;
+}
+
+html.dark .tabulator .tabulator-tableholder .tabulator-table .tabulator-row.tabulator-selected {
+    background-color: rgb(var(--c-primary) / 0.16) !important;
+}
+
+html.dark .tabulator .tabulator-cell.tabulator-editing {
+    background-color: rgb(var(--c-surface-container-high)) !important;
+}
+
+html.dark .tabulator .tabulator-cell.tabulator-editing textarea,
+html.dark .tabulator .tabulator-cell.tabulator-editing input {
+    color: rgb(var(--c-on-surface)) !important;
+}
+
+html.dark .tabulator .tabulator-cell.tabulator-frozen {
+    background-color: rgb(var(--c-surface-container-lowest)) !important;
+    box-shadow: 2px 0 6px rgba(0, 0, 0, 0.35) !important;
+}
+
+html.dark .tabulator .tabulator-row:hover .tabulator-cell.tabulator-frozen {
+    background-color: rgb(var(--c-surface-container-low)) !important;
+}
+
+html.dark .tabulator .tabulator-row.tabulator-selected .tabulator-cell.tabulator-frozen {
+    background-color: rgb(var(--c-surface-container)) !important;
+}
+
+html.dark .tabulator .tabulator-header .tabulator-col.tabulator-frozen {
+    background-color: rgb(var(--c-surface-container-low)) !important;
+    box-shadow: 2px 0 6px rgba(0, 0, 0, 0.35) !important;
+}

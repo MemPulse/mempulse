@@ -144,9 +144,9 @@ try {
 
     // 3. Insert session record
     $sessStmt = mysqli_prepare($conn, "INSERT INTO review_sessions
-    (user_id, deck_id, total_reviewed, remembered_count, started_at, ended_at)
-    VALUES (?, ?, ?, ?, DATE_SUB(NOW(), INTERVAL ? SECOND), NOW())");
-    mysqli_stmt_bind_param($sessStmt, "iiiii", $userId, $deckId, $savedCount, $rememberedCount, $durationSeconds);    mysqli_stmt_bind_param($sessStmt, "iiiiii", $userId, $deckId, $savedCount, $rememberedCount, $accuracy, $durationSeconds);
+        (user_id, deck_id, total_reviewed, remembered_count, started_at, ended_at)
+        VALUES (?, ?, ?, ?, DATE_SUB(NOW(), INTERVAL ? SECOND), NOW())");
+    mysqli_stmt_bind_param($sessStmt, "iiiii", $userId, $deckId, $savedCount, $rememberedCount, $durationSeconds);
     mysqli_stmt_execute($sessStmt);
     $sessionId = mysqli_insert_id($conn);
     mysqli_stmt_close($sessStmt);

@@ -59,6 +59,23 @@ if (!isset($displayName) || !isset($displayRole)) {
         }
     }
 }
+// 3. Saved appearance preference (light | dark | system)
+$userTheme = 'system';
+if ($user_id && isset($conn)) {
+    try {
+        if ($theme_stmt = mysqli_prepare($conn, "SELECT theme FROM user_settings WHERE user_id = ?")) {
+            mysqli_stmt_bind_param($theme_stmt, "i", $user_id);
+            mysqli_stmt_execute($theme_stmt);
+            mysqli_stmt_bind_result($theme_stmt, $savedTheme);
+            if (mysqli_stmt_fetch($theme_stmt) && in_array($savedTheme, ['light', 'dark', 'system'], true)) {
+                $userTheme = $savedTheme;
+            }
+            mysqli_stmt_close($theme_stmt);
+        }
+    } catch (Throwable $e) {
+        // theme column not added yet: fall back to "system"
+    }
+}
 ?>
 
 <style>
@@ -297,7 +314,7 @@ if (!isset($displayName) || !isset($displayRole)) {
                     class="w-9 h-9 rounded-full object-cover ring-2 ring-surface-container-highest group-hover:ring-primary/50 transition-all flex-shrink-0"
                     src="../assets/images/profile-picture.webp.jpg">
                 <div class="flex flex-col min-w-0 hide-collapsed">
-                    <span class="font-label-sm font-semibold text-on-surface leading-tight truncate">
+                    <span data-user-name class="font-label-sm font-semibold text-on-surface leading-tight truncate">
                         <?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?>
                     </span>
                     <span class="text-[11px] text-on-surface-variant font-medium leading-none tracking-wide mt-1">
@@ -318,7 +335,7 @@ if (!isset($displayName) || !isset($displayRole)) {
         <div id="settings-popover"
             class="hidden absolute bottom-[calc(100%+8px)] right-4 w-52 bg-surface-container-lowest border border-outline-variant/30 shadow-xl rounded-xl py-1.5 z-[100] transform origin-bottom-right">
             <div class="px-3 py-2 border-b border-outline-variant/20 mb-1">
-                <p class="text-xs font-semibold text-on-surface truncate"><?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?></p>
+                <p data-user-name class="text-xs font-semibold text-on-surface truncate"><?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?></p>
                 <p class="text-[10px] text-on-surface-variant truncate"><?php echo htmlspecialchars($displayRole, ENT_QUOTES, 'UTF-8'); ?></p>
             </div>
             <button type="button" data-open-settings="account"
@@ -362,7 +379,9 @@ if (!isset($displayName) || !isset($displayRole)) {
            rounded-2xl bg-surface-container-lowest text-on-surface
            border border-outline-variant/40 shadow-2xl
            backdrop:bg-black/50 backdrop:backdrop-blur-sm"
-    data-csrf="<?= htmlspecialchars($_SESSION['settings_csrf'], ENT_QUOTES, 'UTF-8') ?>">
+    data-csrf="<?= htmlspecialchars($_SESSION['settings_csrf'], ENT_QUOTES, 'UTF-8') ?>"
+    data-account-api="<?= htmlspecialchars(BASE_URL . 'api/account-actions.php', ENT_QUOTES, 'UTF-8') ?>"
+    data-theme="<?= htmlspecialchars($userTheme, ENT_QUOTES, 'UTF-8') ?>">
 
     <div class="flex flex-col max-h-[85vh]">
 
@@ -387,23 +406,39 @@ if (!isset($displayName) || !isset($displayRole)) {
 
         <!-- Tabs -->
         <div class="px-6 pt-4">
-            <div class="flex gap-2 border-b border-outline-variant/30"
+            <div class="flex gap-2 border-b border-outline-variant/30 overflow-x-auto"
                  role="tablist" aria-label="Settings sections">
 
                 <button type="button" id="settings-tab-system"
                     role="tab" aria-controls="settings-panel-system"
                     aria-selected="true" data-settings-tab="system"
-                    class="px-4 py-3 text-sm font-semibold border-b-2 border-primary text-primary">
+                    class="px-4 py-3 text-sm font-semibold border-b-2 border-primary text-primary shrink-0">
                     <span class="material-symbols-outlined text-[18px] align-middle mr-1">tune</span>
                     System
+                </button>
+
+                <button type="button" id="settings-tab-appearance"
+                    role="tab" aria-controls="settings-panel-appearance"
+                    aria-selected="false" data-settings-tab="appearance"
+                    class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-on-surface-variant shrink-0">
+                    <span class="material-symbols-outlined text-[18px] align-middle mr-1">palette</span>
+                    Appearance
                 </button>
 
                 <button type="button" id="settings-tab-account"
                     role="tab" aria-controls="settings-panel-account"
                     aria-selected="false" data-settings-tab="account"
-                    class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-on-surface-variant">
+                    class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-on-surface-variant shrink-0">
                     <span class="material-symbols-outlined text-[18px] align-middle mr-1">person</span>
-                    Account
+                    Profile
+                </button>
+
+                <button type="button" id="settings-tab-security"
+                    role="tab" aria-controls="settings-panel-security"
+                    aria-selected="false" data-settings-tab="security"
+                    class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-on-surface-variant shrink-0">
+                    <span class="material-symbols-outlined text-[18px] align-middle mr-1">lock</span>
+                    Security
                 </button>
             </div>
         </div>
@@ -468,47 +503,152 @@ if (!isset($displayName) || !isset($displayRole)) {
                 </div>
             </section>
 
-            <!-- Account Settings -->
+            <!-- Appearance -->
+            <section id="settings-panel-appearance"
+                role="tabpanel" aria-labelledby="settings-tab-appearance"
+                class="hidden space-y-5">
+
+                <div>
+                    <h3 class="font-semibold text-base">Appearance</h3>
+                    <p class="text-sm text-on-surface-variant mt-1">
+                        Choose how MemPulse looks. Your choice is saved to your account.
+                    </p>
+                </div>
+
+                <fieldset class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <legend class="sr-only">Theme</legend>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="appearance" value="light" class="peer sr-only">
+                        <span class="flex flex-col items-center gap-2 p-4 rounded-xl border border-outline-variant/50
+                                     bg-surface-container-low text-sm font-medium transition-colors
+                                     peer-checked:border-primary peer-checked:ring-2 peer-checked:ring-primary/40
+                                     peer-focus-visible:ring-2 peer-focus-visible:ring-primary/40">
+                            <span class="material-symbols-outlined text-[28px]">light_mode</span>
+                            Light
+                        </span>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="appearance" value="dark" class="peer sr-only">
+                        <span class="flex flex-col items-center gap-2 p-4 rounded-xl border border-outline-variant/50
+                                     bg-surface-container-low text-sm font-medium transition-colors
+                                     peer-checked:border-primary peer-checked:ring-2 peer-checked:ring-primary/40
+                                     peer-focus-visible:ring-2 peer-focus-visible:ring-primary/40">
+                            <span class="material-symbols-outlined text-[28px]">dark_mode</span>
+                            Dark
+                        </span>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="appearance" value="system" class="peer sr-only">
+                        <span class="flex flex-col items-center gap-2 p-4 rounded-xl border border-outline-variant/50
+                                     bg-surface-container-low text-sm font-medium transition-colors
+                                     peer-checked:border-primary peer-checked:ring-2 peer-checked:ring-primary/40
+                                     peer-focus-visible:ring-2 peer-focus-visible:ring-primary/40">
+                            <span class="material-symbols-outlined text-[28px]">brightness_auto</span>
+                            Use device setting
+                        </span>
+                    </label>
+                </fieldset>
+
+                <p id="appearance-status" class="text-sm" role="status" aria-live="polite"></p>
+            </section>
+
+            <!-- Profile -->
             <section id="settings-panel-account"
                 role="tabpanel" aria-labelledby="settings-tab-account"
                 class="hidden space-y-5">
 
                 <div>
-                    <h3 class="font-semibold text-base">Account information</h3>
+                    <h3 class="font-semibold text-base">Profile</h3>
                     <p class="text-sm text-on-surface-variant mt-1">
-                        Manage your profile and account security.
+                        Update your name and email address.
                     </p>
                 </div>
 
-                <div class="flex items-start gap-3 p-4 rounded-xl
-                            border border-outline-variant/30">
-                    <span class="material-symbols-outlined text-2xl text-primary">
-                        account_circle
-                    </span>
-                    <div>
-                        <p class="font-medium text-sm">Profile information</p>
-                        <p class="text-sm text-on-surface-variant mt-1">
-                            Your name and email address.
-                        </p>
+                <form id="profile-form" class="space-y-4" novalidate>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <label class="block space-y-2">
+                            <span class="text-sm font-medium">First name</span>
+                            <input id="profile-first-name" type="text" maxlength="100" required autocomplete="given-name"
+                                class="w-full rounded-xl border border-outline-variant/50 bg-surface-container-low px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
+                        </label>
+
+                        <label class="block space-y-2">
+                            <span class="text-sm font-medium">Last name</span>
+                            <input id="profile-last-name" type="text" maxlength="100" required autocomplete="family-name"
+                                class="w-full rounded-xl border border-outline-variant/50 bg-surface-container-low px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
+                        </label>
+
+                        <label class="block space-y-2 sm:col-span-2">
+                            <span class="text-sm font-medium">Email address</span>
+                            <input id="profile-email" type="email" maxlength="255" required autocomplete="email"
+                                class="w-full rounded-xl border border-outline-variant/50 bg-surface-container-low px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
+                        </label>
+
+                        <label id="profile-password-wrap" class="hidden block space-y-2 sm:col-span-2">
+                            <span class="text-sm font-medium">Current password</span>
+                            <input id="profile-password" type="password" autocomplete="current-password"
+                                class="w-full rounded-xl border border-outline-variant/50 bg-surface-container-low px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
+                            <span class="block text-xs text-on-surface-variant">
+                                Enter your password to confirm the new email address.
+                            </span>
+                        </label>
                     </div>
+
+                    <p id="profile-meta" class="text-xs text-on-surface-variant"></p>
+
+                    <div class="flex items-center justify-between gap-3">
+                        <p id="profile-status" class="text-sm" role="status" aria-live="polite"></p>
+                        <button type="submit" id="profile-save" class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-primary text-on-primary hover:opacity-90 disabled:opacity-60">Save profile</button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Security -->
+            <section id="settings-panel-security"
+                role="tabpanel" aria-labelledby="settings-tab-security"
+                class="hidden space-y-5">
+
+                <div>
+                    <h3 class="font-semibold text-base">Password and security</h3>
+                    <p class="text-sm text-on-surface-variant mt-1">
+                        Change your password. You stay signed in on this device.
+                    </p>
                 </div>
 
-                <div class="flex items-start gap-3 p-4 rounded-xl
-                            border border-outline-variant/30">
-                    <span class="material-symbols-outlined text-2xl text-primary">
-                        lock
-                    </span>
-                    <div>
-                        <p class="font-medium text-sm">Password and security</p>
-                        <p class="text-sm text-on-surface-variant mt-1">
-                            Manage your password and account security.
-                        </p>
-                    </div>
-                </div>
+                <form id="password-form" class="space-y-4" novalidate>
+                    <label class="block space-y-2">
+                        <span class="text-sm font-medium">Current password</span>
+                        <input id="pw-current" type="password" required autocomplete="current-password"
+                            class="w-full rounded-xl border border-outline-variant/50 bg-surface-container-low px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
+                    </label>
 
-                <p class="text-xs text-on-surface-variant">
-                    Account editing will be implemented in a later phase.
-                </p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <label class="block space-y-2">
+                            <span class="text-sm font-medium">New password</span>
+                            <input id="pw-new" type="password" required minlength="8" autocomplete="new-password"
+                                class="w-full rounded-xl border border-outline-variant/50 bg-surface-container-low px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
+                            <span class="block text-xs text-on-surface-variant">At least 8 characters.</span>
+                        </label>
+
+                        <label class="block space-y-2">
+                            <span class="text-sm font-medium">Confirm new password</span>
+                            <input id="pw-confirm" type="password" required autocomplete="new-password"
+                                class="w-full rounded-xl border border-outline-variant/50 bg-surface-container-low px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
+                        </label>
+                    </div>
+
+                    <label class="inline-flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer">
+                        <input id="pw-show" type="checkbox" class="rounded border-outline-variant/50">
+                        Show passwords
+                    </label>
+
+                    <p id="pw-meta" class="text-xs text-on-surface-variant"></p>
+
+                    <div class="flex items-center justify-between gap-3">
+                        <p id="pw-status" class="text-sm" role="status" aria-live="polite"></p>
+                        <button type="submit" id="pw-save" class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-primary text-on-primary hover:opacity-90 disabled:opacity-60">Change password</button>
+                    </div>
+                </form>
             </section>
         </div>
 
@@ -688,6 +828,7 @@ if (!isset($displayName) || !isset($displayRole)) {
         const settingsOpeners = document.querySelectorAll('[data-open-settings]');
 
         function switchSettingsTab(tabName) {
+                document.getElementById('settings-save')?.classList.toggle('hidden', tabName !== 'system');
             settingsTabs.forEach((tab) => {
                 const active = tab.dataset.settingsTab === tabName;
 
@@ -872,3 +1013,5 @@ if (!isset($displayName) || !isset($displayRole)) {
         }
     });
 </script>
+
+<script src="<?php echo BASE_URL; ?>assets/js/account-settings.js" defer></script>

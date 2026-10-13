@@ -918,7 +918,7 @@ class ReportsService
      * Shared WHERE clause for review_sessions s (joined to decks d).
      * Returns [sql, bindTypes, bindParams].
      */
-    private static function sessionScope(int $userId, array $f): array
+    public static function sessionScope(int $userId, array $f): array
     {
         $sql    = "s.user_id = ? AND s.started_at >= ? AND s.started_at < ?";
         $types  = 'iss';
@@ -939,7 +939,7 @@ class ReportsService
         /**
      * WHERE for flashcards f (joined to decks d): current state, active cards only.
      */
-    private static function cardScope(int $userId, array $f): array
+    public static function cardScope(int $userId, array $f): array
     {
         $sql    = "d.user_id = ? AND f.deleted_at IS NULL";
         $types  = 'i';
@@ -961,7 +961,7 @@ class ReportsService
      * WHERE for review_logs l joined to review_sessions s and decks d (the session's deck).
      * Scoped to the user through the session; period applies to reviewed_at.
      */
-    private static function logScope(int $userId, array $f): array
+    public static function logScope(int $userId, array $f): array
     {
         $sql    = "s.user_id = ? AND l.reviewed_at >= ? AND l.reviewed_at < ?";
         $types  = 'iss';
