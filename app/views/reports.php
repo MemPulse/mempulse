@@ -19,6 +19,7 @@ $overview    = ReportsService::getOverview($conn, $userId, $filters);
 $decksReport = ReportsService::getDecksReport($conn, $userId, $filters);
 $drilldown   = ReportsService::getDeckDrilldown($conn, $userId, $filters);
 $cardsReport = ReportsService::getCardsReport($conn, $userId, $filters);
+$sessionsReport = ReportsService::getSessionsReport($conn, $userId, $filters);
 
 $pageTitle   = "Reports";
 $currentPage = "reports";
@@ -43,5 +44,6 @@ $currentPage = "reports";
     <script src="../assets/js/reports-overview.js?v=<?= filemtime(__DIR__ . '/../assets/js/reports-overview.js') ?>" defer></script>
     <script src="../assets/js/reports-decks.js?v=<?= filemtime(__DIR__ . '/../assets/js/reports-decks.js') ?>" defer></script>
     <script src="../assets/js/reports-cards.js?v=<?= filemtime(__DIR__ . '/../assets/js/reports-cards.js') ?>" defer></script>
+    <script src="../assets/js/reports-sessions.js?v=<?= filemtime(__DIR__ . '/../assets/js/reports-sessions.js') ?>" defer></script>
 </body>
 </html>

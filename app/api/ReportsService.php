@@ -740,6 +740,159 @@ class ReportsService
         ];
     }
  
+        /* ------------------------------------------------------------------ */
+    /*  SESSIONS TAB                                                       */
+    /* ------------------------------------------------------------------ */
+
+    public static function getSessionsReport(mysqli $conn, int $userId, array $f): array
+    {
+        $k = self::getKpis($conn, $userId, $f);   // same numbers as the Overview tab
+
+        return [
+            'completion' => [
+                'completed' => $k['sessions'],
+                'abandoned' => $k['abandoned'],
+                'started'   => $k['sessions'] + $k['abandoned'],
+                'rate'      => $k['completionRate'],
+            ],
+            'bestTime' => self::getBestTime($conn, $userId, $f),
+            'history'  => self::getSessionHistory($conn, $userId, $f),
+        ];
+    }
+
+    /**
+     * Reviews and accuracy by hour of day and by weekday (from review_logs.reviewed_at).
+     */
+    private static function getBestTime(mysqli $conn, int $userId, array $f): array
+    {
+        [$where, $types, $params] = self::logScope($userId, $f);
+
+        $sql = "SELECT HOUR(l.reviewed_at) AS hr, WEEKDAY(l.reviewed_at) AS wd,
+                       COUNT(*) AS n, SUM(l.rating = 'remembered') AS ok
+                FROM review_logs l
+                JOIN review_sessions s ON s.id = l.session_id
+                JOIN decks d ON d.id = s.deck_id
+                WHERE $where
+                GROUP BY hr, wd";
+
+        $hourN = array_fill(0, 24, 0);
+        $hourOk = array_fill(0, 24, 0);
+        $dayN  = array_fill(0, 7, 0);
+        $dayOk = array_fill(0, 7, 0);
+
+        foreach (self::fetchAll($conn, $sql, $types, $params) as $r) {
+            $hr = (int) $r['hr'];
+            $wd = (int) $r['wd'];   // 0 = Monday
+            $hourN[$hr]  += (int) $r['n'];
+            $hourOk[$hr] += (int) $r['ok'];
+            $dayN[$wd]   += (int) $r['n'];
+            $dayOk[$wd]  += (int) $r['ok'];
+        }
+
+        $acc = fn($ok, $n) => $n > 0 ? round(($ok / $n) * 100, 1) : null;
+
+        $hourLabels = $hourAcc = [];
+        for ($i = 0; $i < 24; $i++) {
+            $hourLabels[] = (($i % 12) === 0 ? 12 : $i % 12) . ($i < 12 ? 'a' : 'p');
+            $hourAcc[]    = $acc($hourOk[$i], $hourN[$i]);
+        }
+        $dayAcc = [];
+        for ($i = 0; $i < 7; $i++) {
+            $dayAcc[] = $acc($dayOk[$i], $dayN[$i]);
+        }
+
+        $dayNames   = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        $minSample  = 20;
+
+        // Index with the most reviews, or the best accuracy among buckets with enough reviews.
+        $pick = function (array $n, array $ok, bool $byAccuracy) use ($minSample): ?int {
+            $best = null;
+            $bestVal = -1;
+            foreach ($n as $i => $cnt) {
+                if ($byAccuracy) {
+                    if ($cnt < $minSample) {
+                        continue;
+                    }
+                    $val = $ok[$i] / $cnt;
+                } else {
+                    if ($cnt === 0) {
+                        continue;
+                    }
+                    $val = $cnt;
+                }
+                if ($val > $bestVal) {
+                    $bestVal = $val;
+                    $best    = $i;
+                }
+            }
+            return $best;
+        };
+
+        $hourName = fn(int $h) => date('g A', mktime($h, 0, 0, 1, 1, 2000));
+
+        $bh = $pick($hourN, $hourOk, false);
+        $ah = $pick($hourN, $hourOk, true);
+        $bd = $pick($dayN, $dayOk, false);
+        $ad = $pick($dayN, $dayOk, true);
+
+        return [
+            'hasData'  => array_sum($hourN) > 0,
+            'hours'    => ['labels' => $hourLabels, 'reviews' => $hourN, 'accuracy' => $hourAcc],
+            'days'     => ['labels' => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], 'reviews' => $dayN, 'accuracy' => $dayAcc],
+            'insights' => [
+                'busiestHour'  => $bh === null ? null : ['label' => $hourName($bh), 'value' => number_format($hourN[$bh]) . ' reviews'],
+                'accurateHour' => $ah === null ? null : ['label' => $hourName($ah), 'value' => $acc($hourOk[$ah], $hourN[$ah]) . '%'],
+                'busiestDay'   => $bd === null ? null : ['label' => $dayNames[$bd], 'value' => number_format($dayN[$bd]) . ' reviews'],
+                'accurateDay'  => $ad === null ? null : ['label' => $dayNames[$ad], 'value' => $acc($dayOk[$ad], $dayN[$ad]) . '%'],
+            ],
+            'minSample' => $minSample,
+        ];
+    }
+
+    /**
+     * One row per session in the period, newest first (latest 100) plus the total count.
+     */
+    private static function getSessionHistory(mysqli $conn, int $userId, array $f): array
+    {
+        [$where, $types, $params] = self::sessionScope($userId, $f);
+
+        $count = self::fetchAll(
+            $conn,
+            "SELECT COUNT(*) AS c FROM review_sessions s JOIN decks d ON d.id = s.deck_id WHERE $where",
+            $types,
+            $params
+        );
+        $total = (int) ($count[0]['c'] ?? 0);
+
+        $sql = "SELECT s.id, s.started_at, s.ended_at, s.total_reviewed, s.remembered_count,
+                       d.title AS deck_title, d.deleted_at AS deck_deleted
+                FROM review_sessions s
+                JOIN decks d ON d.id = s.deck_id
+                WHERE $where
+                ORDER BY s.started_at DESC, s.id DESC
+                LIMIT 100";
+
+        $rows = [];
+        foreach (self::fetchAll($conn, $sql, $types, $params) as $r) {
+            $reviewed   = (int) $r['total_reviewed'];
+            $remembered = (int) $r['remembered_count'];
+            $done       = $r['ended_at'] !== null;
+
+            $rows[] = [
+                'id'         => (int) $r['id'],
+                'startedAt'  => $r['started_at'],
+                'completed'  => $done,
+                'seconds'    => $done ? max(0, strtotime($r['ended_at']) - strtotime($r['started_at'])) : 0,
+                'reviewed'   => $reviewed,
+                'remembered' => $remembered,
+                'accuracy'   => $reviewed > 0 ? round(($remembered / $reviewed) * 100, 1) : null,
+                'deck'       => $r['deck_title'],
+                'archived'   => $r['deck_deleted'] !== null,
+            ];
+        }
+
+        return ['total' => $total, 'rows' => $rows];
+    }
 
     /* ------------------------------------------------------------------ */
     /*  HELPERS                                                            */

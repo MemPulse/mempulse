@@ -216,4 +216,9 @@ th[aria-sort="descending"] .rp-sort-btn::after {
         color: inherit !important;
         text-decoration: none !important;
     }
+
+    /* Session history: only the first 25 rows go on paper */
+    .rp-print-extra {
+        display: none !important;
+    }
 }
