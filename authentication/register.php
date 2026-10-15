@@ -27,6 +27,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         die("The passwords do not match. Please go back and try again.");
     }
 
+    // --- NEW EMAIL VALIDATION START --- //
+    
+    // Check if the email format is perfectly valid
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        die("Error: Invalid email format.");
+    }
+
+    // Extract the domain (everything after the @ symbol)
+    $domain = substr(strrchr($email, "@"), 1);
+
+    // Check if the domain has a valid Mail Exchange (MX) record
+    if (!checkdnsrr($domain, "MX")) {
+        die("Error: The email domain does not exist or cannot receive mail.");
+    }
+    
+    // --- NEW EMAIL VALIDATION END --- //
+
+
     // 4. Check for existing email (Prepare -> Bind -> Execute)
     $check_sql  = "SELECT id FROM users WHERE email = ?";
     $check_stmt = mysqli_prepare($conn, $check_sql);

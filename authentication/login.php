@@ -55,125 +55,513 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Sign in or create an account for MemPulse.">
     <title>MemPulse | Welcome</title>
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            color-scheme: light;
+            --surface: #faf8ff;
+            --surface-card: #ffffff;
+            --surface-container: #eaedff;
+            --surface-pulse: #d2d8ff;
+            --ink: #131b2e;
+            --muted: #464555;
+            --primary: #3525cd;
+            --primary-deep: #1e00a9;
+            --secondary: #4b41e1;
+            --radius-lg: 1rem;
+            --radius-xl: 1.25rem;
+            --shadow-card: 0 20px 50px rgba(53, 37, 205, .10);
+            --line: rgba(199, 196, 216, .48);
+            --error: #d93025;
+            --error-bg: #fce8e6;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: var(--surface);
+            color: var(--ink);
+            font-family: "Inter", sans-serif;
+            font-size: 1rem;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 1.5rem;
+        }
+
+        .material-symbols-outlined {
+            font-family: "Material Symbols Outlined";
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            font-feature-settings: "liga";
+            -webkit-font-feature-settings: "liga";
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .auth-container {
+            width: 100%;
+            max-width: 440px;
+            background: var(--surface-card);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-card);
+            border: 1px solid var(--line);
+            padding: 2.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .brand-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        @keyframes pulse-bg {
+            0%, 100% { background-color: var(--surface-container); }
+            50% { background-color: var(--surface-pulse); }
+        }
+
+        .logo-icon {
+            display: grid;
+            width: 3.5rem;
+            height: 3.5rem;
+            place-items: center;
+            border-radius: 1rem;
+            background: var(--surface-container);
+            color: rgb(53, 37, 205);
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            animation: pulse-bg 2.5s infinite ease-in-out;
+        }
+
+        .brand-header h1 {
+            margin: 0;
+            font-family: "Plus Jakarta Sans", sans-serif;
+            font-weight: 800;
+            font-size: 1.8rem;
+            letter-spacing: -.04em;
+        }
+
+        .brand-header p {
+            margin: 0.5rem 0 0;
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.15rem; /* Slightly increased gap for error messages */
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .form-group label:not(.check-label) {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--ink);
+        }
+
+        .required-indicator { color: var(--error); }
+
+        .form-group input:not([type="checkbox"]) {
+            width: 100%;
+            height: 3rem;
+            border: 1px solid var(--line);
+            border-radius: 0.5rem;
+            padding: 0 1rem;
+            font-family: inherit;
+            font-size: 0.95rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-group input:not([type="checkbox"]):focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(53, 37, 205, 0.15);
+        }
+
+        /* Validation Styles */
+        .form-group input.input-error {
+            border-color: var(--error) !important;
+        }
+        .form-group input.input-error:focus {
+            box-shadow: 0 0 0 3px rgba(217, 48, 37, 0.15) !important;
+        }
+        
+        .error-text {
+            color: var(--error);
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-top: -0.1rem;
+            display: none;
+        }
+        .error-text.active {
+            display: block;
+        }
+        
+        .check-error-text {
+            color: var(--error);
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-top: 0.2rem;
+            display: none;
+            margin-left: 1.6rem; /* Align with text, skipping checkbox */
+        }
+        .check-error-text.active {
+            display: block;
+        }
+
+        .btn-primary {
+            min-height: 3rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            border-radius: 999px;
+            padding: 0.7rem 1.25rem;
+            background: var(--primary);
+            color: #fff;
+            font: 700 0.95rem/1.2 "Plus Jakarta Sans", sans-serif;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 8px 22px rgba(53, 37, 205, 0.22);
+            margin-top: 0.5rem;
+        }
+
+        .btn-primary:hover {
+            background: var(--secondary);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 26px rgba(75, 65, 225, 0.28);
+        }
+
+        .form-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            margin-top: -0.5rem; /* Pull up closer to password */
+        }
+
+        .check-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        
+        .check-label input[type="checkbox"] {
+            width: 1.1rem;
+            height: 1.1rem;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        a:hover { text-decoration: underline; }
+
+        .auth-message {
+            font-size: 0.85rem;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .auth-message-error {
+            display: block;
+            background: var(--error-bg);
+            color: #c5221f;
+            border: 1px solid #f9d0c4;
+        }
+        
+        .auth-message-success {
+            display: block;
+            background: #e6f4ea;
+            color: #137333;
+            border: 1px solid #ceead6;
+        }
+
+        .toggle-view {
+            text-align: center;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
+
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+        .field-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+    </style>
 </head>
-
 <body>
-    <main class="auth-shell" id="auth-shell">
-        <section class="story-panel" aria-label="MemPulse introduction">
-            <a class="brand" href="../landing-page/index.html" aria-label="MemPulse home">
-                <span class="brand-mark" aria-hidden="true">M</span>
-                <span>MemPulse</span>
-            </a>
 
-            <div class="story-copy story-copy-signup">
-                <p class="eyebrow">A calmer way to study</p>
-                <h1>Make every review <em>count.</em></h1>
-                <p>Turn scattered notes into a steady rhythm of small wins, with memory science quietly working in the background.</p>
-            </div>
+    <main class="auth-container">
+        <div class="brand-header">
+            <span class="material-symbols-outlined logo-icon" aria-hidden="true">neurology</span>
+            <h1>MemPulse</h1>
+            <p id="header-desc">Welcome back to your rhythm.</p>
+        </div>
 
-            <div class="story-copy story-copy-login" aria-hidden="true">
-                <p class="eyebrow">Welcome back to your rhythm</p>
-                <h1>Your next <em>breakthrough</em> is waiting.</h1>
-                <p>Pick up exactly where you left off and keep your hard-won knowledge moving forward.</p>
-            </div>
+        <!-- Login View -->
+        <section id="login-view" class="view-section active">
+            <?php if (isset($_GET['error'])): ?>
+                <div class="auth-message auth-message-error" role="alert">
+                    <?php 
+                        if ($_GET['error'] === 'pending_approval') echo "Your account is waiting for approval. Please try again after it has been approved.";
+                        elseif ($_GET['error'] === 'invalid_credentials') echo "Invalid email or password.";
+                        elseif ($_GET['error'] === 'empty_fields') echo "Please enter your email and password.";
+                    ?>
+                </div>
+            <?php endif; ?>
+            
+            <?php if (isset($_GET['registered']) && $_GET['registered'] === 'approved'): ?>
+                <div class="auth-message auth-message-success" role="status">
+                    Registration confirmed. You can now log in.
+                </div>
+            <?php endif; ?>
 
-            <div class="memory-scene" aria-hidden="true">
-                <span class="orbit orbit-one"></span>
-                <span class="orbit orbit-two"></span>
-                <span class="memory-card memory-card-main"><strong>JavaScript</strong><small>14 cards due</small><span class="progress"><i></i></span></span>
-                <span class="memory-card memory-card-small">+ 3 new decks</span>
-                <span class="scene-dot scene-dot-coral"></span>
-                <span class="scene-dot scene-dot-yellow"></span>
-            </div>
+            <!-- Added novalidate to bypass default browser tooltips -->
+            <form class="auth-form" id="form-login" action="login.php" method="POST" autocomplete="off" novalidate>
+                <div class="form-group">
+                    <label>Email address <span class="required-indicator">*</span></label>
+                    <input type="email" id="login-email" name="login-email" placeholder="student@university.edu" autocomplete="off">
+                    <span class="error-text" id="err-login-email">Please enter a valid email address.</span>
+                </div>
+                <div class="form-group">
+                    <label>Password <span class="required-indicator">*</span></label>
+                    <input type="password" id="login-password" name="login-password" placeholder="••••••••" autocomplete="new-password">
+                    <span class="error-text" id="err-login-password">Password is required.</span>
+                </div>
+                
+                <div class="form-options">
+                    <label class="check-label">
+                        <input type="checkbox" onchange="document.getElementById('login-password').type = this.checked ? 'text' : 'password'">
+                        <span>Show password</span>
+                    </label>
+                    <a href="#forgot">Forgot password?</a>
+                </div>
 
-            <div class="story-footer">
-                <span>Built for curious minds</span>
-                <!-- <span class="footer-dots" aria-hidden="true"><i></i><i></i><i></i></span> -->
+                <button class="btn-primary" type="submit">Log In</button>
+            </form>
+
+            <div class="toggle-view">
+                New to MemPulse? <a href="#" onclick="toggleView('signup'); return false;">Create an account</a>
             </div>
         </section>
 
-        <section class="form-panel">
-            <div class="form-panel-inner">
-                <div class="form-view signup-view">
-                    <p class="eyebrow">Start learning smarter!</p>
-                    <h2>Create an account</h2>
-                    <p class="form-intro">Already have an account? <button class="text-button switch-to-login" type="button">Log in</button></p>
-
-                    <form class="auth-form" id="signup-form" method="POST" action="register.php">
-                        <p class="auth-message" id="signup-message" role="status" aria-live="polite"></p>
-                        <div class="field-row">
-                            <label><span class="field-label">First name <span class="required-indicator" aria-hidden="true">*</span></span><input type="text" name="first-name" autocomplete="given-name" placeholder="Juan" required></label>
-                            <label><span class="field-label">Last name <span class="required-indicator" aria-hidden="true">*</span></span><input type="text" name="last-name" autocomplete="family-name" placeholder="Dela Cruz" required></label>
-                        </div>
-                        <label><span class="field-label">Email address <span class="required-indicator" aria-hidden="true">*</span></span><input type="email" name="email" autocomplete="email" placeholder="juandelacruz@example.com" required></label>
-                        <label>
-                            <span class="field-label">Password <span class="required-indicator" aria-hidden="true">*</span></span>
-                            <input type="password" id="register-password" name="password" autocomplete="new-password" placeholder="At least 8 characters" minlength="8" required>
-                        </label>
-                        <label>
-                            <span class="field-label">Confirm password <span class="required-indicator" aria-hidden="true">*</span></span>
-                            <input type="password" id="confirm-password" name="confirm-password" autocomplete="new-password" placeholder="Re-enter your password" minlength="8" required>
-                        </label>
-                        <label class="check-label password-toggle"><input type="checkbox" data-toggle-password="register-password,confirm-password"><span>Show passwords</span></label>
-                        <label class="check-label"><input type="checkbox" name="terms" required><span>I agree to the <a href="terms.html">Terms &amp; Conditions</a> <span class="required-indicator" aria-hidden="true">*</span></span></label>
-                        <button class="primary-button" type="submit">Create account <span aria-hidden="true">→</span></button>
-                    </form>
-
+        <!-- Signup View -->
+        <section id="signup-view" class="view-section">
+            <!-- Added novalidate to bypass default browser tooltips -->
+            <form class="auth-form" id="form-signup" action="register.php" method="POST" autocomplete="off" novalidate>
+                <div class="field-row">
+                    <div class="form-group">
+                        <label>First name <span class="required-indicator">*</span></label>
+                        <input type="text" id="first-name" name="first-name" autocomplete="off">
+                        <span class="error-text" id="err-first-name">First name is required.</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Last name <span class="required-indicator">*</span></label>
+                        <input type="text" id="last-name" name="last-name" autocomplete="off">
+                        <span class="error-text" id="err-last-name">Last name is required.</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Email address <span class="required-indicator">*</span></label>
+                    <input type="email" id="signup-email" name="email" autocomplete="off">
+                    <span class="error-text" id="err-signup-email">Please enter a valid email address.</span>
+                </div>
+                <div class="form-group">
+                    <label>Password <span class="required-indicator">*</span></label>
+                    <input type="password" id="signup-password" name="password" autocomplete="new-password">
+                    <span class="error-text" id="err-signup-password">Password must be at least 8 characters.</span>
+                </div>
+                <div class="form-group">
+                    <label>Confirm password <span class="required-indicator">*</span></label>
+                    <input type="password" id="confirm-password" name="confirm-password" autocomplete="new-password">
+                    <span class="error-text" id="err-confirm-password">Passwords do not match.</span>
+                </div>
+                
+                <div class="form-options">
+                    <label class="check-label">
+                        <input type="checkbox" onchange="
+                            const isChecked = this.checked;
+                            document.getElementById('signup-password').type = isChecked ? 'text' : 'password';
+                            document.getElementById('confirm-password').type = isChecked ? 'text' : 'password';
+                        ">
+                        <span>Show passwords</span>
+                    </label>
+                </div>
+                
+                <div>
+                    <label class="check-label" style="margin-top: 0.5rem;">
+                        <input type="checkbox" id="terms" name="terms">
+                        <span>I agree to the <a href="terms.html">Terms &amp; Conditions</a> and <a href="privacy-policy.html">Privacy Policy</a> <span class="required-indicator">*</span></span>
+                    </label>
+                    <span class="check-error-text" id="err-terms">You must agree to the terms to continue.</span>
                 </div>
 
-                <div class="form-view login-view" aria-hidden="true">
-                    <p class="eyebrow">Good to see you again!</p>
-                    <h2>Log in</h2>
-                    <p class="form-intro">New to MemPulse? <button class="text-button switch-to-signup" type="button">Create an account</button></p>
-                    <?php if (isset($_GET['error']) && $_GET['error'] === 'pending_approval'): ?>
-                        <p class="auth-message auth-message-error" role="alert">Your account is waiting for approval. Please try again after it has been approved.</p>
-                    <?php elseif (isset($_GET['error']) && $_GET['error'] === 'invalid_credentials'): ?>
-                        <p class="auth-message auth-message-error" role="alert">Invalid email or password.</p>
-                    <?php elseif (isset($_GET['error']) && $_GET['error'] === 'empty_fields'): ?>
-                        <p class="auth-message auth-message-error" role="alert">Please enter your email and password.</p>
-                    <?php endif; ?>
-                    <?php if (isset($_GET['registered']) && $_GET['registered'] === 'approved'): ?>
-                        <p class="auth-message" role="status">Demo approval confirmed. You can now log in.</p>
-                    <?php endif; ?>
+                <button class="btn-primary" type="submit">Create Account</button>
+            </form>
 
-                    <!-- Added action and method attributes below -->
-                    <form class="auth-form" id="login-form" action="login.php" method="POST">
-                        <label>
-                            <span class="field-label">Email address <span class="required-indicator" aria-hidden="true">*</span></span>
-                            <input type="email" name="login-email" autocomplete="email" placeholder="juandelacruz@example.com" required>
-                        </label>
-                        <label>
-                            <span class="field-label">Password <span class="required-indicator" aria-hidden="true">*</span></span>
-                            <input type="password" id="login-password" name="login-password" autocomplete="current-password" placeholder="Your password" required>
-                        </label>
-                        <label class="check-label password-toggle"><input type="checkbox" data-toggle-password="login-password"><span>Show password</span></label>
-                        <p class="auth-message" id="auth-message" role="status" aria-live="polite"></p>
-                        <div class="form-options">
-                            <label class="check-label">
-                                <input type="checkbox" name="remember"><span>Remember me</span>
-                            </label>
-                            <a href="#forgot-password" id="forgot-password-link">Forgot password?</a>
-                        </div>
-                        <button class="primary-button" type="submit">Log in <span aria-hidden="true">→</span></button>
-                    </form>
-
-                </div>
+            <div class="toggle-view">
+                Already have an account? <a href="#" onclick="toggleView('login'); return false;">Log in</a>
             </div>
-            <p class="form-note">By continuing, you agree to MemPulse's <a href="#privacy">Privacy Policy</a>.</p>
         </section>
     </main>
 
-    <script src="script.js"></script>
-</body>
+    <script>
+        // Form View Toggling
+        function toggleView(view) {
+            document.getElementById('login-view').classList.remove('active');
+            document.getElementById('signup-view').classList.remove('active');
+            
+            // Clear all errors when switching views
+            document.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
+            document.querySelectorAll('.error-text, .check-error-text').forEach(el => el.classList.remove('active'));
+            
+            if(view === 'signup') {
+                document.getElementById('signup-view').classList.add('active');
+                document.getElementById('header-desc').innerText = 'Start learning smarter.';
+            } else {
+                document.getElementById('login-view').classList.add('active');
+                document.getElementById('header-desc').innerText = 'Welcome back to your rhythm.';
+            }
+        }
+        
+        if (window.location.hash === '#signup') {
+            toggleView('signup');
+        } else if (window.location.hash === '#login') {
+            toggleView('login');
+        }
 
+        // Custom Form Validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        function showError(inputId, errorId, show = true) {
+            const input = document.getElementById(inputId);
+            const errorMsg = document.getElementById(errorId);
+            if (show) {
+                if(input) input.classList.add('input-error');
+                if(errorMsg) errorMsg.classList.add('active');
+            } else {
+                if(input) input.classList.remove('input-error');
+                if(errorMsg) errorMsg.classList.remove('active');
+            }
+        }
+
+        // Login Form Validation
+        document.getElementById('form-login').addEventListener('submit', function(e) {
+            let isValid = true;
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+
+            // Reset errors
+            showError('login-email', 'err-login-email', false);
+            showError('login-password', 'err-login-password', false);
+
+            if (!emailRegex.test(email)) {
+                showError('login-email', 'err-login-email');
+                isValid = false;
+            }
+
+            if (password === '') {
+                showError('login-password', 'err-login-password');
+                isValid = false;
+            }
+
+            if (!isValid) e.preventDefault(); // Stop submission if invalid
+        });
+
+        // Signup Form Validation
+        document.getElementById('form-signup').addEventListener('submit', function(e) {
+            let isValid = true;
+            
+            const fname = document.getElementById('first-name').value.trim();
+            const lname = document.getElementById('last-name').value.trim();
+            const email = document.getElementById('signup-email').value.trim();
+            const pass = document.getElementById('signup-password').value;
+            const confirmPass = document.getElementById('confirm-password').value;
+            const terms = document.getElementById('terms').checked;
+
+            // Reset all errors
+            ['first-name', 'last-name', 'signup-email', 'signup-password', 'confirm-password'].forEach(id => {
+                showError(id, 'err-' + id, false);
+            });
+            document.getElementById('err-terms').classList.remove('active');
+
+            if (fname === '') { showError('first-name', 'err-first-name'); isValid = false; }
+            
+            if (lname === '') { showError('last-name', 'err-last-name'); isValid = false; }
+            
+            if (!emailRegex.test(email)) { showError('signup-email', 'err-signup-email'); isValid = false; }
+            
+            if (pass.length < 8) { showError('signup-password', 'err-signup-password'); isValid = false; }
+            
+            if (pass !== confirmPass || confirmPass === '') { 
+                showError('confirm-password', 'err-confirm-password'); 
+                isValid = false; 
+            }
+            
+            if (!terms) { 
+                document.getElementById('err-terms').classList.add('active'); 
+                isValid = false; 
+            }
+
+            if (!isValid) e.preventDefault(); // Stop submission if invalid
+        });
+
+        // Clear error styling on input typing
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', function() {
+                this.classList.remove('input-error');
+                const err = document.getElementById('err-' + this.id);
+                if (err) err.classList.remove('active');
+                
+                // Special case for checkbox
+                if (this.id === 'terms') {
+                    document.getElementById('err-terms').classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
 </html>

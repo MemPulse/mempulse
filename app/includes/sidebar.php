@@ -138,9 +138,8 @@ if ($user_id && isset($conn)) {
         justify-content: center !important;
     }
 
-    #sidebar.collapsed #profile-popover-trigger img {
-        width: 36px;
-        height: 36px;
+    #sidebar.collapsed #profile-popover-trigger .material-symbols-outlined {
+        font-size: 28px !important;
     }
 
     #sidebar.collapsed #settings-popover-trigger {
@@ -196,6 +195,19 @@ if ($user_id && isset($conn)) {
         border-right-color: transparent;
         border-left-color: #1e293b;
     }
+   @keyframes memory-pulse {
+        /* A soft light blue, but very faint (10% opacity) */
+        0%, 100% { background-color: rgba(56, 189, 248, 0.10); } 
+        50% { background-color: rgba(56, 189, 248, 0); }
+    }
+    .memory-pulse-bg {
+        animation: memory-pulse 2.5s ease-in-out infinite;
+        border-radius: 50%;
+        /* Add slight padding so the background wraps nicely around the icon */
+        padding: 4px;
+        /* Negative margin offsets the padding so the icon doesn't shift out of alignment */
+        margin-left: -4px; 
+    }
 </style>
 
 <!-- Floating Mobile Menu Button -->
@@ -227,7 +239,7 @@ if ($user_id && isset($conn)) {
     <div class="flex flex-col gap-4 px-4 pt-6 pb-2 transition-all">
         <!-- Logo -->
         <div class="sidebar-row flex items-center gap-3 h-8">
-            <span class="material-symbols-outlined text-[28px] text-primary">neurology</span>
+            <span class="material-symbols-outlined text-[28px] text-primary memory-pulse-bg">neurology</span>
             <span class="logo-text font-headline-sm text-xl font-bold tracking-tight text-on-surface transition-all duration-200">MemPulse</span>
         </div>
                 
@@ -310,9 +322,7 @@ if ($user_id && isset($conn)) {
                 class="sidebar-tooltip sidebar-row flex items-center gap-3 text-left group hover:opacity-80 transition-opacity flex-1 min-w-0 outline-none rounded-xl"
                 data-tooltip="Account menu" title="Account menu" aria-label="Open account menu"
                 aria-haspopup="true" aria-controls="settings-popover" aria-expanded="false">
-                <img alt="User Avatar"
-                    class="w-9 h-9 rounded-full object-cover ring-2 ring-surface-container-highest group-hover:ring-primary/50 transition-all flex-shrink-0"
-                    src="../assets/images/profile-picture.webp.jpg">
+                <span class="material-symbols-outlined text-[32px] flex-shrink-0 transition-all group-hover:scale-105" style="color: rgb(53, 37, 205);">account_circle</span>
                 <div class="flex flex-col min-w-0 hide-collapsed">
                     <span data-user-name class="font-label-sm font-semibold text-on-surface leading-tight truncate">
                         <?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?>

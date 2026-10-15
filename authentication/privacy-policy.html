@@ -6,99 +6,240 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="The privacy policy for using MemPulse.">
     <title>MemPulse | Privacy Policy</title>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            color-scheme: light;
+            --surface: #faf8ff;
+            --surface-card: #ffffff;
+            --surface-container: #eaedff;
+            --ink: #131b2e;
+            --muted: #464555;
+            --primary: #3525cd;
+            --primary-deep: #1e00a9;
+            --radius-xl: 1.25rem;
+            --shadow-card: 0 20px 50px rgba(53, 37, 205, .08);
+            --line: rgba(199, 196, 216, .48);
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--surface);
+            color: var(--ink);
+            font-family: "Inter", sans-serif;
+            font-size: 1rem;
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+            padding: 3rem 1.5rem;
+        }
+
+        .material-symbols-outlined {
+            font-family: "Material Symbols Outlined";
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            font-feature-settings: "liga";
+            -webkit-font-feature-settings: "liga";
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .document-container {
+            width: 100%;
+            max-width: 720px;
+            margin: 0 auto;
+            background: var(--surface-card);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-card);
+            border: 1px solid var(--line);
+            padding: clamp(2rem, 5vw, 4rem);
+        }
+
+        .brand-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            text-decoration: none;
+            color: var(--ink);
+            font-family: "Plus Jakarta Sans", sans-serif;
+            font-weight: 800;
+            font-size: 1.25rem;
+            letter-spacing: -.04em;
+            margin-bottom: 2.5rem;
+        }
+
+        .logo-icon {
+            display: grid;
+            width: 2.4rem;
+            height: 2.4rem;
+            place-items: center;
+            border-radius: 0.75rem;
+            background: var(--surface-container);
+            color: rgb(53, 37, 205);
+            font-size: 1.4rem;
+        }
+
+        .document-header {
+            margin-bottom: 3rem;
+        }
+
+        .eyebrow {
+            color: var(--primary);
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin: 0 0 0.75rem 0;
+        }
+
+        .document-header h1 {
+            margin: 0 0 0.5rem 0;
+            font-family: "Plus Jakarta Sans", sans-serif;
+            font-weight: 800;
+            font-size: clamp(2rem, 4vw, 2.8rem);
+            letter-spacing: -.04em;
+            line-height: 1.1;
+        }
+
+        .last-updated {
+            color: var(--muted);
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        .document-content section {
+            margin-bottom: 2.5rem;
+        }
+
+        .document-content h2 {
+            font-family: "Plus Jakarta Sans", sans-serif;
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: var(--ink);
+            margin: 0 0 0.75rem 0;
+        }
+
+        .document-content p {
+            color: var(--muted);
+            margin: 0 0 1rem 0;
+        }
+
+        .document-content a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .document-content a:hover {
+            text-decoration: underline;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-top: 1rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--line);
+            width: 100%;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
 
 <body>
-    <main class="auth-shell">
-        <section class="story-panel" aria-label="MemPulse introduction">
-            <a class="brand" href="../landing-page/index.html" aria-label="MemPulse home">
-                <span class="brand-mark" aria-hidden="true">M</span>
-                <span>MemPulse</span>
-            </a>
+    <main class="document-container">
+        <a href="login.php" class="brand-link" aria-label="MemPulse home">
+            <span class="material-symbols-outlined logo-icon" aria-hidden="true">neurology</span>
+            <span>MemPulse</span>
+        </a>
 
-            <div class="story-copy">
-                <p class="eyebrow">Your information, explained clearly</p>
-                <h1>Keep your learning <em>personal.</em></h1>
-                <p>This policy explains what information MemPulse collects, why we use it, and the choices available to you.</p>
-            </div>
+        <header class="document-header">
+            <p class="eyebrow">How we handle your information</p>
+            <h1>Privacy Policy</h1>
+            <p class="last-updated">Last updated: September 17, 2026</p>
+        </header>
 
-            <div class="memory-scene" aria-hidden="true">
-                <span class="orbit orbit-one"></span>
-                <span class="orbit orbit-two"></span>
-                <span class="memory-card memory-card-main"><strong>Your data</strong><small>Handled with care</small><span class="progress"><i></i></span></span>
-                <span class="memory-card memory-card-small">+ privacy first</span>
-                <span class="scene-dot scene-dot-coral"></span>
-                <span class="scene-dot scene-dot-yellow"></span>
-            </div>
+        <article class="document-content">
+            <section>
+                <h2>1. Information we collect</h2>
+                <p>When you use MemPulse, we may collect information you provide, such as your name, email address, password, notes, and flashcards. We may also collect basic technical information, such as your browser, device, and how you use the service.</p>
+            </section>
 
-            <div class="story-footer">
-                <span>Built for curious minds</span>
-            </div>
-        </section>
+            <section>
+                <h2>2. How we use information</h2>
+                <p>We use information to create and manage your account, provide and personalize study features, save your learning content, communicate with you, improve MemPulse, and protect the service from misuse.</p>
+            </section>
 
-        <section class="form-panel terms-panel">
-            <article class="terms-content">
-                <p class="eyebrow">How we handle your information</p>
-                <h1>Privacy Policy</h1>
-                <p class="terms-updated">Last updated: September 17, 2026</p>
+            <section>
+                <h2>3. How we share information</h2>
+                <p>We do not sell your personal information. We may share limited information with service providers who help us operate MemPulse, or when required by law, to protect rights and safety, or as part of a business transfer.</p>
+            </section>
 
-                <section>
-                    <h2>1. Information we collect</h2>
-                    <p>When you use MemPulse, we may collect information you provide, such as your name, email address, password, notes, and flashcards. We may also collect basic technical information, such as your browser, device, and how you use the service.</p>
-                </section>
+            <section>
+                <h2>4. Your content</h2>
+                <p>Your notes, flashcards, and other study materials belong to you. We process and store them only to provide the service and its features. Please avoid adding sensitive information that is not needed for your studies.</p>
+            </section>
 
-                <section>
-                    <h2>2. How we use information</h2>
-                    <p>We use information to create and manage your account, provide and personalize study features, save your learning content, communicate with you, improve MemPulse, and protect the service from misuse.</p>
-                </section>
+            <section>
+                <h2>5. Cookies and similar technologies</h2>
+                <p>MemPulse may use cookies or similar technologies to keep you signed in, remember preferences, understand service usage, and maintain security. You can manage cookies through your browser, though some features may not work correctly if they are disabled.</p>
+            </section>
 
-                <section>
-                    <h2>3. How we share information</h2>
-                    <p>We do not sell your personal information. We may share limited information with service providers who help us operate MemPulse, or when required by law, to protect rights and safety, or as part of a business transfer.</p>
-                </section>
+            <section>
+                <h2>6. Data retention and security</h2>
+                <p>We keep information for as long as needed to provide MemPulse, meet legal obligations, resolve disputes, and enforce our agreements. We use reasonable safeguards to protect information, but no online service can guarantee complete security.</p>
+            </section>
 
-                <section>
-                    <h2>4. Your content</h2>
-                    <p>Your notes, flashcards, and other study materials belong to you. We process and store them only to provide the service and its features. Please avoid adding sensitive information that is not needed for your studies.</p>
-                </section>
+            <section>
+                <h2>7. Your choices</h2>
+                <p>You may review or update account information, request deletion of your account, or stop using MemPulse at any time. Some information may need to be retained when required by law or for legitimate operational purposes.</p>
+            </section>
 
-                <section>
-                    <h2>5. Cookies and similar technologies</h2>
-                    <p>MemPulse may use cookies or similar technologies to keep you signed in, remember preferences, understand service usage, and maintain security. You can manage cookies through your browser, though some features may not work correctly if they are disabled.</p>
-                </section>
+            <section>
+                <h2>8. Children’s privacy</h2>
+                <p>MemPulse is not intended for children who are not permitted to use online services under the laws that apply to them. We do not knowingly collect personal information from children without appropriate permission.</p>
+            </section>
 
-                <section>
-                    <h2>6. Data retention and security</h2>
-                    <p>We keep information for as long as needed to provide MemPulse, meet legal obligations, resolve disputes, and enforce our agreements. We use reasonable safeguards to protect information, but no online service can guarantee complete security.</p>
-                </section>
+            <section>
+                <h2>9. Changes to this policy</h2>
+                <p>We may update this Privacy Policy from time to time. We will post the updated policy on this page and change the date above. Your continued use of MemPulse after an update means you acknowledge the revised policy.</p>
+            </section>
 
-                <section>
-                    <h2>7. Your choices</h2>
-                    <p>You may review or update account information, request deletion of your account, or stop using MemPulse at any time. Some information may need to be retained when required by law or for legitimate operational purposes.</p>
-                </section>
+            <section>
+                <h2>10. Contact</h2>
+                <p>Questions or requests about privacy can be sent to the MemPulse support team through the contact details provided in the application.</p>
+            </section>
+        </article>
 
-                <section>
-                    <h2>8. Children’s privacy</h2>
-                    <p>MemPulse is not intended for children who are not permitted to use online services under the laws that apply to them. We do not knowingly collect personal information from children without appropriate permission.</p>
-                </section>
-
-                <section>
-                    <h2>9. Changes to this policy</h2>
-                    <p>We may update this Privacy Policy from time to time. We will post the updated policy on this page and change the date above. Your continued use of MemPulse after an update means you acknowledge the revised policy.</p>
-                </section>
-
-                <section>
-                    <h2>10. Contact</h2>
-                    <p>Questions or requests about privacy can be sent to the MemPulse support team through the contact details provided in the application.</p>
-                </section>
-
-                <a class="terms-back" href="login-page.html">&larr; Back to sign in</a>
-            </article>
-        </section>
+        <a href="login.php" class="back-link">
+            <span class="material-symbols-outlined" style="font-size: 18px;">arrow_back</span>
+            Back to sign in
+        </a>
     </main>
 </body>
 

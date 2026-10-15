@@ -6,89 +6,230 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="The terms and conditions for using MemPulse.">
     <title>MemPulse | Terms &amp; Conditions</title>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            color-scheme: light;
+            --surface: #faf8ff;
+            --surface-card: #ffffff;
+            --surface-container: #eaedff;
+            --ink: #131b2e;
+            --muted: #464555;
+            --primary: #3525cd;
+            --primary-deep: #1e00a9;
+            --radius-xl: 1.25rem;
+            --shadow-card: 0 20px 50px rgba(53, 37, 205, .08);
+            --line: rgba(199, 196, 216, .48);
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--surface);
+            color: var(--ink);
+            font-family: "Inter", sans-serif;
+            font-size: 1rem;
+            line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+            padding: 3rem 1.5rem;
+        }
+
+        .material-symbols-outlined {
+            font-family: "Material Symbols Outlined";
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            font-feature-settings: "liga";
+            -webkit-font-feature-settings: "liga";
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .document-container {
+            width: 100%;
+            max-width: 720px;
+            margin: 0 auto;
+            background: var(--surface-card);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-card);
+            border: 1px solid var(--line);
+            padding: clamp(2rem, 5vw, 4rem);
+        }
+
+        .brand-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            text-decoration: none;
+            color: var(--ink);
+            font-family: "Plus Jakarta Sans", sans-serif;
+            font-weight: 800;
+            font-size: 1.25rem;
+            letter-spacing: -.04em;
+            margin-bottom: 2.5rem;
+        }
+
+        .logo-icon {
+            display: grid;
+            width: 2.4rem;
+            height: 2.4rem;
+            place-items: center;
+            border-radius: 0.75rem;
+            background: var(--surface-container);
+            color: rgb(53, 37, 205);
+            font-size: 1.4rem;
+        }
+
+        .document-header {
+            margin-bottom: 3rem;
+        }
+
+        .eyebrow {
+            color: var(--primary);
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin: 0 0 0.75rem 0;
+        }
+
+        .document-header h1 {
+            margin: 0 0 0.5rem 0;
+            font-family: "Plus Jakarta Sans", sans-serif;
+            font-weight: 800;
+            font-size: clamp(2rem, 4vw, 2.8rem);
+            letter-spacing: -.04em;
+            line-height: 1.1;
+        }
+
+        .last-updated {
+            color: var(--muted);
+            font-size: 0.9rem;
+            margin: 0;
+        }
+
+        .document-content section {
+            margin-bottom: 2.5rem;
+        }
+
+        .document-content h2 {
+            font-family: "Plus Jakarta Sans", sans-serif;
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: var(--ink);
+            margin: 0 0 0.75rem 0;
+        }
+
+        .document-content p {
+            color: var(--muted);
+            margin: 0 0 1rem 0;
+        }
+
+        .document-content a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .document-content a:hover {
+            text-decoration: underline;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-top: 1rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--line);
+            width: 100%;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
 
 <body>
-    <main class="auth-shell">
-        <section class="story-panel" aria-label="MemPulse introduction">
-            <a class="brand" href="../landing-page/index.html" aria-label="MemPulse home">
-                <span class="brand-mark" aria-hidden="true">M</span>
-                <span>MemPulse</span>
-            </a>
+    <main class="document-container">
+        <a href="login.php" class="brand-link" aria-label="MemPulse home">
+            <span class="material-symbols-outlined logo-icon" aria-hidden="true">neurology</span>
+            <span>MemPulse</span>
+        </a>
 
-            <div class="story-copy">
-                <p class="eyebrow">A clear learning agreement</p>
-                <h1>Learn with <em>confidence.</em></h1>
-                <p>These simple terms explain the expectations for using MemPulse and help keep the experience useful for everyone.</p>
-            </div>
+        <header class="document-header">
+            <p class="eyebrow">Please read before you begin</p>
+            <h1>Terms &amp; Conditions</h1>
+            <p class="last-updated">Last updated: September 17, 2026</p>
+        </header>
 
-            <div class="memory-scene" aria-hidden="true">
-                <span class="orbit orbit-one"></span>
-                <span class="orbit orbit-two"></span>
-                <span class="memory-card memory-card-main"><strong>Good habits</strong><small>Small steps, often</small><span class="progress"><i></i></span></span>
-                <span class="memory-card memory-card-small">+ keep learning</span>
-                <span class="scene-dot scene-dot-coral"></span>
-                <span class="scene-dot scene-dot-yellow"></span>
-            </div>
+        <article class="document-content">
+            <section>
+                <h2>1. Accepting these terms</h2>
+                <p>By creating an account or using MemPulse, you agree to these Terms &amp; Conditions and our <a href="privacy-policy.html">Privacy Policy</a>. If you do not agree, please do not use the service.</p>
+            </section>
 
-            <div class="story-footer">
-                <span>Built for curious minds</span>
-            </div>
-        </section>
+            <section>
+                <h2>2. Your account</h2>
+                <p>You are responsible for providing accurate information, keeping your login details secure, and all activity that happens through your account. Please tell us promptly if you believe your account has been accessed without permission.</p>
+            </section>
 
-        <section class="form-panel terms-panel">
-            <article class="terms-content">
-                <p class="eyebrow">Please read before you begin</p>
-                <h1>Terms &amp; Conditions</h1>
-                <p class="terms-updated">Last updated: September 17, 2026</p>
+            <section>
+                <h2>3. Acceptable use</h2>
+                <p>Use MemPulse lawfully and respectfully. Do not misuse the service, attempt to gain unauthorized access, interfere with its operation, upload harmful code, or use it to violate another person’s rights.</p>
+            </section>
 
-                <section>
-                    <h2>1. Accepting these terms</h2>
-                    <p>By creating an account or using MemPulse, you agree to these Terms &amp; Conditions and our <a href="privacy-policy.html">Privacy Policy</a>. If you do not agree, please do not use the service.</p>
-                </section>
+            <section>
+                <h2>4. Your content</h2>
+                <p>You keep ownership of the notes, flashcards, and other content you add. You give MemPulse permission to store and process that content only as needed to provide, maintain, and improve the service. You are responsible for having the right to share anything you upload.</p>
+            </section>
 
-                <section>
-                    <h2>2. Your account</h2>
-                    <p>You are responsible for providing accurate information, keeping your login details secure, and all activity that happens through your account. Please tell us promptly if you believe your account has been accessed without permission.</p>
-                </section>
+            <section>
+                <h2>5. Privacy and educational use</h2>
+                <p>We handle personal information as described in our Privacy Policy. MemPulse is a study tool and does not guarantee grades, exam results, or any particular learning outcome.</p>
+            </section>
 
-                <section>
-                    <h2>3. Acceptable use</h2>
-                    <p>Use MemPulse lawfully and respectfully. Do not misuse the service, attempt to gain unauthorized access, interfere with its operation, upload harmful code, or use it to violate another person’s rights.</p>
-                </section>
+            <section>
+                <h2>6. Availability and changes</h2>
+                <p>We aim to keep MemPulse available, but the service may occasionally be changed, interrupted, or discontinued. We may update these terms when necessary. Continued use after an update means you accept the revised terms.</p>
+            </section>
 
-                <section>
-                    <h2>4. Your content</h2>
-                    <p>You keep ownership of the notes, flashcards, and other content you add. You give MemPulse permission to store and process that content only as needed to provide, maintain, and improve the service. You are responsible for having the right to share anything you upload.</p>
-                </section>
+            <section>
+                <h2>7. Ending your use</h2>
+                <p>You may stop using MemPulse at any time. We may suspend or close an account if it breaks these terms or creates risk for the service or other users. Terms that should continue by their nature will remain in effect.</p>
+            </section>
 
-                <section>
-                    <h2>5. Privacy and educational use</h2>
-                    <p>We handle personal information as described in our Privacy Policy. MemPulse is a study tool and does not guarantee grades, exam results, or any particular learning outcome.</p>
-                </section>
+            <section>
+                <h2>8. Contact</h2>
+                <p>Questions about these terms can be sent to the MemPulse support team through the contact details provided in the application.</p>
+            </section>
+        </article>
 
-                <section>
-                    <h2>6. Availability and changes</h2>
-                    <p>We aim to keep MemPulse available, but the service may occasionally be changed, interrupted, or discontinued. We may update these terms when necessary. Continued use after an update means you accept the revised terms.</p>
-                </section>
-
-                <section>
-                    <h2>7. Ending your use</h2>
-                    <p>You may stop using MemPulse at any time. We may suspend or close an account if it breaks these terms or creates risk for the service or other users. Terms that should continue by their nature will remain in effect.</p>
-                </section>
-
-                <section>
-                    <h2>8. Contact</h2>
-                    <p>Questions about these terms can be sent to the MemPulse support team through the contact details provided in the application.</p>
-                </section>
-
-                <a class="terms-back" href="login.php#signup">&larr; Back to sign in</a>
-            </article>
-        </section>
+        <a href="login.php#signup" class="back-link">
+            <span class="material-symbols-outlined" style="font-size: 18px;">arrow_back</span>
+            Back to sign in
+        </a>
     </main>
 </body>
 

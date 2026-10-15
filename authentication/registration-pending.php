@@ -1,4 +1,3 @@
-
 <?php
 session_start();
 if (empty($_SESSION['demo_pending_user_id']) || empty($_SESSION['demo_approval_token'])) {
@@ -12,19 +11,202 @@ if (empty($_SESSION['demo_pending_user_id']) || empty($_SESSION['demo_approval_t
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MemPulse | Registration Pending</title>
-    <link rel="stylesheet" href="styles.css">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            color-scheme: light;
+            --surface: #faf8ff;
+            --surface-card: #ffffff;
+            --surface-container: #eaedff;
+            --surface-pulse: #d2d8ff;
+            --ink: #131b2e;
+            --muted: #464555;
+            --primary: #3525cd;
+            --primary-deep: #1e00a9;
+            --secondary: #4b41e1;
+            --radius-lg: 1rem;
+            --radius-xl: 1.25rem;
+            --shadow-card: 0 20px 50px rgba(53, 37, 205, .10);
+            --line: rgba(199, 196, 216, .48);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: var(--surface);
+            color: var(--ink);
+            font-family: "Inter", sans-serif;
+            font-size: 1rem;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 1.5rem;
+        }
+
+        .material-symbols-outlined {
+            font-family: "Material Symbols Outlined";
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            font-feature-settings: "liga";
+            -webkit-font-feature-settings: "liga";
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .auth-container {
+            width: 100%;
+            max-width: 480px;
+            background: var(--surface-card);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-card);
+            border: 1px solid var(--line);
+            padding: 3rem 2.5rem;
+            position: relative;
+            overflow: hidden;
+            text-align: center;
+        }
+
+        .brand-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        @keyframes pulse-bg {
+            0%, 100% { background-color: var(--surface-container); }
+            50% { background-color: var(--surface-pulse); }
+        }
+
+        .logo-icon {
+            display: grid;
+            width: 3.5rem;
+            height: 3.5rem;
+            place-items: center;
+            border-radius: 1rem;
+            background: var(--surface-container);
+            color: rgb(53, 37, 205);
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+            animation: pulse-bg 2.5s infinite ease-in-out;
+        }
+
+        .eyebrow {
+            color: var(--primary);
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin: 0 0 0.5rem 0;
+        }
+
+        .brand-header h1 {
+            margin: 0;
+            font-family: "Plus Jakarta Sans", sans-serif;
+            font-weight: 800;
+            font-size: 1.8rem;
+            letter-spacing: -.04em;
+            line-height: 1.2;
+        }
+
+        .status-message {
+            color: var(--muted);
+            font-size: 0.95rem;
+            margin: 0 0 2rem 0;
+        }
+
+        .btn-primary {
+            width: 100%;
+            min-height: 3rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            border-radius: 999px;
+            padding: 0.7rem 1.25rem;
+            background: var(--primary);
+            color: #fff;
+            font: 700 0.95rem/1.2 "Plus Jakarta Sans", sans-serif;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 8px 22px rgba(53, 37, 205, 0.22);
+        }
+
+        .btn-primary:hover {
+            background: var(--secondary);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 26px rgba(75, 65, 225, 0.28);
+        }
+
+        .demo-note {
+            margin-top: 1.5rem;
+            color: #8c92a4;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            padding: 1rem;
+            background: var(--surface);
+            border-radius: 0.5rem;
+            border: 1px dashed var(--line);
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-top: 2rem;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
 <body>
-    <main class="auth-shell" style="display:block;max-width:620px;min-height:0;padding:clamp(2rem,5vw,4rem);">
-        <p class="eyebrow">Registration complete</p>
-        <h1 style="margin-top:.6rem;color:#1b477f;">Your account is pending approval</h1>
-        <p style="margin-top:1rem;color:#68727d;">Your account has been registered but cannot log in until it is approved. For this development session, use the temporary button below to simulate admin approval.</p>
-        <form method="POST" action="confirm-registration.php" style="margin-top:1.5rem;">
+
+    <main class="auth-container">
+        <div class="brand-header">
+            <span class="material-symbols-outlined logo-icon" aria-hidden="true">neurology</span>
+            <p class="eyebrow">Registration complete</p>
+            <h1>Pending Approval</h1>
+        </div>
+
+        <p class="status-message">
+            Your account has been registered but cannot log in until it is approved. For this development session, use the temporary button below to simulate admin approval.
+        </p>
+
+        <form method="POST" action="confirm-registration.php">
             <input type="hidden" name="approval_token" value="<?php echo htmlspecialchars($_SESSION['demo_approval_token'], ENT_QUOTES, 'UTF-8'); ?>">
-            <button class="primary-button" type="submit">Confirm registered account <span aria-hidden="true">→</span></button>
+            <button class="btn-primary" type="submit">Confirm Registered Account</button>
         </form>
-        <p style="margin-top:1rem;color:#9a9da0;font-size:.8rem;">Demo only: this button is not a secure substitute for a real administrator approval workflow.</p>
-        <p style="margin-top:1rem;"><a href="login.php#login">Go to login</a></p>
+
+        <p class="demo-note">
+            <strong>Demo only:</strong> this button is not a secure substitute for a real administrator approval workflow.
+        </p>
+        
+        <a href="login.php#login" class="back-link">
+            <span class="material-symbols-outlined" style="font-size: 18px;">arrow_back</span>
+            Go back to login
+        </a>
     </main>
+
 </body>
 </html>
