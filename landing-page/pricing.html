@@ -1294,139 +1294,457 @@
       </div>
     </section>
 
-    <section class="pricing-section" id="plans" aria-label="MemPulse pricing plans">
-      <div class="pricing-grid">
-        <article class="plan-card">
-          <div class="plan-label">For getting started</div>
-          <h2>Free</h2>
-          <p class="plan-description">All the essentials to organize your subjects and start remembering more.</p>
-          <div class="price-row"><span class="price">₱0</span></div>
-          <div class="billing-note">Forever free · No credit card</div>
-          <a class="btn btn-outlined plan-cta" href="../authentication/login.php">Start studying free</a>
-          <div class="features-title">Included in Free</div>
-          <ul class="feature-list">
-            <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Create decks and flashcards</span></li>
-            <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Spaced repetition and due cards</span></li>
-            <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Daily review sessions</span></li>
-            <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Streaks and basic progress reports</span></li>
-            <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Review history and CSV export</span></li>
-          </ul>
-        </article>
+    <div class="page-layout">
+      <nav class="toc" aria-label="On this page">
+        <p class="toc-title">On this page</p>
+        <ul>
+          <li><a href="#plans">Plans</a></li>
+          <li><a href="#compare">Compare plans</a></li>
+          <li><a href="#included">What's included</a></li>
+          <li><a href="#faq">FAQ</a></li>
+        </ul>
+      </nav>
 
-        <article class="plan-card">
-          <div class="plan-label">For focused learners</div>
-          <h2>Plus Monthly</h2>
-          <p class="plan-description">Extra study guidance for exam seasons, busy semesters, and ambitious goals.</p>
-          <div class="price-row"><span class="price">₱79</span><span class="period">/ month</span></div>
-          <div class="billing-note">Billed monthly · Cancel anytime*</div>
-          <button class="btn btn-outlined plan-cta" type="button" data-plan="plus-monthly">Choose monthly</button>
-          <div class="features-title">Everything in Free, plus</div>
-          <ul class="feature-list">
-            <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Advanced performance trends</span></li>
-            <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">insights</span><span>Weak-topic insights <span class="muted">(planned)</span></span></li>
-            <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">event_available</span><span>Personalized exam study planner <span class="muted">(planned)</span></span></li>
-            <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">auto_awesome</span><span>Optional AI card tools <span class="muted">(planned)</span></span></li>
-          </ul>
-        </article>
+      <div class="page-content">
+        <section class="pricing-section" id="plans" aria-label="MemPulse pricing plans">
+          <div class="billing-toggle" role="group" aria-label="Billing cycle">
+            <button class="toggle-btn" type="button" data-cycle="monthly" aria-pressed="false">Monthly</button>
+            <button class="toggle-btn" type="button" data-cycle="annual" aria-pressed="true">Annual <span class="toggle-save">Save up to 37%</span></button>
+          </div>
+          <div class="pricing-grid" id="pricing-grid">
+            <article class="plan-card" data-plan="free">
+              <div class="plan-label">For getting started</div>
+              <h2>Free</h2>
+              <p class="plan-description">All the essentials to organize your subjects and start remembering more.</p>
+              <div class="price-row"><span class="price">₱0</span></div>
+              <div class="billing-note">Forever free · No credit card</div>
+              <div class="savings is-off" aria-hidden="true">&nbsp;</div>
+              <a class="btn btn-outlined plan-cta" href="../authentication/login.php">Start studying free</a>
+              <div class="features-title">Included in Free</div>
+              <ul class="feature-list">
+                <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Create decks and flashcards</span></li>
+                <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Spaced repetition and due cards</span></li>
+                <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Daily review sessions with missed-card retry</span></li>
+                <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Streaks and activity heatmap</span></li>
+                <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Progress reports with CSV export and print to PDF</span></li>
+                <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Card archive with 30-day restore</span></li>
+              </ul>
+              <button class="features-toggle" type="button" aria-expanded="false">Show all features</button>
+            </article>
 
-        <article class="plan-card featured">
-          <div class="popular-badge">BEST VALUE · RECOMMENDED</div>
-          <div class="plan-label">For the whole academic year</div>
-          <h2>Plus Annual</h2>
-          <p class="plan-description">Get all Plus benefits for the year at a lower effective monthly price.</p>
-          <div class="price-row"><span class="price">₱599</span><span class="period">/ year</span></div>
-          <div class="billing-note">One annual payment · About ₱50/month</div>
-          <div class="savings">Save ₱349 · 37% vs monthly</div>
-          <button class="btn btn-primary plan-cta" type="button" data-plan="plus-annual">Choose annual <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button>
-          <div class="features-title">Everything in Plus Monthly</div>
-          <ul class="feature-list">
-            <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Advanced performance trends</span></li>
-            <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">insights</span><span>Weak-topic insights <span class="muted">(planned)</span></span></li>
-            <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">event_available</span><span>Personalized exam study planner <span class="muted">(planned)</span></span></li>
-            <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">auto_awesome</span><span>Optional AI card tools <span class="muted">(planned)</span></span></li>
-          </ul>
-        </article>
-      </div>
-      <p class="pricing-note">Proposed launch pricing in Philippine pesos (PHP). Premium features marked “planned” are not represented as currently available. Paid-plan buttons are front-end placeholders; connect a payment provider before accepting payments. *Cancellation terms depend on the final subscription setup.</p>
-    </section>
+            <article class="plan-card featured" data-plan="plus">
+              <div class="popular-badge">MOST POPULAR</div>
+              <div class="plan-label">For focused learners</div>
+              <h2>Plus</h2>
+              <p class="plan-description">Extra study guidance for exam seasons, busy semesters, and ambitious goals.</p>
+              <div class="price-row"><span class="price" data-price>₱599</span><span class="period" data-period>/ year</span></div>
+              <div class="billing-note" data-note>One annual payment · About ₱50/month</div>
+              <div class="savings" data-savings>Save ₱349 · 37% vs monthly</div>
+              <button class="btn btn-primary plan-cta" type="button" data-select data-label="Choose Plus" aria-pressed="false">Choose Plus</button>
+              <div class="features-title">Everything in Free, plus</div>
+              <ul class="feature-list">
+                <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Advanced performance trends</span></li>
+                <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">insights</span><span>Weak-topic insights <span class="muted">(planned)</span></span></li>
+                <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">tune</span><span>Per-deck spaced-repetition presets <span class="muted">(planned)</span></span></li>
+                <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">event_available</span><span>Personalized exam study planner <span class="muted">(planned)</span></span></li>
+                <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">notifications_active</span><span>Review reminders <span class="muted">(planned)</span></span></li>
+                <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">auto_awesome</span><span>Optional AI card tools <span class="muted">(planned)</span></span></li>
+                <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">upload_file</span><span>CSV deck import <span class="muted">(planned)</span></span></li>
+                <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">image</span><span>90-day archive and custom deck covers <span class="muted">(planned)</span></span></li>
+              </ul>
+              <button class="features-toggle" type="button" aria-expanded="false">Show all features</button>
+            </article>
 
-    <section class="value-section" id="included">
-      <div class="value-panel">
-        <div class="value-heading">
-          <h2>Your study routine stays simple</h2>
-          <p>Every plan is built around the MemPulse essentials that help you show up and keep learning.</p>
-        </div>
-        <div class="value-grid">
-          <article class="value-item">
-            <div class="value-icon"><span class="material-symbols-outlined" aria-hidden="true">schedule</span></div>
-            <div>
-              <h3>Know what is due</h3>
-              <p>Use the daily review queue to focus on cards that need attention.</p>
+            <article class="plan-card" data-plan="pro">
+              <div class="plan-label">For exam season</div>
+              <h2>Pro</h2>
+              <p class="plan-description">Exam-season tools: PDF capture, adaptive planning, and full backups.</p>
+              <div class="price-row"><span class="price" data-price>₱1,149</span><span class="period" data-period>/ year</span></div>
+              <div class="billing-note" data-note>One annual payment · About ₱96/month</div>
+              <div class="savings" data-savings>Save ₱639 · 36% vs monthly</div>
+              <button class="btn btn-outlined plan-cta" type="button" data-select data-label="Choose Pro" aria-pressed="false">Choose Pro</button>
+              <div class="features-title">Everything in Plus, plus</div>
+              <ul class="feature-list">
+                <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">picture_as_pdf</span><span>PDF reader with highlight-to-flashcard <span class="muted">(planned)</span></span></li>
+                <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">auto_awesome</span><span>AI card generation from PDFs, higher limits <span class="muted">(planned)</span></span></li>
+                <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">event_repeat</span><span>Exam-date adaptive scheduling <span class="muted">(planned)</span></span></li>
+                <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">trending_up</span><span>Retention forecast and forgetting curve <span class="muted">(planned)</span></span></li>
+                <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">imagesmode</span><span>Image, audio and math (LaTeX) cards <span class="muted">(planned)</span></span></li>
+                <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">groups</span><span>Shareable decks and study groups <span class="muted">(planned)</span></span></li>
+                <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">cloud_upload</span><span>Full backup and Anki/JSON export <span class="muted">(planned)</span></span></li>
+                <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">inventory_2</span><span>Archive never auto-purged <span class="muted">(planned)</span></span></li>
+                <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">support_agent</span><span>Priority support <span class="muted">(planned)</span></span></li>
+              </ul>
+              <button class="features-toggle" type="button" aria-expanded="false">Show all features</button>
+            </article>
+          </div>
+          <p class="pricing-note">Proposed launch pricing in Philippine pesos (PHP). Premium features marked “planned” are not represented as currently available. Paid-plan buttons are front-end placeholders; connect a payment provider before accepting payments. *Cancellation terms depend on the final subscription setup.</p>
+        </section>
+
+        <section class="compare-section" id="compare" aria-labelledby="compare-title">
+          <div class="compare-heading">
+            <h2 id="compare-title">Compare plans</h2>
+            <p>See exactly what each plan adds. “Planned” features are on the roadmap and not available yet.</p>
+          </div>
+          <div class="compare-scroll" role="region" aria-label="Plan comparison table" tabindex="0">
+            <table class="compare-table">
+              <thead>
+                <tr>
+                  <th scope="col">Feature</th>
+                  <th scope="col">Free</th>
+                  <th scope="col">Plus</th>
+                  <th scope="col">Pro</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="colgroup" colspan="4">Study essentials</th>
+                </tr>
+                <tr>
+                  <th scope="row">Decks and flashcards</th>
+                  <td><span class="cell-yes"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span class="visually-hidden">Included</span></span></td>
+                  <td><span class="cell-yes"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span class="visually-hidden">Included</span></span></td>
+                  <td><span class="cell-yes"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span class="visually-hidden">Included</span></span></td>
+                </tr>
+                <tr>
+                  <th scope="row">Spaced repetition and due queue</th>
+                  <td><span class="cell-yes"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span class="visually-hidden">Included</span></span></td>
+                  <td><span class="cell-yes"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span class="visually-hidden">Included</span></span></td>
+                  <td><span class="cell-yes"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span class="visually-hidden">Included</span></span></td>
+                </tr>
+                <tr>
+                  <th scope="row">Review sessions with missed-card retry</th>
+                  <td><span class="cell-yes"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span class="visually-hidden">Included</span></span></td>
+                  <td><span class="cell-yes"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span class="visually-hidden">Included</span></span></td>
+                  <td><span class="cell-yes"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span class="visually-hidden">Included</span></span></td>
+                </tr>
+                <tr>
+                  <th scope="row">Streaks and activity heatmap</th>
+                  <td><span class="cell-yes"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span class="visually-hidden">Included</span></span></td>
+                  <td><span class="cell-yes"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span class="visually-hidden">Included</span></span></td>
+                  <td><span class="cell-yes"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span class="visually-hidden">Included</span></span></td>
+                </tr>
+                <tr>
+                  <th scope="row">Bulk card tools (duplicate, move, reset)</th>
+                  <td><span class="cell-yes"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span class="visually-hidden">Included</span></span></td>
+                  <td><span class="cell-yes"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span class="visually-hidden">Included</span></span></td>
+                  <td><span class="cell-yes"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span class="visually-hidden">Included</span></span></td>
+                </tr>
+                <tr>
+                  <th scope="row">Deck cover images</th>
+                  <td><span class="cell-text">Preset library</span></td>
+                  <td><span class="cell-planned"><span class="material-symbols-outlined" aria-hidden="true">schedule</span> Upload your own <small>planned</small></span></td>
+                  <td><span class="cell-planned"><span class="material-symbols-outlined" aria-hidden="true">schedule</span> Upload your own <small>planned</small></span></td>
+                </tr>
+                <tr>
+                  <th scope="row">Archive restore window</th>
+                  <td><span class="cell-text">30 days</span></td>
+                  <td><span class="cell-planned"><span class="material-symbols-outlined" aria-hidden="true">schedule</span> 90 days <small>planned</small></span></td>
+                  <td><span class="cell-planned"><span class="material-symbols-outlined" aria-hidden="true">schedule</span> Never purged <small>planned</small></span></td>
+                </tr>
+                <tr>
+                  <th scope="colgroup" colspan="4">Reports and insights</th>
+                </tr>
+                <tr>
+                  <th scope="row">Progress reports (Overview, Decks, Cards, Sessions)</th>
+                  <td><span class="cell-yes"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span class="visually-hidden">Included</span></span></td>
+                  <td><span class="cell-yes"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span class="visually-hidden">Included</span></span></td>
+                  <td><span class="cell-yes"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span class="visually-hidden">Included</span></span></td>
+                </tr>
+                <tr>
+                  <th scope="row">CSV export and print to PDF</th>
+                  <td><span class="cell-yes"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span class="visually-hidden">Included</span></span></td>
+                  <td><span class="cell-yes"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span class="visually-hidden">Included</span></span></td>
+                  <td><span class="cell-yes"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span class="visually-hidden">Included</span></span></td>
+                </tr>
+                <tr>
+                  <th scope="row">Advanced performance trends</th>
+                  <td><span class="cell-no" aria-hidden="true">–</span><span class="visually-hidden">Not included</span></td>
+                  <td><span class="cell-yes"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span class="visually-hidden">Included</span></span></td>
+                  <td><span class="cell-yes"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span class="visually-hidden">Included</span></span></td>
+                </tr>
+                <tr>
+                  <th scope="row">Weak-topic insights</th>
+                  <td><span class="cell-no" aria-hidden="true">–</span><span class="visually-hidden">Not included</span></td>
+                  <td><span class="cell-planned"><span class="material-symbols-outlined" aria-hidden="true">schedule</span> Planned</span></td>
+                  <td><span class="cell-planned"><span class="material-symbols-outlined" aria-hidden="true">schedule</span> Planned</span></td>
+                </tr>
+                <tr>
+                  <th scope="row">Retention forecast and forgetting curve</th>
+                  <td><span class="cell-no" aria-hidden="true">–</span><span class="visually-hidden">Not included</span></td>
+                  <td><span class="cell-no" aria-hidden="true">–</span><span class="visually-hidden">Not included</span></td>
+                  <td><span class="cell-planned"><span class="material-symbols-outlined" aria-hidden="true">schedule</span> Planned</span></td>
+                </tr>
+                <tr>
+                  <th scope="colgroup" colspan="4">Planning and tuning</th>
+                </tr>
+                <tr>
+                  <th scope="row">Per-deck spaced-repetition presets</th>
+                  <td><span class="cell-no" aria-hidden="true">–</span><span class="visually-hidden">Not included</span></td>
+                  <td><span class="cell-planned"><span class="material-symbols-outlined" aria-hidden="true">schedule</span> Planned</span></td>
+                  <td><span class="cell-planned"><span class="material-symbols-outlined" aria-hidden="true">schedule</span> Planned</span></td>
+                </tr>
+                <tr>
+                  <th scope="row">Exam study planner</th>
+                  <td><span class="cell-no" aria-hidden="true">–</span><span class="visually-hidden">Not included</span></td>
+                  <td><span class="cell-planned"><span class="material-symbols-outlined" aria-hidden="true">schedule</span> Planned</span></td>
+                  <td><span class="cell-planned"><span class="material-symbols-outlined" aria-hidden="true">schedule</span> Planned</span></td>
+                </tr>
+                <tr>
+                  <th scope="row">Exam-date adaptive scheduling</th>
+                  <td><span class="cell-no" aria-hidden="true">–</span><span class="visually-hidden">Not included</span></td>
+                  <td><span class="cell-no" aria-hidden="true">–</span><span class="visually-hidden">Not included</span></td>
+                  <td><span class="cell-planned"><span class="material-symbols-outlined" aria-hidden="true">schedule</span> Planned</span></td>
+                </tr>
+                <tr>
+                  <th scope="row">Review reminders</th>
+                  <td><span class="cell-no" aria-hidden="true">–</span><span class="visually-hidden">Not included</span></td>
+                  <td><span class="cell-planned"><span class="material-symbols-outlined" aria-hidden="true">schedule</span> Planned</span></td>
+                  <td><span class="cell-planned"><span class="material-symbols-outlined" aria-hidden="true">schedule</span> Planned</span></td>
+                </tr>
+                <tr>
+                  <th scope="colgroup" colspan="4">Card creation</th>
+                </tr>
+                <tr>
+                  <th scope="row">CSV deck import</th>
+                  <td><span class="cell-no" aria-hidden="true">–</span><span class="visually-hidden">Not included</span></td>
+                  <td><span class="cell-planned"><span class="material-symbols-outlined" aria-hidden="true">schedule</span> Planned</span></td>
+                  <td><span class="cell-planned"><span class="material-symbols-outlined" aria-hidden="true">schedule</span> Planned</span></td>
+                </tr>
+                <tr>
+                  <th scope="row">AI card generation</th>
+                  <td><span class="cell-no" aria-hidden="true">–</span><span class="visually-hidden">Not included</span></td>
+                  <td><span class="cell-planned"><span class="material-symbols-outlined" aria-hidden="true">schedule</span> Limited <small>planned</small></span></td>
+                  <td><span class="cell-planned"><span class="material-symbols-outlined" aria-hidden="true">schedule</span> Higher limits <small>planned</small></span></td>
+                </tr>
+                <tr>
+                  <th scope="row">PDF reader with highlight-to-flashcard</th>
+                  <td><span class="cell-no" aria-hidden="true">–</span><span class="visually-hidden">Not included</span></td>
+                  <td><span class="cell-no" aria-hidden="true">–</span><span class="visually-hidden">Not included</span></td>
+                  <td><span class="cell-planned"><span class="material-symbols-outlined" aria-hidden="true">schedule</span> Planned</span></td>
+                </tr>
+                <tr>
+                  <th scope="row">Image, audio and math cards</th>
+                  <td><span class="cell-no" aria-hidden="true">–</span><span class="visually-hidden">Not included</span></td>
+                  <td><span class="cell-no" aria-hidden="true">–</span><span class="visually-hidden">Not included</span></td>
+                  <td><span class="cell-planned"><span class="material-symbols-outlined" aria-hidden="true">schedule</span> Planned</span></td>
+                </tr>
+                <tr>
+                  <th scope="colgroup" colspan="4">Sharing and data</th>
+                </tr>
+                <tr>
+                  <th scope="row">Shareable decks and study groups</th>
+                  <td><span class="cell-no" aria-hidden="true">–</span><span class="visually-hidden">Not included</span></td>
+                  <td><span class="cell-no" aria-hidden="true">–</span><span class="visually-hidden">Not included</span></td>
+                  <td><span class="cell-planned"><span class="material-symbols-outlined" aria-hidden="true">schedule</span> Planned</span></td>
+                </tr>
+                <tr>
+                  <th scope="row">Full backup and Anki/JSON export</th>
+                  <td><span class="cell-no" aria-hidden="true">–</span><span class="visually-hidden">Not included</span></td>
+                  <td><span class="cell-no" aria-hidden="true">–</span><span class="visually-hidden">Not included</span></td>
+                  <td><span class="cell-planned"><span class="material-symbols-outlined" aria-hidden="true">schedule</span> Planned</span></td>
+                </tr>
+                <tr>
+                  <th scope="row">Priority support</th>
+                  <td><span class="cell-no" aria-hidden="true">–</span><span class="visually-hidden">Not included</span></td>
+                  <td><span class="cell-no" aria-hidden="true">–</span><span class="visually-hidden">Not included</span></td>
+                  <td><span class="cell-planned"><span class="material-symbols-outlined" aria-hidden="true">schedule</span> Planned</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="value-section" id="included">
+          <div class="value-panel">
+            <div class="value-heading">
+              <h2>Your study routine stays simple</h2>
+              <p>Every plan is built around the MemPulse essentials that help you show up and keep learning.</p>
             </div>
-          </article>
-          <article class="value-item">
-            <div class="value-icon"><span class="material-symbols-outlined" aria-hidden="true">psychology</span></div>
-            <div>
-              <h3>Recall, don't reread</h3>
-              <p>Practice retrieving answers and strengthen long-term retention.</p>
+            <div class="value-grid">
+              <article class="value-item">
+                <div class="value-icon"><span class="material-symbols-outlined" aria-hidden="true">schedule</span></div>
+                <div>
+                  <h3>Know what is due</h3>
+                  <p>Use the daily review queue to focus on cards that need attention.</p>
+                </div>
+              </article>
+              <article class="value-item">
+                <div class="value-icon"><span class="material-symbols-outlined" aria-hidden="true">psychology</span></div>
+                <div>
+                  <h3>Recall, don't reread</h3>
+                  <p>Practice retrieving answers and strengthen long-term retention.</p>
+                </div>
+              </article>
+              <article class="value-item">
+                <div class="value-icon"><span class="material-symbols-outlined" aria-hidden="true">monitoring</span></div>
+                <div>
+                  <h3>See your progress</h3>
+                  <p>Track your review habits and use your study history to stay consistent.</p>
+                </div>
+              </article>
             </div>
-          </article>
-          <article class="value-item">
-            <div class="value-icon"><span class="material-symbols-outlined" aria-hidden="true">monitoring</span></div>
-            <div>
-              <h3>See your progress</h3>
-              <p>Track your review habits and use your study history to stay consistent.</p>
-            </div>
-          </article>
-        </div>
-      </div>
-    </section>
+          </div>
+        </section>
 
-    <section class="faq-section" id="faq">
-      <div class="faq-inner">
-        <h2>Questions, answered</h2>
-        <details>
-          <summary>Can I use MemPulse for free?</summary>
-          <p>Yes. The Free plan includes deck and flashcard creation, spaced repetition, daily review sessions, and basic progress tracking. You do not need a paid plan to build a study routine.</p>
-        </details>
-        <details>
-          <summary>What is the difference between monthly and annual Plus?</summary>
-          <p>The proposed Plus features are the same on both plans. Monthly is ₱79 per month, while annual is ₱599 for a year—about ₱50 per month and around 37% less than twelve monthly payments.</p>
-        </details>
-        <details>
-          <summary>Are all Plus features available today?</summary>
-          <p>No. This page is a pricing concept. Advanced features marked as planned need to be developed and tested before they are advertised as available in a live paid plan.</p>
-        </details>
-        <details>
-          <summary>Can I pay on this page now?</summary>
-          <p>Not yet. The paid-plan buttons demonstrate the selection flow only. A payment provider, secure server-side payment verification, and subscription management must be connected before checkout can go live.</p>
-        </details>
+        <section class="faq-section" id="faq">
+          <div class="faq-inner">
+            <h2>Questions, answered</h2>
+            <details>
+              <summary>Can I use MemPulse for free?</summary>
+              <p>Yes. The Free plan includes deck and flashcard creation, spaced repetition, daily review sessions, and basic progress tracking. You do not need a paid plan to build a study routine.</p>
+            </details>
+            <details>
+              <summary>What is the difference between Plus and Pro?</summary>
+              <p>Plus adds deeper insights and study planning for busy semesters. Pro is built for exam season and heavy course loads: it adds PDF capture, higher-limit AI card tools, exam-date adaptive scheduling, sharing, and full backups. Everything in Plus is included in Pro.</p>
+            </details>
+            <details>
+              <summary>How much do I save with annual billing?</summary>
+              <p>Plus is ₱79 per month or ₱599 for a year (about ₱50 per month, around 37% less than twelve monthly payments). Pro is ₱149 per month or ₱1,149 for a year (about ₱96 per month, around 36% less).</p>
+            </details>
+            <details>
+              <summary>Are all paid features available today?</summary>
+              <p>No. This page is a pricing concept. Features marked as planned need to be developed and tested before they are advertised as available in a live paid plan.</p>
+            </details>
+            <details>
+              <summary>Can I pay on this page now?</summary>
+              <p>Not yet. The paid-plan buttons demonstrate the selection flow only. A payment provider, secure server-side payment verification, and subscription management must be connected before checkout can go live.</p>
+            </details>
+          </div>
+        </section>
       </div>
-    </section>
-  </main>
-
-  <footer class="app-footer">
-    <div class="footer-container">
-      <p>&copy; 2026 MemPulse. All rights reserved.<br>Helping you practice, retain, and grow at your own pace.</p>
     </div>
-  </footer>
 
-  <div id="plan-toast" class="toast" role="status" aria-live="polite"></div>
-  <script>
-    // Front-end preview only. Replace this handler with your authenticated checkout flow
-    // after connecting a payment provider and implementing server-side plan entitlements.
-    const toast = document.getElementById('plan-toast');
-    let toastTimer;
-    document.querySelectorAll('[data-plan]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const label = button.dataset.plan === 'plus-annual' ? 'MemPulse Plus Annual (₱599/year)' : 'MemPulse Plus Monthly (₱79/month)';
-        toast.textContent = `${label} selected. Checkout is not connected in this preview yet.`;
-        toast.classList.add('show');
-        window.clearTimeout(toastTimer);
-        toastTimer = window.setTimeout(() => toast.classList.remove('show'), 4500);
-      });
-    });
-  </script>
+    <div id="plan-toast" class="toast" role="status" aria-live="polite"></div>
+
+    <div id="selection-bar" class="selection-bar" role="region" aria-label="Selected plan">
+      <div class="selection-info" aria-live="polite">
+        <div class="selection-plan" id="selection-plan"></div>
+        <div class="selection-price" id="selection-price"></div>
+      </div>
+      <div class="selection-actions">
+        <button class="btn btn-outlined" type="button" id="selection-clear">Clear</button>
+        <button class="btn btn-primary" type="button" id="selection-continue">Continue <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button>
+      </div>
+    </div>
+
+    <script>
+      // Front-end preview only. Replace the Continue handler with your authenticated checkout flow
+      // after connecting a payment provider and implementing server-side plan entitlements.
+      (() => {
+        const PLANS = {
+          plus: {
+            name: 'Plus',
+            monthly: { price: '₱79', period: '/ month', note: 'Billed monthly · Cancel anytime*', savings: '' },
+            annual: { price: '₱599', period: '/ year', note: 'One annual payment · About ₱50/month', savings: 'Save ₱349 · 37% vs monthly' }
+          },
+          pro: {
+            name: 'Pro',
+            monthly: { price: '₱149', period: '/ month', note: 'Billed monthly · Cancel anytime*', savings: '' },
+            annual: { price: '₱1,149', period: '/ year', note: 'One annual payment · About ₱96/month', savings: 'Save ₱639 · 36% vs monthly' }
+          }
+        };
+
+        const grid = document.getElementById('pricing-grid');
+        const cards = [...grid.querySelectorAll('[data-plan]')].filter((c) => PLANS[c.dataset.plan]);
+        const cycleButtons = [...document.querySelectorAll('[data-cycle]')];
+        const bar = document.getElementById('selection-bar');
+        const barPlan = document.getElementById('selection-plan');
+        const barPrice = document.getElementById('selection-price');
+        const toast = document.getElementById('plan-toast');
+        let cycle = 'annual';
+        let selected = null;
+        let toastTimer;
+
+        function showToast(message) {
+          toast.textContent = message;
+          toast.classList.add('show');
+          window.clearTimeout(toastTimer);
+          toastTimer = window.setTimeout(() => toast.classList.remove('show'), 4500);
+        }
+
+        function setCta(button, on) {
+          button.setAttribute('aria-pressed', String(on));
+          button.textContent = '';
+          if (on) {
+            const icon = document.createElement('span');
+            icon.className = 'material-symbols-outlined';
+            icon.setAttribute('aria-hidden', 'true');
+            icon.textContent = 'check';
+            button.append(icon, ' Selected');
+          } else {
+            button.textContent = button.dataset.label;
+          }
+        }
+
+        function render() {
+          cycleButtons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.cycle === cycle)));
+          cards.forEach((card) => {
+            const id = card.dataset.plan;
+            const d = PLANS[id][cycle];
+            const on = selected === id;
+            card.querySelector('[data-price]').textContent = d.price;
+            card.querySelector('[data-period]').textContent = d.period;
+            card.querySelector('[data-note]').textContent = d.note;
+            const savings = card.querySelector('[data-savings]');
+            savings.textContent = d.savings || '\u00a0';
+            savings.classList.toggle('is-off', !d.savings);
+            card.classList.toggle('is-selected', on);
+            setCta(card.querySelector('[data-select]'), on);
+          });
+          grid.classList.toggle('has-selection', Boolean(selected));
+          document.body.classList.toggle('has-selection', Boolean(selected));
+          bar.classList.toggle('show', Boolean(selected));
+          if (selected) {
+            const d = PLANS[selected][cycle];
+            barPlan.textContent = `MemPulse ${PLANS[selected].name} · ${cycle === 'annual' ? 'Annual' : 'Monthly'}`;
+            barPrice.textContent = '';
+            const strong = document.createElement('strong');
+            strong.textContent = d.price;
+            barPrice.append(strong, ` ${d.period} · ${d.note.split(' · ')[1] || d.note}`);
+          }
+        }
+
+        cycleButtons.forEach((b) => b.addEventListener('click', () => { cycle = b.dataset.cycle; render(); }));
+        cards.forEach((card) => card.querySelector('[data-select]').addEventListener('click', () => {
+          selected = selected === card.dataset.plan ? null : card.dataset.plan;
+          render();
+        }));
+        document.getElementById('selection-clear').addEventListener('click', () => { selected = null; render(); });
+        document.getElementById('selection-continue').addEventListener('click', () => {
+          const d = PLANS[selected][cycle];
+          showToast(`MemPulse ${PLANS[selected].name} (${d.price} ${d.period}) selected. Checkout is not connected in this preview yet.`);
+        });
+        document.querySelectorAll('.features-toggle').forEach((btn) => btn.addEventListener('click', () => {
+          const card = btn.closest('.plan-card');
+          const open = card.classList.toggle('is-expanded');
+          btn.setAttribute('aria-expanded', String(open));
+          btn.textContent = open ? 'Show fewer features' : 'Show all features';
+        }));
+        render();
+
+        // "On this page" scroll-spy
+        const tocLinks = [...document.querySelectorAll('.toc a')];
+        const sections = tocLinks.map((a) => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+        const setActive = (id) => tocLinks.forEach((a) => {
+          if (a.getAttribute('href') === '#' + id) a.setAttribute('aria-current', 'true');
+          else a.removeAttribute('aria-current');
+        });
+        if ('IntersectionObserver' in window && sections.length) {
+          const inBand = new Map();
+          const io = new IntersectionObserver((entries) => {
+            entries.forEach((e) => inBand.set(e.target.id, e.isIntersecting));
+            const first = sections.find((s) => inBand.get(s.id));
+            if (first) setActive(first.id);
+          }, { rootMargin: '-20% 0px -60% 0px' });
+          sections.forEach((s) => io.observe(s));
+          window.addEventListener('scroll', () => {
+            if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) setActive(sections[sections.length - 1].id);
+          }, { passive: true });
+        }
+      })();
+    </script>
+
 </body>
 
 </html>
