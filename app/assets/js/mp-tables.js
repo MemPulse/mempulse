@@ -14,19 +14,23 @@
 
     var TABULATOR_JS = 'https://unpkg.com/tabulator-tables@5.5.0/dist/js/tabulator.min.js';
 
-    // Structure only. Colours come from CSS variables set by applyTokens().
+    // Structure + responsive layout adjustments
     var CSS = [
         '.mp-table .tabulator { background: transparent; border: 0; font-family: inherit; font-size: .875rem; color: var(--mp-text, inherit); }',
         '.mp-table .tabulator .tabulator-header { background: var(--mp-head-bg, #f1f1f1) !important; color: var(--mp-head-text, inherit); border-top: 0; border-bottom: 1px solid var(--mp-border, #ddd); }',
         '.mp-table .tabulator .tabulator-header .tabulator-col { background: transparent !important; border-right: 0; }',
-        '.mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-content { padding: .75rem 1.25rem; }',
+        '.mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-content { padding: .75rem 1rem; }',
         '.mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }',
         '.mp-table .tabulator .tabulator-tableholder, .mp-table .tabulator .tabulator-tableholder .tabulator-table { background: transparent; }',
         '.mp-table .tabulator .tabulator-row, .mp-table .tabulator .tabulator-row.tabulator-row-even, .mp-table .tabulator .tabulator-row.tabulator-row-odd { background: transparent !important; color: inherit; border-bottom: 1px solid var(--mp-divider, #eee); min-height: 0; }',
         '.mp-table .tabulator .tabulator-row:hover { background: var(--mp-hover, rgba(0,0,0,.03)) !important; }',
         '.mp-table .tabulator .tabulator-table > .tabulator-row:last-child { border-bottom: 0; }',
-        '.mp-table .tabulator .tabulator-row .tabulator-cell { padding: .75rem 1.25rem; border-right: 0; vertical-align: middle; }',
-        '.mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-resize-handle { display: none; }'
+        '.mp-table .tabulator .tabulator-row .tabulator-cell { padding: .75rem 1rem; border-right: 0; vertical-align: middle; }',
+        '.mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-resize-handle { display: none; }',
+        '@media (max-width: 640px) {',
+        '  .mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-content,',
+        '  .mp-table .tabulator .tabulator-row .tabulator-cell { padding: .5rem .625rem; font-size: .8125rem; }',
+        '}'
     ].join('\n');
 
     var styleEl = document.createElement('style');
@@ -59,11 +63,11 @@
         var sc = document.createElement('script');
         sc.src = TABULATOR_JS;
         sc.onload = done;
-        sc.onerror = done; // make() shows the fallback message
+        sc.onerror = done;
         document.head.appendChild(sc);
     }
 
-    // Read-only defaults (headerSort / resizable are COLUMN options in Tabulator 5)
+    // Read-only responsive defaults
     var base = {
         layout: 'fitColumns',
         responsiveLayout: 'hide',

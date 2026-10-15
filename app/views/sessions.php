@@ -70,7 +70,6 @@ unset($s);
                 <!-- Breadcrumb -->
                 <nav class="flex items-center gap-2 text-sm font-medium text-on-surface-variant mb-2" aria-label="Breadcrumb">
                     <a href="review.php" class="hover:text-primary transition-colors flex items-center gap-1">
-                        <!-- <span class="material-symbols-outlined text-[18px]">home</span> -->
                         Review
                     </a>
                     <span class="material-symbols-outlined text-[16px] opacity-50">chevron_right</span>
@@ -91,7 +90,7 @@ unset($s);
                 </div>
 
                 <!-- Sessions table -->
-                <div class="mp-table bg-surface-container-lowest border border-outline-variant/30 rounded-2xl shadow-xs overflow-hidden">
+                <div class="mp-table bg-surface-container-lowest border border-outline-variant/30 rounded-2xl shadow-xs overflow-x-auto">
 
                     <?php if (empty($sessions)): ?>
                         <div class="flex flex-col items-center justify-center p-10 text-center text-on-surface-variant">
@@ -174,34 +173,38 @@ unset($s);
         MPTable.applyTokens(document.getElementById('mp-token-probe'));
         MPTable.ensure(function () {
             MPTable.make('#sessions-table', rows, [
-                { title: 'Deck', field: 'title', widthGrow: 3, minWidth: 150, responsive: 0,
+                { title: 'Deck', field: 'title', widthGrow: 3, minWidth: 120, responsive: 0,
                   formatter: function (c) {
                       var r = c.getRow().getData();
                       return '<a href="' + esc(r.detailsUrl) + '" title="' + esc(r.title) + '" class="block truncate font-semibold text-on-surface hover:text-primary transition-colors">' + esc(r.title) + '</a>';
                   } },
-                { title: 'Date', field: 'date', width: 190, responsive: 1, formatter: mutedCell },
-                Object.assign({ title: 'Cards', field: 'cards', width: 100, responsive: 2, formatter: mutedCell }, right),
-                Object.assign({ title: 'Remembered', field: 'remembered', width: 140, responsive: 4, formatter: mutedCell }, right),
-                Object.assign({ title: 'Accuracy', field: 'accuracy', width: 120, responsive: 0,
+                { title: 'Date', field: 'date', minWidth: 130, responsive: 1, formatter: mutedCell },
+                Object.assign({ title: 'Cards', field: 'cards', minWidth: 65, responsive: 2, formatter: mutedCell }, right),
+                Object.assign({ title: 'Remembered', field: 'remembered', minWidth: 95, responsive: 4, formatter: mutedCell }, right),
+                Object.assign({ title: 'Accuracy', field: 'accuracy', minWidth: 80, responsive: 0,
                   formatter: function (c) {
                       var r = c.getRow().getData();
                       return '<span class="inline-block text-xs font-bold border px-2 py-0.5 rounded-md tabular-nums ' + esc(r.accuracyCls) + '">' + esc(r.accuracy) + '%</span>';
                   } }, right),
-                Object.assign({ title: 'Duration', field: 'duration', width: 120, responsive: 3, formatter: mutedCell }, right),
-                Object.assign({ title: '', field: 'practiceUrl', width: 160, responsive: 0, formatter: function (c) {
+                Object.assign({ title: 'Duration', field: 'duration', minWidth: 75, responsive: 3, formatter: mutedCell }, right),
+                Object.assign({ title: '', field: 'practiceUrl', minWidth: 115, responsive: 0, formatter: function (c) {
                       var r = c.getRow().getData();
                       if (!r.practiceUrl) return '';
-                      return '<a href="' + esc(r.practiceUrl) + '" title="Practice these cards again (nothing is saved)" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-outline-variant text-on-surface text-xs font-bold hover:bg-surface-container-low transition-colors whitespace-nowrap"><span class="material-symbols-outlined text-[16px]">play_arrow</span><span>Practice again</span></a>';
+                      return '<a href="' + esc(r.practiceUrl) + '" title="Practice these cards again without affecting spaced repetition history" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-outline-variant text-on-surface text-xs font-bold hover:bg-surface-container-low transition-colors whitespace-nowrap"><span class="material-symbols-outlined text-[15px]">play_arrow</span><span>Practice again</span></a>';
                   } }, right),
-                Object.assign({ title: '', field: 'detailsUrl', width: 70, responsive: 0,
+                Object.assign({ title: 'Action', field: 'detailsUrl', minWidth: 110, responsive: 0,
                   formatter: function (c) {
                       var r = c.getRow().getData();
-                      return '<a href="' + esc(r.detailsUrl) + '" aria-label="View details for ' + esc(r.title) + '" class="inline-flex items-center text-on-surface-variant hover:text-primary transition-colors"><span class="material-symbols-outlined text-[20px]">chevron_right</span></a>';
+                      return '<a href="' + esc(r.detailsUrl) + '" ' +
+                             'title="View comprehensive review session breakdown, card history, and performance details for ' + esc(r.title) + '" ' +
+                             'aria-label="View session details for ' + esc(r.title) + '" ' +
+                             'class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container-high border border-outline-variant/40 text-on-surface hover:text-primary hover:border-primary/50 text-xs font-bold transition-colors whitespace-nowrap">' +
+                             '<span>View Details</span><span class="material-symbols-outlined text-[15px]">chevron_right</span></a>';
                   } }, right)
             ], {
                 rowClick: function (e, row) {
-                    if (e.target.closest('a')) return;               // links handle themselves
-                    window.location.href = row.getData().detailsUrl; // anywhere else on the row opens details
+                    if (e.target.closest('a')) return;
+                    window.location.href = row.getData().detailsUrl;
                 }
             });
         });

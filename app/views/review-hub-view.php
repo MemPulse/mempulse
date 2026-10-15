@@ -196,7 +196,7 @@ $badgeCls = 'px-2.5 py-0.5 rounded-full bg-primary-container text-on-primary fon
                 You are all caught up for now!
             </div>
         <?php else: ?>
-            <div class="mp-table rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs overflow-hidden">
+            <div class="mp-table rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs overflow-x-auto">
                 <div id="due-now-table"></div>
             </div>
         <?php endif; ?>
@@ -220,7 +220,7 @@ $badgeCls = 'px-2.5 py-0.5 rounded-full bg-primary-container text-on-primary fon
                 No cards scheduled for the next <?= (int) (ReviewHubService::UPCOMING_DAYS * 24) ?> hours.
             </div>
         <?php else: ?>
-            <div class="mp-table rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs overflow-hidden">
+            <div class="mp-table rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs overflow-x-auto">
                 <div id="upcoming-table"></div>
             </div>
         <?php endif; ?>
@@ -250,7 +250,7 @@ $badgeCls = 'px-2.5 py-0.5 rounded-full bg-primary-container text-on-primary fon
                 <span class="text-xs mt-1 text-on-surface-variant">Complete a study session to see your history here.</span>
             </div>
         <?php else: ?>
-            <div class="mp-table rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs overflow-hidden">
+            <div class="mp-table rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs overflow-x-auto">
                 <div id="recent-sessions-table"></div>
             </div>
         <?php endif; ?>
@@ -261,12 +261,12 @@ $badgeCls = 'px-2.5 py-0.5 rounded-full bg-primary-container text-on-primary fon
 <!-- Same Tabulator build + theme as deck-view.php -->
 <link href="https://unpkg.com/tabulator-tables@5.5.0/dist/css/tabulator_simple.min.css" rel="stylesheet">
 
-<!-- Read-only Tabulator styling: structure only, colours come from the probe above -->
+<!-- Read-only Tabulator styling: structure + responsive mobile rules -->
 <style>
     .mp-table .tabulator { background: transparent; border: 0; font-family: inherit; font-size: .875rem; color: var(--mp-text, inherit); }
     .mp-table .tabulator .tabulator-header { background: var(--mp-head-bg, #f1f1f1) !important; color: var(--mp-head-text, inherit); border-top: 0; border-bottom: 1px solid var(--mp-border, #ddd); }
     .mp-table .tabulator .tabulator-header .tabulator-col { background: transparent !important; border-right: 0; }
-    .mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-content { padding: .75rem 1.25rem; }
+    .mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-content { padding: .75rem 1rem; }
     .mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
     .mp-table .tabulator .tabulator-tableholder,
     .mp-table .tabulator .tabulator-tableholder .tabulator-table { background: transparent; }
@@ -275,9 +275,14 @@ $badgeCls = 'px-2.5 py-0.5 rounded-full bg-primary-container text-on-primary fon
     .mp-table .tabulator .tabulator-row.tabulator-row-odd { background: transparent !important; color: inherit; border-bottom: 1px solid var(--mp-divider, #eee); min-height: 0; }
     .mp-table .tabulator .tabulator-row:hover { background: var(--mp-hover, rgba(0,0,0,.03)) !important; }
     .mp-table .tabulator .tabulator-table > .tabulator-row:last-child { border-bottom: 0; }
-    .mp-table .tabulator .tabulator-row .tabulator-cell { padding: .75rem 1.25rem; border-right: 0; vertical-align: middle; }
+    .mp-table .tabulator .tabulator-row .tabulator-cell { padding: .75rem 1rem; border-right: 0; vertical-align: middle; }
     .mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-resize-handle { display: none; }
     
+    @media (max-width: 640px) {
+        .mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-content,
+        .mp-table .tabulator .tabulator-row .tabulator-cell { padding: .5rem .625rem; font-size: .8125rem; }
+    }
+
     /* Due Now + Upcoming: plain cursor (links and buttons inside keep their own pointer) */
     #due-now-table .tabulator-row,
     #due-now-table .tabulator-row .tabulator-cell,
@@ -347,81 +352,85 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
         var cols = columns.map(function (c) { return Object.assign({ headerSort: false, resizable: false }, c); });
-        new Tabulator(el, Object.assign({}, base, { data: rows, columns: cols }, extra || {}));    };
+        new Tabulator(el, Object.assign({}, base, { data: rows, columns: cols }, extra || {}));
+    };
 
-    // Load Tabulator 5.5.0 (same file deck-view.php uses) unless head.php already provides it
+    // Load Tabulator 5.5.0 unless head.php already provides it
     var ensureTabulator = function (done) {
         if (window.Tabulator) return done();
         var sc = document.createElement('script');
         sc.src = 'https://unpkg.com/tabulator-tables@5.5.0/dist/js/tabulator.min.js';
         sc.onload = done;
-        sc.onerror = done; // make() shows the fallback message
+        sc.onerror = done;
         document.head.appendChild(sc);
     };
 
     function buildTables() {
     // ---- Due Now ----
     make('#due-now-table', data.due, [
-        { title: 'Deck', field: 'title', widthGrow: 3, minWidth: 150, responsive: 0, formatter: linkCell('deckUrl') },
-        { title: 'Due', field: 'dueCount', width: 100, hozAlign: 'right', headerHozAlign: 'right', responsive: 1,
+        { title: 'Deck', field: 'title', widthGrow: 3, minWidth: 120, responsive: 0, formatter: linkCell('deckUrl') },
+        { title: 'Due', field: 'dueCount', minWidth: 65, hozAlign: 'right', headerHozAlign: 'right', responsive: 1,
           formatter: function (c) { return '<span class="inline-block text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200/80 px-2 py-0.5 rounded-md tabular-nums">' + esc(c.getValue()) + '</span>'; } },
-        { title: 'Total cards', field: 'totalCards', width: 130, hozAlign: 'right', headerHozAlign: 'right', responsive: 2,
+        { title: 'Total cards', field: 'totalCards', minWidth: 85, hozAlign: 'right', headerHozAlign: 'right', responsive: 2,
           formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
-        { title: 'Oldest due', field: 'oldestText', width: 140, hozAlign: 'right', headerHozAlign: 'right', responsive: 3,
+        { title: 'Oldest due', field: 'oldestText', minWidth: 95, hozAlign: 'right', headerHozAlign: 'right', responsive: 3,
           formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
-        { title: '', field: 'reviewUrl', width: 140, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
+        { title: '', field: 'reviewUrl', minWidth: 100, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
           formatter: function (c) {
               var r = c.getRow().getData();
-              return '<a href="' + esc(r.reviewUrl) + '" aria-label="Review ' + esc(r.title) + '" ' +
-                     'class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary text-on-primary text-xs font-bold hover:bg-primary-container transition-colors">' +
-                     '<span class="material-symbols-outlined text-[16px]">play_arrow</span><span>Review</span></a>';
+              return '<a href="' + esc(r.reviewUrl) + '" aria-label="Review ' + esc(r.title) + '" title="Start reviewing ' + esc(r.title) + '" ' +
+                     'class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary text-on-primary text-xs font-bold hover:bg-primary-container transition-colors whitespace-nowrap">' +
+                     '<span class="material-symbols-outlined text-[15px]">play_arrow</span><span>Review</span></a>';
           } }
     ]);
 
     // ---- Upcoming ----
     make('#upcoming-table', data.upcoming, [
-        { title: 'Deck', field: 'title', widthGrow: 3, minWidth: 150, responsive: 0,
+        { title: 'Deck', field: 'title', widthGrow: 3, minWidth: 120, responsive: 0,
           formatter: linkCell('deckUrl', function (r) {
               return r.isDueNow ? '<span class="text-[10px] font-bold uppercase tracking-wider text-rose-700 whitespace-nowrap">Due now</span>' : '';
           }) },
-        { title: 'Cards soon', field: 'upcomingCount', width: 130, hozAlign: 'right', headerHozAlign: 'right', responsive: 1,
+        { title: 'Cards soon', field: 'upcomingCount', minWidth: 85, hozAlign: 'right', headerHozAlign: 'right', responsive: 1,
           formatter: function (c) { return '<span class="inline-block text-xs text-on-surface-variant bg-surface-container-high px-2 py-0.5 rounded-md tabular-nums">' + esc(c.getValue()) + '</span>'; } },
-        { title: 'Next due', field: 'nextText', width: 140, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
+        { title: 'Next due', field: 'nextText', minWidth: 95, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
           formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } }
     ]);
 
     // ---- Recent Review Sessions ----
     make('#recent-sessions-table', data.recent, [
-        { title: 'Deck', field: 'title', widthGrow: 3, minWidth: 150, responsive: 0, formatter: linkCell('detailsUrl') },
-        { title: 'Cards', field: 'cards', width: 100, hozAlign: 'right', headerHozAlign: 'right', responsive: 2,
+        { title: 'Deck', field: 'title', widthGrow: 3, minWidth: 120, responsive: 0, formatter: linkCell('detailsUrl') },
+        { title: 'Cards', field: 'cards', minWidth: 65, hozAlign: 'right', headerHozAlign: 'right', responsive: 2,
           formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
-        { title: 'Accuracy', field: 'accuracy', width: 120, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
+        { title: 'Accuracy', field: 'accuracy', minWidth: 80, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
           formatter: function (c) {
               var r = c.getRow().getData();
               return '<span class="inline-block text-xs font-bold border px-2 py-0.5 rounded-md tabular-nums ' + esc(r.accuracyCls) + '">' + esc(r.accuracy) + '%</span>';
           } },
-        { title: 'Duration', field: 'duration', width: 120, hozAlign: 'right', headerHozAlign: 'right', responsive: 3,
+        { title: 'Duration', field: 'duration', minWidth: 75, hozAlign: 'right', headerHozAlign: 'right', responsive: 3,
           formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
-        { title: 'When', field: 'when', width: 130, hozAlign: 'right', headerHozAlign: 'right', responsive: 1,
+        { title: 'When', field: 'when', minWidth: 85, hozAlign: 'right', headerHozAlign: 'right', responsive: 1,
           formatter: function (c) { return '<span class="' + muted + ' text-xs">' + esc(c.getValue()) + '</span>'; } },
-        { title: '', field: 'practiceUrl', width: 160, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
+        { title: '', field: 'practiceUrl', minWidth: 115, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
           formatter: function (c) {
               var r = c.getRow().getData();
               if (!r.practiceUrl) return '';
-              return '<a href="' + esc(r.practiceUrl) + '" title="Practice these cards again (nothing is saved)" ' +
-                     'class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-outline-variant text-on-surface text-xs font-bold hover:bg-surface-container-low transition-colors whitespace-nowrap">' +
-                     '<span class="material-symbols-outlined text-[16px]">play_arrow</span><span>Practice again</span></a>';
+              return '<a href="' + esc(r.practiceUrl) + '" title="Practice these cards again without affecting spaced repetition history" ' +
+                     'class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-outline-variant text-on-surface text-xs font-bold hover:bg-surface-container-low transition-colors whitespace-nowrap">' +
+                     '<span class="material-symbols-outlined text-[15px]">play_arrow</span><span>Practice again</span></a>';
           } },
-        { title: '', field: 'detailsUrl', width: 70, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
+        { title: 'Action', field: 'detailsUrl', minWidth: 110, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
           formatter: function (c) {
               var r = c.getRow().getData();
-              return '<a href="' + esc(r.detailsUrl) + '" aria-label="View session details for ' + esc(r.title) + '" class="inline-flex items-center text-on-surface-variant hover:text-primary transition-colors">' +
-                     '<span class="material-symbols-outlined text-[20px]">chevron_right</span></a>';
+              return '<a href="' + esc(r.detailsUrl) + '" ' +
+                     'title="View comprehensive review session breakdown, card history, and performance details for ' + esc(r.title) + '" ' +
+                     'aria-label="View session details for ' + esc(r.title) + '" ' +
+                     'class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container-high border border-outline-variant/40 text-on-surface hover:text-primary hover:border-primary/50 text-xs font-bold transition-colors whitespace-nowrap">' +
+                     '<span>View Details</span><span class="material-symbols-outlined text-[15px]">chevron_right</span></a>';
           } }
         ], {
         rowClick: function (e, row) {
-            if (e.target.closest('a')) return;               // the links handle themselves
-            window.location.href = row.getData().detailsUrl; // anywhere else on the row opens details
+            if (e.target.closest('a')) return;
+            window.location.href = row.getData().detailsUrl;
         }
     });
     }
