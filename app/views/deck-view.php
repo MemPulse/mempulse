@@ -117,9 +117,8 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
 
 </style>
 
-<div class="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-    <div class="flex flex-col w-full gap-6">
-
+<div class="w-full px-2 sm:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
+    <div class="flex flex-col w-full gap-4 sm:gap-6">
         <!-- DECK HEADER BAR -->
         <div class="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-surface-container-lowest border border-outline-variant/30 shadow-xs">
             <div class="flex items-center gap-3 min-w-0 text-sm text-on-surface-variant">

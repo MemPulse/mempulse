@@ -7,7 +7,7 @@ class SessionService
     public static function getSessionDetails(mysqli $conn, int $sessionId, int $userId): ?array
     {
         $sql = "SELECT rs.*, d.title AS deck_title,
-                       TIMESTAMPDIFF(SESerCOND, rs.started_at, rs.ended_at) AS duration_seconds
+                       TIMESTAMPDIFF(SECOND, rs.started_at, rs.ended_at) AS duration_seconds
                 FROM review_sessions rs
                 JOIN decks d ON rs.deck_id = d.id
                 WHERE rs.id = ? AND rs.user_id = ?";

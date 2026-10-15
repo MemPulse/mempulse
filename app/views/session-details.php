@@ -54,10 +54,8 @@ foreach ($logs as $log) {
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
     <main id="main-content" class="pl-0 md:pl-72 pt-16 md:pt-6 transition-all duration-300 ease-in-out">
-        <div class="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6">
-
-            <div class="max-w-5xl mx-auto flex flex-col gap-6">
-                <!-- Breadcrumb -->
+        <div class="w-full px-2 sm:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
+            <div class="flex flex-col w-full gap-4 sm:gap-6">                <!-- Breadcrumb -->
                 <nav class="flex items-center gap-2 text-sm font-medium text-on-surface-variant mb-2" aria-label="Breadcrumb">
                     <a href="review.php" class="hover:text-primary transition-colors flex items-center gap-1">
                         <!-- <span class="material-symbols-outlined text-[18px]">home</span> -->
