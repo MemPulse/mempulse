@@ -1,7 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
     // Every file Tailwind should scan for class names.
-    content: ['./app/**/*.{php,html,js}'],
+    content: ['./app/**/*.{php,html,js}', './admin/**/*.{php,html,js}'],
     darkMode: 'class',
 
     safelist: [

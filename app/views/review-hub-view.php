@@ -31,94 +31,110 @@ $nextDueLabel = ($nextDueSecs !== null && $nextDueSecs > 0)
 <!-- ========================================================================= -->
 <!-- STATE A: REVIEW HUB (dashboard-style layout, table lists)                 -->
 <!-- ========================================================================= -->
-<div class="flex flex-col w-full gap-6 sm:gap-8">
+<div class="w-full px-2 sm:px-6 lg:px-8 py-4 sm:py-6 md:py-8" id="review-hub-root">
+    <div class="flex flex-col w-full gap-4 sm:gap-6">
 
-    <!-- DIV: ROW 1 - Due Now call-to-action (left) vs Keyboard controls (right) -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-stretch w-full">
+        <!-- Unified Header Hero Banner -->
+        <div class="relative w-full rounded-2xl bg-surface-container-lowest border border-outline-variant/30 p-4 sm:p-5 shadow-xs">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
 
-        <!-- DIV: LEFT - Due Now call-to-action -->
-        <div class="lg:col-span-6 flex w-full min-w-0">
-
-            <?php if ($dueTotal > 0): ?>
-                <!-- A: Cards due - primary call-to-action -->
-                <a href="<?= $h($reviewHref) ?>"
-                   id="stat-due-cta"
-                   aria-label="Review <?= (int) $dueTotal ?> due <?= $dueTotal === 1 ? 'card' : 'cards' ?>"
-                   class="group/cta relative overflow-hidden flex items-center justify-between gap-4 w-full h-full min-h-[84px] px-4 sm:px-5 py-3 rounded-2xl bg-gradient-to-r from-primary to-primary-container text-on-primary shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
-                    <div class="absolute -right-6 -top-8 w-28 h-28 bg-white/15 rounded-full blur-2xl pointer-events-none"></div>
-
-                    <div class="relative z-10 flex items-center gap-3 min-w-0">
-                        <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
-                            <span class="material-symbols-outlined text-[22px]">alarm</span>
+                <?php if ($dueTotal > 0): ?>
+                    <!-- A: Cards Due Ready State -->
+                    <div class="flex items-center gap-3.5 min-w-0">
+                        <!-- Simple Compact Icon -->
+                        <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-[22px] sm:text-[24px]">alarm</span>
                         </div>
+
+                        <!-- Clean Text & Action Overview -->
                         <div class="flex flex-col min-w-0">
-                            <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-on-primary/80">Due Now</span>
-                            <span class="text-base sm:text-lg font-extrabold leading-tight truncate">
-                                <span id="stat-due-cta-count"><?= (int) $dueTotal ?></span>
-                                <?= $dueTotal === 1 ? 'card' : 'cards' ?> ready to review
-                            </span>
+                            <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-primary">Due Now</span>
+                            <div class="flex items-center gap-2 min-w-0">
+                                <h2 class="text-base sm:text-lg font-extrabold text-on-surface leading-tight truncate m-0">
+                                    <span id="stat-due-cta-count" class="font-extrabold text-primary tabular-nums"><?= (int) $dueTotal ?></span>
+                                    <?= $dueTotal === 1 ? 'card' : 'cards' ?> ready to review
+                                </h2>
+
+                                <?php if ($streakAtRisk): ?>
+                                    <span class="shrink-0 px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200/80 text-[10px] font-bold">
+                                        Streak at risk
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+
                             <?php if ($dueSubtitle !== ''): ?>
-                                <span class="text-[11px] sm:text-xs text-on-primary/80 truncate"><?= $h($dueSubtitle) ?></span>
+                                <p class="text-xs text-on-surface-variant/80 font-medium truncate m-0 mt-0.5"><?= $h($dueSubtitle) ?></p>
                             <?php endif; ?>
                         </div>
                     </div>
 
-                    <span class="relative z-10 inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl bg-white text-primary font-label-md text-xs font-bold shadow-xs flex-shrink-0">
-                        <span class="hidden sm:inline">Start Review</span>
-                        <span class="material-symbols-outlined text-[18px] transition-transform group-hover/cta:translate-x-1">arrow_forward</span>
-                    </span>
-                </a>
+                    <div class="flex items-center gap-2.5 w-full sm:w-auto justify-end shrink-0">
+                        <!-- Keyboard Shortcuts Popover Trigger (Desktop) -->
+                        <div class="relative hidden lg:block group">
+                            <button type="button" aria-label="View keyboard shortcuts"
+                                    class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-outline-variant/40 bg-surface-container-low text-on-surface-variant text-xs font-semibold hover:text-primary hover:border-primary/40 transition-colors">
+                                <span class="material-symbols-outlined text-[16px]">keyboard</span>
+                                <span>Shortcuts</span>
+                            </button>
 
-            <?php elseif ($nextDueSecs !== null): ?>
-                <!-- B: Nothing due, cards are scheduled -->
-                <div id="stat-due-cta" class="flex items-center gap-3 w-full h-full min-h-[84px] px-4 sm:px-5 py-3 rounded-2xl bg-surface-container-lowest border border-outline-variant/30 shadow-xs">
-                    <div class="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-center text-emerald-600 flex-shrink-0">
-                        <span class="material-symbols-outlined text-[22px]">task_alt</span>
-                    </div>
-                    <div class="flex flex-col min-w-0">
-                        <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70">Due Now</span>
-                        <span class="text-base sm:text-lg font-extrabold leading-tight text-on-surface">All caught up</span>
-                        <?php if ($nextDueLabel !== ''): ?>
-                            <span class="text-[11px] sm:text-xs text-on-surface-variant"><?= $h($nextDueLabel) ?></span>
-                        <?php endif; ?>
-                    </div>
-                </div>
+                            <!-- Hover/Focus Popover Card -->
+                            <div class="absolute right-0 top-full mt-2 w-64 p-3 rounded-xl bg-surface-container-highest border border-outline-variant/40 shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 group-focus-within:opacity-100 group-hover:pointer-events-auto group-focus-within:pointer-events-auto transition-all z-20">
+                                <span class="text-xs font-bold text-on-surface block mb-2">Review Controls</span>
+                                <ul class="space-y-1.5 text-xs text-on-surface-variant">
+                                    <li class="flex items-center justify-between"><kbd class="px-1.5 py-0.5 bg-surface-container-high rounded border border-outline-variant/50 font-mono text-[10px]">Space</kbd> Show / Remember</li>
+                                    <li class="flex items-center justify-between"><kbd class="px-1.5 py-0.5 bg-surface-container-high rounded border border-outline-variant/50 font-mono text-[10px]">F</kbd> Mark Forgotten</li>
+                                    <li class="flex items-center justify-between"><kbd class="px-1.5 py-0.5 bg-surface-container-high rounded border border-outline-variant/50 font-mono text-[10px]">← / →</kbd> Previous / Next</li>
+                                </ul>
+                            </div>
+                        </div>
 
-            <?php else: ?>
-                <!-- C: No scheduled cards at all - point to creation -->
-                <a href="decks.php?add_card=1" id="stat-due-cta"
-                   class="group/cta flex items-center justify-between gap-4 w-full h-full min-h-[84px] px-4 sm:px-5 py-3 rounded-2xl bg-surface-container-lowest border border-outline-variant/30 shadow-xs hover:border-primary/50 hover:shadow-md transition-all">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
-                            <span class="material-symbols-outlined text-[22px]">add</span>
+                        <!-- Main Review CTA -->
+                        <a href="<?= $h($reviewHref) ?>"
+                           id="stat-due-cta"
+                           aria-label="Review <?= (int) $dueTotal ?> due <?= $dueTotal === 1 ? 'card' : 'cards' ?>"
+                           class="inline-flex items-center justify-center gap-2 px-4 py-2 sm:py-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs sm:text-sm shadow-xs hover:bg-primary-container transition-colors w-full sm:w-auto">
+                            <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+                            <span>Start Review</span>
+                        </a>
+                    </div>
+
+                <?php elseif ($nextDueSecs !== null): ?>
+                    <!-- B: All Caught Up State -->
+                    <div class="flex items-center gap-3.5 min-w-0">
+                        <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-600 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-[22px] sm:text-[24px]">task_alt</span>
                         </div>
                         <div class="flex flex-col min-w-0">
-                            <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70">Due Now</span>
-                            <span class="text-base sm:text-lg font-extrabold leading-tight text-on-surface truncate">Create your first cards</span>
+                            <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-emerald-700">Due Now</span>
+                            <h2 class="text-base sm:text-lg font-extrabold text-on-surface leading-tight m-0">All caught up</h2>
+                            <?php if ($nextDueLabel !== ''): ?>
+                                <p class="text-xs text-on-surface-variant/80 font-medium truncate m-0 mt-0.5"><?= $h($nextDueLabel) ?></p>
+                            <?php endif; ?>
                         </div>
                     </div>
-                    <span class="material-symbols-outlined text-[20px] text-primary flex-shrink-0 transition-transform group-hover/cta:translate-x-1">arrow_forward</span>
-                </a>
-            <?php endif; ?>
 
-        </div>
+                <?php else: ?>
+                    <!-- C: No Cards Scheduled State -->
+                    <div class="flex items-center gap-3.5 min-w-0">
+                        <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-[22px] sm:text-[24px]">add</span>
+                        </div>
+                        <div class="flex flex-col min-w-0">
+                            <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-primary">Due Now</span>
+                            <h2 class="text-base sm:text-lg font-extrabold text-on-surface leading-tight m-0">No cards found</h2>
+                            <p class="text-xs text-on-surface-variant/80 font-medium truncate m-0 mt-0.5">Create flashcards to start practicing</p>
+                        </div>
+                    </div>
 
-        <!-- DIV: RIGHT - Keyboard controls (desktop only: useless on touch screens) -->
-        <div class="lg:col-span-6 hidden lg:flex w-full min-w-0">
-            <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 sm:p-5 shadow-xs w-full flex flex-col justify-center">
-                <div class="flex items-center gap-2 mb-3">
-                    <span class="material-symbols-outlined text-primary text-[22px]">keyboard</span>
-                    <h3 class="font-headline-sm text-base font-semibold text-on-surface m-0">Review Keyboard Controls</h3>
-                </div>
-                <ul class="grid grid-cols-2 gap-x-6 gap-y-2.5 text-sm text-on-surface-variant">
-                    <li class="flex items-center gap-3"><kbd class="px-2 py-1 bg-surface-container-high rounded border border-outline-variant/40 font-mono text-xs">Space</kbd> Show Answer / Remember</li>
-                    <li class="flex items-center gap-3"><kbd class="px-2 py-1 bg-surface-container-high rounded border border-outline-variant/40 font-mono text-xs">F</kbd> Mark as Forgotten</li>
-                    <li class="flex items-center gap-3"><kbd class="px-2 py-1 bg-surface-container-high rounded border border-outline-variant/40 font-mono text-xs">←</kbd> Previous Card</li>
-                    <li class="flex items-center gap-3"><kbd class="px-2 py-1 bg-surface-container-high rounded border border-outline-variant/40 font-mono text-xs">→</kbd> Next Card</li>
-                </ul>
+                    <a href="decks.php?add_card=1" id="stat-due-cta"
+                       class="inline-flex items-center justify-center gap-2 px-4 py-2 sm:py-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs sm:text-sm shadow-xs hover:bg-primary-container transition-colors shrink-0 w-full sm:w-auto">
+                        <span class="material-symbols-outlined text-[18px]">add</span>
+                        <span>Create Cards</span>
+                    </a>
+                <?php endif; ?>
+
             </div>
         </div>
-    </div>
 
 <?php
 /* ------------------------------------------------------------------------
@@ -165,109 +181,114 @@ foreach ($recentSessions as $s) {
 
 $jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE;
 
-$badgeCls = 'px-2.5 py-0.5 rounded-full bg-primary-container text-on-primary font-label-sm text-label-sm font-semibold tracking-wide shadow-xs whitespace-nowrap';
+$badgeCls = 'px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-bold tracking-wide whitespace-nowrap';
 ?>
 
-    <!-- Colour probe: lets the table CSS reuse your Tailwind design tokens (read once by the script below) -->
-    <div id="mp-token-probe" class="hidden" aria-hidden="true">
-        <span data-t="head"    class="bg-surface-container text-on-surface-variant"></span>
-        <span data-t="text"    class="text-on-surface"></span>
-        <span data-t="hover"   class="bg-surface-container-low/50"></span>
-        <span data-t="card"    class="bg-surface-container-lowest"></span>
-        <span data-t="border"  class="border border-outline-variant/30"></span>
-        <span data-t="divider" class="border border-outline-variant/20"></span>
+        <!-- Colour probe: lets the table CSS reuse your Tailwind design tokens -->
+        <div id="mp-token-probe" class="hidden" aria-hidden="true">
+            <span data-t="head"    class="bg-surface-container text-on-surface-variant"></span>
+            <span data-t="text"    class="text-on-surface"></span>
+            <span data-t="hover"   class="bg-surface-container-low/50"></span>
+            <span data-t="card"    class="bg-surface-container-lowest"></span>
+            <span data-t="border"  class="border border-outline-variant/30"></span>
+            <span data-t="divider" class="border border-outline-variant/20"></span>
+        </div>
+
+        <!-- ===================================================================== -->
+        <!-- DUE NOW                                                                -->
+        <!-- ===================================================================== -->
+        <section class="flex flex-col gap-3 sm:gap-4 w-full min-w-0" id="due-now-section">
+            <div class="flex items-center justify-between gap-4">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <h2 class="text-base sm:text-lg font-extrabold tracking-tight text-on-surface whitespace-nowrap m-0">Due Now</h2>
+                    <span class="<?= $badgeCls ?>"><?= count($dueRows) ?> <?= count($dueRows) === 1 ? 'Deck' : 'Decks' ?></span>
+                    <span class="hidden sm:block w-px h-4 bg-outline-variant/40 shrink-0" aria-hidden="true"></span>
+                    <p class="hidden sm:block truncate text-xs text-on-surface-variant/80 font-medium m-0">Decks with cards ready to review</p>
+                </div>
+            </div>
+
+            <?php if (empty($dueRows)): ?>
+                <div class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs py-8 px-4 flex flex-col items-center justify-center text-center text-on-surface-variant">
+                    <span class="material-symbols-outlined text-[28px] text-outline/80 mb-1.5">task_alt</span>
+                    <span class="text-sm font-semibold text-on-surface">All caught up!</span>
+                    <span class="text-xs text-on-surface-variant/70 mt-0.5">You have no cards due for review right now.</span>
+                </div>
+            <?php else: ?>
+                <div class="mp-table rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs overflow-x-auto">
+                    <div id="due-now-table"></div>
+                </div>
+            <?php endif; ?>
+        </section>
+
+        <!-- ===================================================================== -->
+        <!-- UPCOMING                                                               -->
+        <!-- ===================================================================== -->
+        <section class="flex flex-col gap-3 sm:gap-4 w-full min-w-0" id="upcoming-section">
+            <div class="flex items-center justify-between gap-4">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <h2 class="text-base sm:text-lg font-extrabold tracking-tight text-on-surface whitespace-nowrap m-0">Upcoming (Next <?= (int) (ReviewHubService::UPCOMING_DAYS * 24) ?>h)</h2>
+                    <span class="<?= $badgeCls ?>"><?= count($upcomingRows) ?> <?= count($upcomingRows) === 1 ? 'Deck' : 'Decks' ?></span>
+                    <span class="hidden sm:block w-px h-4 bg-outline-variant/40 shrink-0" aria-hidden="true"></span>
+                    <p class="hidden sm:block truncate text-xs text-on-surface-variant/80 font-medium m-0">Cards that will be due soon</p>
+                </div>
+            </div>
+
+            <?php if (empty($upcomingRows)): ?>
+                <div class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs py-8 px-4 flex flex-col items-center justify-center text-center text-on-surface-variant">
+                    <span class="material-symbols-outlined text-[28px] text-outline/80 mb-1.5">schedule</span>
+                    <span class="text-sm font-semibold text-on-surface">No upcoming reviews</span>
+                    <span class="text-xs text-on-surface-variant/70 mt-0.5">No cards scheduled for the next <?= (int) (ReviewHubService::UPCOMING_DAYS * 24) ?> hours.</span>
+                </div>
+            <?php else: ?>
+                <div class="mp-table rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs overflow-x-auto">
+                    <div id="upcoming-table"></div>
+                </div>
+            <?php endif; ?>
+        </section>
+
+        <!-- ===================================================================== -->
+        <!-- RECENT REVIEW SESSIONS                                                 -->
+        <!-- ===================================================================== -->
+        <section class="flex flex-col gap-3 sm:gap-4 w-full min-w-0" id="recent-sessions-section">
+            <div class="flex items-center justify-between gap-4">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <h2 class="text-base sm:text-lg font-extrabold tracking-tight text-on-surface whitespace-nowrap m-0">Recent Review Sessions</h2>
+                    <span class="<?= $badgeCls ?>"><?= count($recentRows) ?> <?= count($recentRows) === 1 ? 'Session' : 'Sessions' ?></span>
+                    <span class="hidden sm:block w-px h-4 bg-outline-variant/40 shrink-0" aria-hidden="true"></span>
+                    <p class="hidden sm:block truncate text-xs text-on-surface-variant/80 font-medium m-0">Your latest spaced repetition drills</p>
+                </div>
+                <a href="sessions.php" class="shrink-0 text-xs text-primary hover:underline font-semibold flex items-center gap-1 transition-all whitespace-nowrap">
+                    <span>View History</span>
+                    <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+                </a>
+            </div>
+
+            <?php if (empty($recentRows)): ?>
+                <div class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs py-8 px-4 flex flex-col items-center justify-center text-center text-on-surface-variant">
+                    <span class="material-symbols-outlined text-[28px] text-outline/80 mb-1.5">history_edu</span>
+                    <span class="text-sm font-semibold text-on-surface">No recent review sessions found</span>
+                    <span class="text-xs text-on-surface-variant/70 mt-0.5">Complete a study session to see your history here.</span>
+                </div>
+            <?php else: ?>
+                <div class="mp-table rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs overflow-x-auto">
+                    <div id="recent-sessions-table"></div>
+                </div>
+            <?php endif; ?>
+        </section>
+
     </div>
-
-    <!-- ===================================================================== -->
-    <!-- DUE NOW  (title above the table, table below)                          -->
-    <!-- ===================================================================== -->
-    <section class="flex flex-col gap-4 w-full min-w-0" id="due-now-section">
-        <div class="flex items-center justify-between gap-4">
-            <div class="flex items-center gap-2.5 min-w-0">
-                <h2 class="font-headline-md text-headline-md font-bold tracking-tight text-on-surface whitespace-nowrap">Due Now</h2>
-                <span class="<?= $badgeCls ?>"><?= count($dueRows) ?> <?= count($dueRows) === 1 ? 'Deck' : 'Decks' ?></span>
-                <span class="hidden sm:block w-px h-4 bg-outline-variant shrink-0" aria-hidden="true"></span>
-                <p class="hidden sm:block truncate text-sm text-on-surface-variant m-0">Decks with cards ready to review</p>
-            </div>
-        </div>
-
-        <?php if (empty($dueRows)): ?>
-            <div class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs py-10 text-center text-on-surface-variant text-sm">
-                You are all caught up for now!
-            </div>
-        <?php else: ?>
-            <div class="mp-table rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs overflow-x-auto">
-                <div id="due-now-table"></div>
-            </div>
-        <?php endif; ?>
-    </section>
-
-    <!-- ===================================================================== -->
-    <!-- UPCOMING                                                               -->
-    <!-- ===================================================================== -->
-    <section class="flex flex-col gap-4 w-full min-w-0" id="upcoming-section">
-        <div class="flex items-center justify-between gap-4">
-            <div class="flex items-center gap-2.5 min-w-0">
-                <h2 class="font-headline-md text-headline-md font-bold tracking-tight text-on-surface whitespace-nowrap">Upcoming (Next <?= (int) (ReviewHubService::UPCOMING_DAYS * 24) ?>h)</h2>
-                <span class="<?= $badgeCls ?>"><?= count($upcomingRows) ?> <?= count($upcomingRows) === 1 ? 'Deck' : 'Decks' ?></span>
-                <span class="hidden sm:block w-px h-4 bg-outline-variant shrink-0" aria-hidden="true"></span>
-                <p class="hidden sm:block truncate text-sm text-on-surface-variant m-0">Cards that will be due soon</p>
-            </div>
-        </div>
-
-        <?php if (empty($upcomingRows)): ?>
-            <div class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs py-10 text-center text-on-surface-variant text-sm">
-                No cards scheduled for the next <?= (int) (ReviewHubService::UPCOMING_DAYS * 24) ?> hours.
-            </div>
-        <?php else: ?>
-            <div class="mp-table rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs overflow-x-auto">
-                <div id="upcoming-table"></div>
-            </div>
-        <?php endif; ?>
-    </section>
-
-    <!-- ===================================================================== -->
-    <!-- RECENT REVIEW SESSIONS                                                 -->
-    <!-- ===================================================================== -->
-    <section class="flex flex-col gap-4 w-full min-w-0" id="recent-sessions-section">
-        <div class="flex items-center justify-between gap-4">
-            <div class="flex items-center gap-2.5 min-w-0">
-                <h2 class="font-headline-md text-headline-md font-bold tracking-tight text-on-surface whitespace-nowrap">Recent Review Sessions</h2>
-                <span class="<?= $badgeCls ?>"><?= count($recentRows) ?> <?= count($recentRows) === 1 ? 'Session' : 'Sessions' ?></span>
-                <span class="hidden sm:block w-px h-4 bg-outline-variant shrink-0" aria-hidden="true"></span>
-                <p class="hidden sm:block truncate text-sm text-on-surface-variant m-0">Your latest spaced repetition drills</p>
-            </div>
-            <a href="sessions.php" class="shrink-0 text-xs text-primary hover:underline font-semibold flex items-center gap-1 transition-all whitespace-nowrap">
-                <span>View History</span>
-                <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
-            </a>
-        </div>
-
-        <?php if (empty($recentRows)): ?>
-            <div class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs flex flex-col items-center justify-center p-10 text-center text-on-surface-variant">
-                <span class="material-symbols-outlined text-[32px] text-outline mb-2">history_edu</span>
-                <span class="text-sm font-medium">No recent review sessions found.</span>
-                <span class="text-xs mt-1 text-on-surface-variant">Complete a study session to see your history here.</span>
-            </div>
-        <?php else: ?>
-            <div class="mp-table rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs overflow-x-auto">
-                <div id="recent-sessions-table"></div>
-            </div>
-        <?php endif; ?>
-    </section>
-
 </div>
 
-<!-- Same Tabulator build + theme as deck-view.php -->
+<!-- Tabulator CSS stylesheet -->
 <link href="https://unpkg.com/tabulator-tables@5.5.0/dist/css/tabulator_simple.min.css" rel="stylesheet">
 
 <!-- Read-only Tabulator styling: structure + responsive mobile rules -->
 <style>
-    .mp-table .tabulator { background: transparent; border: 0; font-family: inherit; font-size: .875rem; color: var(--mp-text, inherit); }
+    .mp-table .tabulator { background: transparent; border: 0; font-family: inherit; font-size: .8125rem; color: var(--mp-text, inherit); }
     .mp-table .tabulator .tabulator-header { background: var(--mp-head-bg, #f1f1f1) !important; color: var(--mp-head-text, inherit); border-top: 0; border-bottom: 1px solid var(--mp-border, #ddd); }
     .mp-table .tabulator .tabulator-header .tabulator-col { background: transparent !important; border-right: 0; }
-    .mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-content { padding: .75rem 1rem; }
-    .mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+    .mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-content { padding: .625rem 1rem; }
+    .mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
     .mp-table .tabulator .tabulator-tableholder,
     .mp-table .tabulator .tabulator-tableholder .tabulator-table { background: transparent; }
     .mp-table .tabulator .tabulator-row,
@@ -275,21 +296,19 @@ $badgeCls = 'px-2.5 py-0.5 rounded-full bg-primary-container text-on-primary fon
     .mp-table .tabulator .tabulator-row.tabulator-row-odd { background: transparent !important; color: inherit; border-bottom: 1px solid var(--mp-divider, #eee); min-height: 0; }
     .mp-table .tabulator .tabulator-row:hover { background: var(--mp-hover, rgba(0,0,0,.03)) !important; }
     .mp-table .tabulator .tabulator-table > .tabulator-row:last-child { border-bottom: 0; }
-    .mp-table .tabulator .tabulator-row .tabulator-cell { padding: .75rem 1rem; border-right: 0; vertical-align: middle; }
+    .mp-table .tabulator .tabulator-row .tabulator-cell { padding: .625rem 1rem; border-right: 0; vertical-align: middle; }
     .mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-resize-handle { display: none; }
     
     @media (max-width: 640px) {
         .mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-content,
-        .mp-table .tabulator .tabulator-row .tabulator-cell { padding: .5rem .625rem; font-size: .8125rem; }
+        .mp-table .tabulator .tabulator-row .tabulator-cell { padding: .5rem .625rem; font-size: .75rem; }
     }
 
-    /* Due Now + Upcoming: plain cursor (links and buttons inside keep their own pointer) */
     #due-now-table .tabulator-row,
     #due-now-table .tabulator-row .tabulator-cell,
     #upcoming-table .tabulator-row,
     #upcoming-table .tabulator-row .tabulator-cell { cursor: default !important; }
 
-    /* Recent Review Sessions: clickable rows */
     #recent-sessions-table .tabulator-row,
     #recent-sessions-table .tabulator-row .tabulator-cell { cursor: pointer; }
 </style>
@@ -302,7 +321,6 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!dataEl) return;
     var data = JSON.parse(dataEl.textContent);
 
-    // ---- Reuse the Tailwind design tokens as CSS variables for the table chrome ----
     var probe = document.getElementById('mp-token-probe');
     if (probe) {
         var q = function (t) { return probe.querySelector('[data-t="' + t + '"]'); };
@@ -321,9 +339,8 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     };
 
-    var muted = 'text-on-surface-variant tabular-nums whitespace-nowrap';
+    var muted = 'text-xs text-on-surface-variant tabular-nums whitespace-nowrap';
 
-    // Options shared by every table: read-only
     var base = {
         layout: 'fitColumns',
         responsiveLayout: 'hide',
@@ -355,7 +372,6 @@ document.addEventListener('DOMContentLoaded', function () {
         new Tabulator(el, Object.assign({}, base, { data: rows, columns: cols }, extra || {}));
     };
 
-    // Load Tabulator 5.5.0 unless head.php already provides it
     var ensureTabulator = function (done) {
         if (window.Tabulator) return done();
         var sc = document.createElement('script');
@@ -366,73 +382,73 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     function buildTables() {
-    // ---- Due Now ----
-    make('#due-now-table', data.due, [
-        { title: 'Deck', field: 'title', widthGrow: 3, minWidth: 120, responsive: 0, formatter: linkCell('deckUrl') },
-        { title: 'Due', field: 'dueCount', minWidth: 65, hozAlign: 'right', headerHozAlign: 'right', responsive: 1,
-          formatter: function (c) { return '<span class="inline-block text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200/80 px-2 py-0.5 rounded-md tabular-nums">' + esc(c.getValue()) + '</span>'; } },
-        { title: 'Total cards', field: 'totalCards', minWidth: 85, hozAlign: 'right', headerHozAlign: 'right', responsive: 2,
-          formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
-        { title: 'Oldest due', field: 'oldestText', minWidth: 95, hozAlign: 'right', headerHozAlign: 'right', responsive: 3,
-          formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
-        { title: '', field: 'reviewUrl', minWidth: 100, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
-          formatter: function (c) {
-              var r = c.getRow().getData();
-              return '<a href="' + esc(r.reviewUrl) + '" aria-label="Review ' + esc(r.title) + '" title="Start reviewing ' + esc(r.title) + '" ' +
-                     'class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary text-on-primary text-xs font-bold hover:bg-primary-container transition-colors whitespace-nowrap">' +
-                     '<span class="material-symbols-outlined text-[15px]">play_arrow</span><span>Review</span></a>';
-          } }
-    ]);
+        // ---- Due Now ----
+        make('#due-now-table', data.due, [
+            { title: 'Deck', field: 'title', widthGrow: 3, minWidth: 120, responsive: 0, formatter: linkCell('deckUrl') },
+            { title: 'Due', field: 'dueCount', minWidth: 65, hozAlign: 'right', headerHozAlign: 'right', responsive: 1,
+              formatter: function (c) { return '<span class="inline-block text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200/80 px-2 py-0.5 rounded-md tabular-nums">' + esc(c.getValue()) + '</span>'; } },
+            { title: 'Total cards', field: 'totalCards', minWidth: 85, hozAlign: 'right', headerHozAlign: 'right', responsive: 2,
+              formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
+            { title: 'Oldest due', field: 'oldestText', minWidth: 95, hozAlign: 'right', headerHozAlign: 'right', responsive: 3,
+              formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
+            { title: '', field: 'reviewUrl', minWidth: 100, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
+              formatter: function (c) {
+                  var r = c.getRow().getData();
+                  return '<a href="' + esc(r.reviewUrl) + '" aria-label="Review ' + esc(r.title) + '" title="Start reviewing ' + esc(r.title) + '" ' +
+                         'class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary text-on-primary text-xs font-bold hover:bg-primary-container transition-colors whitespace-nowrap">' +
+                         '<span class="material-symbols-outlined text-[15px]">play_arrow</span><span>Review</span></a>';
+              } }
+        ]);
 
-    // ---- Upcoming ----
-    make('#upcoming-table', data.upcoming, [
-        { title: 'Deck', field: 'title', widthGrow: 3, minWidth: 120, responsive: 0,
-          formatter: linkCell('deckUrl', function (r) {
-              return r.isDueNow ? '<span class="text-[10px] font-bold uppercase tracking-wider text-rose-700 whitespace-nowrap">Due now</span>' : '';
-          }) },
-        { title: 'Cards soon', field: 'upcomingCount', minWidth: 85, hozAlign: 'right', headerHozAlign: 'right', responsive: 1,
-          formatter: function (c) { return '<span class="inline-block text-xs text-on-surface-variant bg-surface-container-high px-2 py-0.5 rounded-md tabular-nums">' + esc(c.getValue()) + '</span>'; } },
-        { title: 'Next due', field: 'nextText', minWidth: 95, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
-          formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } }
-    ]);
+        // ---- Upcoming ----
+        make('#upcoming-table', data.upcoming, [
+            { title: 'Deck', field: 'title', widthGrow: 3, minWidth: 120, responsive: 0,
+              formatter: linkCell('deckUrl', function (r) {
+                  return r.isDueNow ? '<span class="text-[10px] font-bold uppercase tracking-wider text-rose-700 whitespace-nowrap">Due now</span>' : '';
+              }) },
+            { title: 'Cards soon', field: 'upcomingCount', minWidth: 85, hozAlign: 'right', headerHozAlign: 'right', responsive: 1,
+              formatter: function (c) { return '<span class="inline-block text-[11px] font-bold text-on-surface-variant bg-surface-container-high px-2 py-0.5 rounded-md tabular-nums">' + esc(c.getValue()) + '</span>'; } },
+            { title: 'Next due', field: 'nextText', minWidth: 95, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
+              formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } }
+        ]);
 
-    // ---- Recent Review Sessions ----
-    make('#recent-sessions-table', data.recent, [
-        { title: 'Deck', field: 'title', widthGrow: 3, minWidth: 120, responsive: 0, formatter: linkCell('detailsUrl') },
-        { title: 'Cards', field: 'cards', minWidth: 65, hozAlign: 'right', headerHozAlign: 'right', responsive: 2,
-          formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
-        { title: 'Accuracy', field: 'accuracy', minWidth: 80, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
-          formatter: function (c) {
-              var r = c.getRow().getData();
-              return '<span class="inline-block text-xs font-bold border px-2 py-0.5 rounded-md tabular-nums ' + esc(r.accuracyCls) + '">' + esc(r.accuracy) + '%</span>';
-          } },
-        { title: 'Duration', field: 'duration', minWidth: 75, hozAlign: 'right', headerHozAlign: 'right', responsive: 3,
-          formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
-        { title: 'When', field: 'when', minWidth: 85, hozAlign: 'right', headerHozAlign: 'right', responsive: 1,
-          formatter: function (c) { return '<span class="' + muted + ' text-xs">' + esc(c.getValue()) + '</span>'; } },
-        { title: '', field: 'practiceUrl', minWidth: 115, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
-          formatter: function (c) {
-              var r = c.getRow().getData();
-              if (!r.practiceUrl) return '';
-              return '<a href="' + esc(r.practiceUrl) + '" title="Practice these cards again without affecting spaced repetition history" ' +
-                     'class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-outline-variant text-on-surface text-xs font-bold hover:bg-surface-container-low transition-colors whitespace-nowrap">' +
-                     '<span class="material-symbols-outlined text-[15px]">play_arrow</span><span>Practice again</span></a>';
-          } },
-        { title: 'Action', field: 'detailsUrl', minWidth: 110, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
-          formatter: function (c) {
-              var r = c.getRow().getData();
-              return '<a href="' + esc(r.detailsUrl) + '" ' +
-                     'title="View comprehensive review session breakdown, card history, and performance details for ' + esc(r.title) + '" ' +
-                     'aria-label="View session details for ' + esc(r.title) + '" ' +
-                     'class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container-high border border-outline-variant/40 text-on-surface hover:text-primary hover:border-primary/50 text-xs font-bold transition-colors whitespace-nowrap">' +
-                     '<span>View Details</span><span class="material-symbols-outlined text-[15px]">chevron_right</span></a>';
-          } }
+        // ---- Recent Review Sessions ----
+        make('#recent-sessions-table', data.recent, [
+            { title: 'Deck', field: 'title', widthGrow: 3, minWidth: 120, responsive: 0, formatter: linkCell('detailsUrl') },
+            { title: 'Cards', field: 'cards', minWidth: 65, hozAlign: 'right', headerHozAlign: 'right', responsive: 2,
+              formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
+            { title: 'Accuracy', field: 'accuracy', minWidth: 80, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
+              formatter: function (c) {
+                  var r = c.getRow().getData();
+                  return '<span class="inline-block text-[11px] font-bold border px-2 py-0.5 rounded-md tabular-nums ' + esc(r.accuracyCls) + '">' + esc(r.accuracy) + '%</span>';
+              } },
+            { title: 'Duration', field: 'duration', minWidth: 75, hozAlign: 'right', headerHozAlign: 'right', responsive: 3,
+              formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
+            { title: 'When', field: 'when', minWidth: 85, hozAlign: 'right', headerHozAlign: 'right', responsive: 1,
+              formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
+            { title: '', field: 'practiceUrl', minWidth: 115, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
+              formatter: function (c) {
+                  var r = c.getRow().getData();
+                  if (!r.practiceUrl) return '';
+                  return '<a href="' + esc(r.practiceUrl) + '" title="Practice these cards again without affecting spaced repetition history" ' +
+                         'class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-outline-variant text-on-surface text-xs font-bold hover:bg-surface-container-low transition-colors whitespace-nowrap">' +
+                         '<span class="material-symbols-outlined text-[15px]">play_arrow</span><span>Practice again</span></a>';
+              } },
+            { title: 'Action', field: 'detailsUrl', minWidth: 110, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
+              formatter: function (c) {
+                  var r = c.getRow().getData();
+                  return '<a href="' + esc(r.detailsUrl) + '" ' +
+                         'title="View comprehensive review session breakdown, card history, and performance details for ' + esc(r.title) + '" ' +
+                         'aria-label="View session details for ' + esc(r.title) + '" ' +
+                         'class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container-high border border-outline-variant/40 text-on-surface hover:text-primary hover:border-primary/50 text-xs font-bold transition-colors whitespace-nowrap">' +
+                         '<span>View Details</span><span class="material-symbols-outlined text-[15px]">chevron_right</span></a>';
+              } }
         ], {
-        rowClick: function (e, row) {
-            if (e.target.closest('a')) return;
-            window.location.href = row.getData().detailsUrl;
-        }
-    });
+            rowClick: function (e, row) {
+                if (e.target.closest('a')) return;
+                window.location.href = row.getData().detailsUrl;
+            }
+        });
     }
 
     ensureTabulator(buildTables);

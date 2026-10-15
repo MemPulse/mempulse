@@ -12,19 +12,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit;
     }
 
-    $sql  = "SELECT id, first_name, last_name, password_hash, account_status FROM users WHERE email = ? AND deleted_at IS NULL";
+    $sql  = "SELECT id, first_name, last_name, password_hash, account_status, role FROM users WHERE email = ? AND deleted_at IS NULL";
     $stmt = mysqli_prepare($conn, $sql);
     
     mysqli_stmt_bind_param($stmt, "s", $email);
     mysqli_stmt_execute($stmt);
-    mysqli_stmt_bind_result($stmt, $user_id, $first_name, $last_name, $hashed_password, $account_status);
+    mysqli_stmt_bind_result($stmt, $user_id, $first_name, $last_name, $hashed_password, $account_status, $role);
     
     if (mysqli_stmt_fetch($stmt)) {
         if (password_verify($password, $hashed_password)) {
             if ($account_status !== 'approved') {
                 mysqli_stmt_close($stmt);
                 mysqli_close($conn);
-                header("Location: login.php?error=pending_approval#login");
+                // Rejected accounts get their own message; everything else is still pending.
+                $reason = ($account_status === 'rejected') ? 'account_rejected' : 'pending_approval';
+                header("Location: login.php?error=" . $reason . "#login");
                 exit;
             }
 
@@ -39,7 +41,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             mysqli_stmt_close($stmt);
             mysqli_close($conn);
 
-            header("Location: ../app/views/index.php");
+            // Admins go to the admin area; everyone else to the student app.
+            // (The admin guard re-verifies the role in the database on every request.)
+            header("Location: " . ($role === 'admin' ? "../admin/views/index.php" : "../app/views/index.php"));
             exit;
         }
     }
@@ -96,10 +100,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             line-height: 1.6;
             -webkit-font-smoothing: antialiased;
             display: flex;
-            align-items: center;
-            justify-content: center;
+            flex-direction: column;
             min-height: 100vh;
-            padding: 1.5rem;
         }
 
         .material-symbols-outlined {
@@ -117,6 +119,81 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             font-feature-settings: "liga";
             -webkit-font-feature-settings: "liga";
             -webkit-font-smoothing: antialiased;
+        }
+
+        /* App Header with Centered Nav & Backlink */
+        .app-header {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            background: rgba(250, 248, 255, .86);
+            border-bottom: 1px solid rgba(199, 196, 216, .38);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+        }
+        .header-container {
+            width: min(100% - 3rem, 80rem);
+            min-height: 5rem;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.5rem;
+            position: relative;
+        }
+        .logo-link {
+            display: inline-flex;
+            align-items: center;
+            gap: .7rem;
+            font-family: "Plus Jakarta Sans", sans-serif;
+            font-weight: 800;
+            font-size: 1.2rem;
+            letter-spacing: -.04em;
+            white-space: nowrap;
+            color: var(--ink);
+            text-decoration: none;
+        }
+        .logo-icon {
+            display: grid;
+            width: 2.6rem;
+            height: 2.6rem;
+            place-items: center;
+            border-radius: .85rem;
+            background: var(--surface-container);
+            box-shadow: 0 3px 12px rgba(53, 37, 205, .10);
+            font-size: 1.35rem;
+            color: rgb(53, 37, 205);
+        }
+        .main-nav {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+        .nav-links a {
+            color: var(--muted);
+            font-size: .88rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: color .2s ease;
+        }
+        .nav-links a:hover, .nav-links a:focus-visible { color: var(--primary); }
+        .header-actions { display: flex; align-items: center; gap: .8rem; }
+
+        /* Main Content Wrapper */
+        .main-content-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
         }
 
         .auth-container {
@@ -144,14 +221,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             50% { background-color: var(--surface-pulse); }
         }
 
-        .logo-icon {
-            display: grid;
+        .auth-container .logo-icon {
             width: 3.5rem;
             height: 3.5rem;
-            place-items: center;
-            border-radius: 1rem;
-            background: var(--surface-container);
-            color: rgb(53, 37, 205);
             font-size: 2rem;
             margin-bottom: 1rem;
             animation: pulse-bg 2.5s infinite ease-in-out;
@@ -174,7 +246,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         .auth-form {
             display: flex;
             flex-direction: column;
-            gap: 1.15rem; /* Slightly increased gap for error messages */
+            gap: 1.15rem;
         }
 
         .form-group {
@@ -208,7 +280,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             box-shadow: 0 0 0 3px rgba(53, 37, 205, 0.15);
         }
 
-        /* Validation Styles */
         .form-group input.input-error {
             border-color: var(--error) !important;
         }
@@ -223,9 +294,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             margin-top: -0.1rem;
             display: none;
         }
-        .error-text.active {
-            display: block;
-        }
+        .error-text.active { display: block; }
         
         .check-error-text {
             color: var(--error);
@@ -233,11 +302,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             font-weight: 500;
             margin-top: 0.2rem;
             display: none;
-            margin-left: 1.6rem; /* Align with text, skipping checkbox */
+            margin-left: 1.6rem;
         }
-        .check-error-text.active {
-            display: block;
-        }
+        .check-error-text.active { display: block; }
 
         .btn-primary {
             min-height: 3rem;
@@ -254,6 +321,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
             box-shadow: 0 8px 22px rgba(53, 37, 205, 0.22);
             margin-top: 0.5rem;
+            text-decoration: none;
         }
 
         .btn-primary:hover {
@@ -267,7 +335,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             justify-content: space-between;
             align-items: center;
             font-size: 0.85rem;
-            margin-top: -0.5rem; /* Pull up closer to password */
+            margin-top: -0.5rem;
         }
 
         .check-label {
@@ -286,13 +354,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             cursor: pointer;
         }
 
-        a {
+        .auth-container a {
             color: var(--primary);
             text-decoration: none;
             font-weight: 600;
         }
-
-        a:hover { text-decoration: underline; }
+        .auth-container a:hover { text-decoration: underline; }
 
         .auth-message {
             font-size: 0.85rem;
@@ -330,123 +397,154 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             grid-template-columns: 1fr 1fr;
             gap: 1rem;
         }
+
+        @media (max-width: 768px) {
+            .main-nav { position: static; transform: none; }
+            .header-container { flex-wrap: wrap; justify-content: center; padding: 1rem 0; }
+            .main-nav { order: 3; width: 100%; justify-content: center; display: flex; }
+        }
     </style>
 </head>
 <body>
 
-    <main class="auth-container">
-        <div class="brand-header">
-            <span class="material-symbols-outlined logo-icon" aria-hidden="true">neurology</span>
-            <h1>MemPulse</h1>
-            <p id="header-desc">Welcome back to your rhythm.</p>
+    <!-- Header with Centered Nav & Landing Page Backlink -->
+    <header class="app-header">
+        <div class="header-container">
+            <a href="../landing-page/index.html" class="logo-link" aria-label="MemPulse home">
+                <span class="material-symbols-outlined logo-icon" aria-hidden="true">neurology</span>
+                <span>MemPulse</span>
+            </a>
+
+            <nav class="main-nav" aria-label="Main navigation">
+                <ul class="nav-links">
+                    <li><a href="../landing-page/index.html#features">Features</a></li>
+                    <li><a href="../landing-page/index.html#testimonials">Reviews</a></li>
+                    <li><a href="../landing-page/about.html">About</a></li>
+                </ul>
+            </nav>
+
+            <div class="header-actions"></div>
         </div>
+    </header>
 
-        <!-- Login View -->
-        <section id="login-view" class="view-section active">
-            <?php if (isset($_GET['error'])): ?>
-                <div class="auth-message auth-message-error" role="alert">
-                    <?php 
-                        if ($_GET['error'] === 'pending_approval') echo "Your account is waiting for approval. Please try again after it has been approved.";
-                        elseif ($_GET['error'] === 'invalid_credentials') echo "Invalid email or password.";
-                        elseif ($_GET['error'] === 'empty_fields') echo "Please enter your email and password.";
-                    ?>
-                </div>
-            <?php endif; ?>
-            
-            <?php if (isset($_GET['registered']) && $_GET['registered'] === 'approved'): ?>
-                <div class="auth-message auth-message-success" role="status">
-                    Registration confirmed. You can now log in.
-                </div>
-            <?php endif; ?>
-
-            <!-- Added novalidate to bypass default browser tooltips -->
-            <form class="auth-form" id="form-login" action="login.php" method="POST" autocomplete="off" novalidate>
-                <div class="form-group">
-                    <label>Email address <span class="required-indicator">*</span></label>
-                    <input type="email" id="login-email" name="login-email" placeholder="student@university.edu" autocomplete="off">
-                    <span class="error-text" id="err-login-email">Please enter a valid email address.</span>
-                </div>
-                <div class="form-group">
-                    <label>Password <span class="required-indicator">*</span></label>
-                    <input type="password" id="login-password" name="login-password" placeholder="••••••••" autocomplete="new-password">
-                    <span class="error-text" id="err-login-password">Password is required.</span>
-                </div>
-                
-                <div class="form-options">
-                    <label class="check-label">
-                        <input type="checkbox" onchange="document.getElementById('login-password').type = this.checked ? 'text' : 'password'">
-                        <span>Show password</span>
-                    </label>
-                    <a href="#forgot">Forgot password?</a>
-                </div>
-
-                <button class="btn-primary" type="submit">Log In</button>
-            </form>
-
-            <div class="toggle-view">
-                New to MemPulse? <a href="#" onclick="toggleView('signup'); return false;">Create an account</a>
+    <div class="main-content-wrapper">
+        <main class="auth-container">
+            <div class="brand-header">
+                <span class="material-symbols-outlined logo-icon" aria-hidden="true">neurology</span>
+                <h1>MemPulse</h1>
+                <p id="header-desc">Welcome back to your rhythm.</p>
             </div>
-        </section>
 
-        <!-- Signup View -->
-        <section id="signup-view" class="view-section">
-            <!-- Added novalidate to bypass default browser tooltips -->
-            <form class="auth-form" id="form-signup" action="register.php" method="POST" autocomplete="off" novalidate>
-                <div class="field-row">
+            <!-- Login View -->
+            <section id="login-view" class="view-section active">
+                <?php if (isset($_GET['error'])): ?>
+                    <div class="auth-message auth-message-error" role="alert">
+                        <?php 
+                            if ($_GET['error'] === 'pending_approval') echo "Your account is waiting for approval. Please try again after it has been approved.";
+                            elseif ($_GET['error'] === 'account_rejected') echo "This account was not approved. Please contact support.";
+                            elseif ($_GET['error'] === 'invalid_credentials') echo "Invalid email or password.";
+                            elseif ($_GET['error'] === 'empty_fields') echo "Please enter your email and password.";
+                        ?>
+                    </div>
+                <?php endif; ?>
+                
+                <?php if (isset($_GET['registered']) && $_GET['registered'] === 'approved'): ?>
+                    <div class="auth-message auth-message-success" role="status">
+                        Registration confirmed. You can now log in.
+                    </div>
+                <?php endif; ?>
+
+                <form class="auth-form" id="form-login" action="login.php" method="POST" autocomplete="off" novalidate>
                     <div class="form-group">
-                        <label>First name <span class="required-indicator">*</span></label>
-                        <input type="text" id="first-name" name="first-name" autocomplete="off">
-                        <span class="error-text" id="err-first-name">First name is required.</span>
+                        <label>Email address <span class="required-indicator">*</span></label>
+                        <input type="email" id="login-email" name="login-email" placeholder="student@university.edu" autocomplete="off">
+                        <span class="error-text" id="err-login-email">Please enter a valid email address.</span>
                     </div>
                     <div class="form-group">
-                        <label>Last name <span class="required-indicator">*</span></label>
-                        <input type="text" id="last-name" name="last-name" autocomplete="off">
-                        <span class="error-text" id="err-last-name">Last name is required.</span>
+                        <label>Password <span class="required-indicator">*</span></label>
+                        <input type="password" id="login-password" name="login-password" placeholder="••••••••" autocomplete="new-password">
+                        <span class="error-text" id="err-login-password">Password is required.</span>
                     </div>
-                </div>
-                <div class="form-group">
-                    <label>Email address <span class="required-indicator">*</span></label>
-                    <input type="email" id="signup-email" name="email" autocomplete="off">
-                    <span class="error-text" id="err-signup-email">Please enter a valid email address.</span>
-                </div>
-                <div class="form-group">
-                    <label>Password <span class="required-indicator">*</span></label>
-                    <input type="password" id="signup-password" name="password" autocomplete="new-password">
-                    <span class="error-text" id="err-signup-password">Password must be at least 8 characters.</span>
-                </div>
-                <div class="form-group">
-                    <label>Confirm password <span class="required-indicator">*</span></label>
-                    <input type="password" id="confirm-password" name="confirm-password" autocomplete="new-password">
-                    <span class="error-text" id="err-confirm-password">Passwords do not match.</span>
-                </div>
-                
-                <div class="form-options">
-                    <label class="check-label">
-                        <input type="checkbox" onchange="
-                            const isChecked = this.checked;
-                            document.getElementById('signup-password').type = isChecked ? 'text' : 'password';
-                            document.getElementById('confirm-password').type = isChecked ? 'text' : 'password';
-                        ">
-                        <span>Show passwords</span>
-                    </label>
-                </div>
-                
-                <div>
-                    <label class="check-label" style="margin-top: 0.5rem;">
-                        <input type="checkbox" id="terms" name="terms">
-                        <span>I agree to the <a href="terms.html">Terms &amp; Conditions</a> and <a href="privacy-policy.html">Privacy Policy</a> <span class="required-indicator">*</span></span>
-                    </label>
-                    <span class="check-error-text" id="err-terms">You must agree to the terms to continue.</span>
-                </div>
+                    
+                    <div class="form-options">
+                        <label class="check-label">
+                            <input type="checkbox" onchange="document.getElementById('login-password').type = this.checked ? 'text' : 'password'">
+                            <span>Show password</span>
+                        </label>
+                        <a href="#forgot">Forgot password?</a>
+                    </div>
 
-                <button class="btn-primary" type="submit">Create Account</button>
-            </form>
+                    <button class="btn-primary" type="submit">Log In</button>
+                    <!-- Back Link button style for the landing page -->
+                    <!-- <a href="../landing-page/index.html" class="btn-primary" style="background: var(--surface-container); color: var(--ink); box-shadow: none; text-align: center;">Back to Landing Page</a> -->
+                </form>
 
-            <div class="toggle-view">
-                Already have an account? <a href="#" onclick="toggleView('login'); return false;">Log in</a>
-            </div>
-        </section>
-    </main>
+                <div class="toggle-view">
+                    New to MemPulse? <a href="#" onclick="toggleView('signup'); return false;">Create an account</a>
+                </div>
+            </section>
+
+            <!-- Signup View -->
+            <section id="signup-view" class="view-section">
+                <form class="auth-form" id="form-signup" action="register.php" method="POST" autocomplete="off" novalidate>
+                    <div class="field-row">
+                        <div class="form-group">
+                            <label>First name <span class="required-indicator">*</span></label>
+                            <input type="text" id="first-name" name="first-name" autocomplete="off">
+                            <span class="error-text" id="err-first-name">First name is required.</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Last name <span class="required-indicator">*</span></label>
+                            <input type="text" id="last-name" name="last-name" autocomplete="off">
+                            <span class="error-text" id="err-last-name">Last name is required.</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Email address <span class="required-indicator">*</span></label>
+                        <input type="email" id="signup-email" name="email" autocomplete="off">
+                        <span class="error-text" id="err-signup-email">Please enter a valid email address.</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Password <span class="required-indicator">*</span></label>
+                        <input type="password" id="signup-password" name="password" autocomplete="new-password">
+                        <span class="error-text" id="err-signup-password">Password must be at least 8 characters.</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Confirm password <span class="required-indicator">*</span></label>
+                        <input type="password" id="confirm-password" name="confirm-password" autocomplete="new-password">
+                        <span class="error-text" id="err-confirm-password">Passwords do not match.</span>
+                    </div>
+                    
+                    <div class="form-options">
+                        <label class="check-label">
+                            <input type="checkbox" onchange="
+                                const isChecked = this.checked;
+                                document.getElementById('signup-password').type = isChecked ? 'text' : 'password';
+                                document.getElementById('confirm-password').type = isChecked ? 'text' : 'password';
+                            ">
+                            <span>Show passwords</span>
+                        </label>
+                    </div>
+                    
+                    <div>
+                        <label class="check-label" style="margin-top: 0.5rem;">
+                            <input type="checkbox" id="terms" name="terms">
+                            <span>I agree to the <a href="terms.html">Terms &amp; Conditions</a> and <a href="privacy-policy.html">Privacy Policy</a> <span class="required-indicator">*</span></span>
+                        </label>
+                        <span class="check-error-text" id="err-terms">You must agree to the terms to continue.</span>
+                    </div>
+
+                    <button class="btn-primary" type="submit">Create Account</button>
+                    <!-- Back Link button style for the landing page -->
+                    <!-- <a href="../landing-page/index.html" class="btn-primary" style="background: var(--surface-container); color: var(--ink); box-shadow: none; text-align: center;">Back to Landing Page</a> -->
+                </form>
+
+                <div class="toggle-view">
+                    Already have an account? <a href="#" onclick="toggleView('login'); return false;">Log in</a>
+                </div>
+            </section>
+        </main>
+    </div>
 
     <script>
         // Form View Toggling
@@ -454,7 +552,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             document.getElementById('login-view').classList.remove('active');
             document.getElementById('signup-view').classList.remove('active');
             
-            // Clear all errors when switching views
             document.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
             document.querySelectorAll('.error-text, .check-error-text').forEach(el => el.classList.remove('active'));
             
@@ -473,7 +570,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             toggleView('login');
         }
 
-        // Custom Form Validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
         function showError(inputId, errorId, show = true) {
@@ -488,13 +584,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
         }
 
-        // Login Form Validation
         document.getElementById('form-login').addEventListener('submit', function(e) {
             let isValid = true;
             const email = document.getElementById('login-email').value.trim();
             const password = document.getElementById('login-password').value;
 
-            // Reset errors
             showError('login-email', 'err-login-email', false);
             showError('login-password', 'err-login-password', false);
 
@@ -508,10 +602,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 isValid = false;
             }
 
-            if (!isValid) e.preventDefault(); // Stop submission if invalid
+            if (!isValid) e.preventDefault();
         });
 
-        // Signup Form Validation
         document.getElementById('form-signup').addEventListener('submit', function(e) {
             let isValid = true;
             
@@ -522,41 +615,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             const confirmPass = document.getElementById('confirm-password').value;
             const terms = document.getElementById('terms').checked;
 
-            // Reset all errors
             ['first-name', 'last-name', 'signup-email', 'signup-password', 'confirm-password'].forEach(id => {
                 showError(id, 'err-' + id, false);
             });
             document.getElementById('err-terms').classList.remove('active');
 
             if (fname === '') { showError('first-name', 'err-first-name'); isValid = false; }
-            
             if (lname === '') { showError('last-name', 'err-last-name'); isValid = false; }
-            
             if (!emailRegex.test(email)) { showError('signup-email', 'err-signup-email'); isValid = false; }
-            
             if (pass.length < 8) { showError('signup-password', 'err-signup-password'); isValid = false; }
-            
             if (pass !== confirmPass || confirmPass === '') { 
                 showError('confirm-password', 'err-confirm-password'); 
                 isValid = false; 
             }
-            
             if (!terms) { 
                 document.getElementById('err-terms').classList.add('active'); 
                 isValid = false; 
             }
 
-            if (!isValid) e.preventDefault(); // Stop submission if invalid
+            if (!isValid) e.preventDefault();
         });
 
-        // Clear error styling on input typing
         document.querySelectorAll('input').forEach(input => {
             input.addEventListener('input', function() {
                 this.classList.remove('input-error');
                 const err = document.getElementById('err-' + this.id);
                 if (err) err.classList.remove('active');
                 
-                // Special case for checkbox
                 if (this.id === 'terms') {
                     document.getElementById('err-terms').classList.remove('active');
                 }

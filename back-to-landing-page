@@ -1,0 +1,1204 @@
+MempulseTree.txt
+```
+PS C:\xampp\htdocs\mempulse> tree /f
+Folder PATH listing
+Volume serial number is 8E4B-9250
+C:.
+│   comebine_files.py
+│   database-design.md
+│   decks-ui layout.txt
+│   generate_mock.py
+│   MempulseTree.txt
+│   mempulse_mock_data.sql
+│   reports-page.txt
+│   settings-save-session-database.txt
+│   settings.txt
+│   tailwind.config.js
+│   tailwindcss.exe
+│   
+├───app
+│   ├───api
+│   │       account-actions.php
+│   │       ArchiveService.php
+│   │       DashboardService.php
+│   │       deck-actions.php
+│   │       DeckService.php
+│   │       flashcard-actions.php
+│   │       FlashcardService.php
+│   │       ReportsService.php
+│   │       ReviewHubService.php
+│   │       save-session.php
+│   │       SessionService.php
+│   │       settings-actions.php
+│   │       
+│   ├───assets
+│   │   ├───css
+│   │   │       app.css
+│   │   │       reports.css
+│   │   │       tailwind-input.css
+│   │   │       tailwind.css
+│   │   │       theme.css
+│   │   │       
+│   │   ├───images
+│   │   │   │   brain-dark.svg
+│   │   │   │   brain-white.svg
+│   │   │   │   decks-hero-icon.png
+│   │   │   │   flashcards-hero-icon.png
+│   │   │   │   forgetting-curve-hero-image.webp
+│   │   │   │   mempulse-logo.png
+│   │   │   │   profile-picture.webp.jpg
+│   │   │   │   
+│   │   │   └───deck-header-banner
+│   │   │           dh1.jpg
+│   │   │           dh10.jpg
+│   │   │           dh11.jpg
+│   │   │           dh12.jpg
+│   │   │           dh2.jpg
+│   │   │           dh3.jpg
+│   │   │           dh5.webp
+│   │   │           dh6.webp
+│   │   │           dh7.jpg
+│   │   │           dh8.jpg
+│   │   │           dh9.jpg
+│   │   │           
+│   │   └───js
+│   │           account-settings.js
+│   │           archive-ui.js
+│   │           deck.js
+│   │           decks.js
+│   │           hero-carousel.js
+│   │           mp-tables.js
+│   │           reports-cards.js
+│   │           reports-decks.js
+│   │           reports-overview.js
+│   │           reports-sessions.js
+│   │           reports.js
+│   │           review.js
+│   │           
+│   ├───includes
+│   │       head.php
+│   │       sidebar.php
+│   │       
+│   └───views
+│           dashboard.php
+│           deck-view.php
+│           deck.php
+│           decks-view.php
+│           decks.php
+│           index.php
+│           reports-cards.php
+│           reports-decks.php
+│           reports-overview.php
+│           reports-sessions.php
+│           reports-view.php
+│           reports.php
+│           review-hub-view.php
+│           review.php
+│           science.php
+│           session-details.php
+│           sessions.php
+│           settings.php
+│           
+├───authentication
+│       login.php
+│       logout.php
+│       privacy-policy.html
+│       register.php
+│       script.js
+│       styles.css
+│       terms.html
+│       
+├───config
+│       db.php
+│       
+└───landing-page
+        about.html
+        index.html
+        style.css
+        
+```
+
+index.html
+```
+<!DOCTYPE html>
+<html lang="en-PH" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MemPulse | Ace Your Exams with Spaced Repetition Flashcards</title>
+
+    <!-- Student-focused SEO metadata -->
+    <meta name="title" content="MemPulse | Ace Your Exams with Spaced Repetition Flashcards">
+    <meta name="description" content="Stop cramming and start retaining. MemPulse helps university students crush heavy course loads using organized decks, effortless card creation, and smart active recall reviewing.">
+    <meta name="keywords" content="MemPulse, flashcards app, study tools for college, active recall, spaced repetition, study decks, university exam prep, study app">
+    <meta name="author" content="MemPulse Team">
+    <meta name="robots" content="index, follow">
+
+    <!-- Open Graph metadata -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://example.com">
+    <meta property="og:title" content="MemPulse | Ace Your Exams with Spaced Repetition Flashcards">
+    <meta property="og:description" content="The ultimate flashcard tool built for university students. Organize subjects, create cards quickly, and study only what is due today.">
+    <meta property="og:image" content="https://example.com/assets/og-student-preview.png">
+
+    <!-- Fonts and icon set used by the visual reference -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+
+    <!-- Styling is intentionally embedded here so index.html is self-contained. -->
+    <style>
+        :root {
+            color-scheme: light;
+            --surface: #faf8ff;
+            --surface-low: #f2f3ff;
+            --surface-card: #ffffff;
+            --surface-container: #eaedff;
+            --surface-high: #e2e7ff;
+            --surface-highest: #dae2fd;
+            --ink: #131b2e;
+            --muted: #464555;
+            --muted-soft: #777587;
+            --primary: #3525cd;
+            --primary-deep: #1e00a9;
+            --secondary: #4b41e1;
+            --secondary-fixed: #e2dfff;
+            --mint: #4edea3;
+            --mint-pale: #d6f8e9;
+            --error-pale: #ffdad6;
+            --radius-lg: 1rem;
+            --radius-xl: 1.25rem;
+            --shadow-soft: 0 8px 30px rgba(53, 37, 205, .07);
+            --shadow-card: 0 20px 50px rgba(53, 37, 205, .10);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; }
+        html { scroll-behavior: smooth; scroll-padding-top: 6rem; }
+        body {
+            margin: 0;
+            background: var(--surface);
+            color: var(--ink);
+            font-family: "Inter", sans-serif;
+            font-size: 1rem;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+        body::selection { background: var(--surface-highest); color: var(--primary-deep); }
+        a { color: inherit; text-decoration: none; }
+        img, svg { max-width: 100%; }
+        button, a { -webkit-tap-highlight-color: transparent; }
+        .material-symbols-outlined {
+            font-family: "Material Symbols Outlined";
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            font-feature-settings: "liga";
+            -webkit-font-feature-settings: "liga";
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Header */
+        .app-header {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            background: rgba(250, 248, 255, .86);
+            border-bottom: 1px solid rgba(199, 196, 216, .38);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+        }
+        .header-container {
+            width: min(100% - 3rem, 80rem);
+            min-height: 5rem;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.5rem;
+        }
+        .logo-link {
+            display: inline-flex;
+            align-items: center;
+            gap: .7rem;
+            font-family: "Plus Jakarta Sans", sans-serif;
+            font-weight: 800;
+            font-size: 1.2rem;
+            letter-spacing: -.04em;
+            white-space: nowrap;
+        }
+        .logo-icon {
+            display: grid;
+            width: 2.6rem;
+            height: 2.6rem;
+            place-items: center;
+            border-radius: .85rem;
+            background: var(--surface-container);
+            box-shadow: 0 3px 12px rgba(53, 37, 205, .10);
+            font-size: 1.35rem;
+            color: rgb(53, 37, 205);
+        }
+        .main-nav { margin-left: auto; }
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+        .nav-links a {
+            color: var(--muted);
+            font-size: .88rem;
+            font-weight: 600;
+            transition: color .2s ease;
+        }
+        .nav-links a:hover, .nav-links a:focus-visible { color: var(--primary); }
+        .header-actions { display: flex; align-items: center; gap: .8rem; }
+        .btn {
+            min-height: 2.75rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .5rem;
+            border: 1px solid transparent;
+            border-radius: 999px;
+            padding: .7rem 1.25rem;
+            font: 700 .88rem/1.2 "Plus Jakarta Sans", sans-serif;
+            transition: transform .2s ease, background .2s ease, box-shadow .2s ease, border-color .2s ease;
+            cursor: pointer;
+        }
+        .btn:hover { transform: translateY(-2px); }
+        .btn-primary, .btn-filled {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 8px 22px rgba(53, 37, 205, .22);
+        }
+        .btn-primary:hover, .btn-filled:hover { background: var(--secondary); box-shadow: 0 12px 26px rgba(75, 65, 225, .28); }
+        .btn-outlined {
+            color: var(--ink);
+            background: rgba(255,255,255,.82);
+            border-color: #d9d9ed;
+            box-shadow: 0 3px 12px rgba(19, 27, 46, .04);
+        }
+        .btn-outlined:hover { background: var(--surface-low); border-color: #c7c4d8; }
+
+        /* Hero */
+        main { overflow: hidden; }
+        .hero-section {
+            position: relative;
+            isolation: isolate;
+            overflow: hidden;
+            padding: clamp(5rem, 9vw, 8rem) 1.5rem clamp(6rem, 10vw, 9rem);
+            text-align: center;
+        }
+        .hero-section::before, .hero-section::after {
+            content: "";
+            position: absolute;
+            z-index: -1;
+            pointer-events: none;
+            border-radius: 50%;
+            filter: blur(2px);
+        }
+        .hero-section::before {
+            width: min(76vw, 850px);
+            height: 450px;
+            top: -230px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: radial-gradient(ellipse, rgba(218, 226, 253, .92) 0%, rgba(226, 223, 255, .45) 45%, transparent 72%);
+        }
+        .hero-section::after {
+            width: 420px;
+            height: 350px;
+            right: -220px;
+            bottom: 0;
+            background: radial-gradient(ellipse, rgba(78, 222, 163, .17), transparent 70%);
+        }
+        .hero-container { width: min(100%, 72rem); margin: 0 auto; }
+        .hero-container::before {
+            content: "●  EVIDENCE-BASED ACTIVE RECALL & SPACED REPETITION";
+            display: inline-flex;
+            align-items: center;
+            margin-bottom: 1.7rem;
+            padding: .55rem 1rem;
+            border-radius: 999px;
+            background: var(--surface-high);
+            color: var(--ink);
+            font: 700 .7rem/1.4 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: .075em;
+            box-shadow: 0 3px 12px rgba(19, 27, 46, .04);
+        }
+        .hero-container h1 {
+            max-width: 900px;
+            margin: 0 auto 1.5rem;
+            font: 800 clamp(3rem, 7.5vw, 5.4rem)/1.04 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: -.065em;
+        }
+        .hero-container h1 br { display: block; }
+        .hero-container h1 { text-wrap: balance; }
+        .hero-container h1::first-line { color: var(--ink); }
+        .hero-container > p {
+            max-width: 680px;
+            margin: 0 auto 2.25rem;
+            color: var(--muted);
+            font-size: clamp(1rem, 2vw, 1.15rem);
+            line-height: 1.8;
+        }
+        .hero-buttons {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: .85rem;
+        }
+        .hero-buttons .btn { min-height: 3.25rem; padding: .95rem 1.7rem; }
+
+        /* Features */
+        .features-section, .testimonials-section { padding: clamp(4.5rem, 8vw, 7rem) 1.5rem; }
+        .features-section { background: rgba(242, 243, 255, .72); }
+        .section-title-area {
+            max-width: 760px;
+            margin: 0 auto 3.5rem;
+            text-align: center;
+        }
+        .section-title-area::before {
+            content: "OPTIMIZED COGNITIVE WORKFLOW";
+            display: inline-block;
+            margin-bottom: 1rem;
+            padding: .45rem .8rem;
+            border-radius: 999px;
+            background: var(--secondary-fixed);
+            color: #3323cc;
+            font: 700 .68rem/1.4 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: .08em;
+        }
+        .section-title-area h2 {
+            margin: 0 0 1rem;
+            font: 700 clamp(1.9rem, 4vw, 2.7rem)/1.2 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: -.045em;
+            text-wrap: balance;
+        }
+        .section-title-area p { margin: 0; color: var(--muted); font-size: 1rem; line-height: 1.8; }
+        .features-container {
+            width: min(100%, 80rem);
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1.5rem;
+        }
+        .feature-item {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            min-width: 0;
+            padding: 2rem;
+            border: 1px solid rgba(199, 196, 216, .48);
+            border-radius: var(--radius-xl);
+            background: var(--surface-card);
+            box-shadow: 0 4px 18px rgba(19, 27, 46, .035);
+            transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+        }
+        .feature-item:hover {
+            transform: translateY(-5px);
+            border-color: rgba(75, 65, 225, .25);
+            box-shadow: var(--shadow-soft);
+        }
+        .feature-icon {
+            display: grid;
+            width: 3.25rem;
+            height: 3.25rem;
+            place-items: center;
+            margin-bottom: 1.5rem;
+            border-radius: 1rem;
+            background: var(--mint-pale);
+            box-shadow: 0 3px 10px rgba(19, 27, 46, .04);
+            font-size: 1.6rem;
+        }
+        .feature-item:nth-child(2) .feature-icon { background: var(--secondary-fixed); }
+        .feature-item:nth-child(3) .feature-icon { background: var(--surface-high); }
+        .feature-item h3 {
+            margin: 0 0 .8rem;
+            font: 700 1.25rem/1.35 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: -.025em;
+        }
+        .feature-item p { margin: 0; color: var(--muted); font-size: .92rem; line-height: 1.8; }
+
+        /* Testimonials */
+        .testimonials-section { background: var(--surface); }
+        .testimonials-section .section-title-area::before {
+            content: "REAL STUDY ROUTINES, BETTER RETENTION";
+            background: var(--mint-pale);
+            color: #005236;
+        }
+        .testimonials-grid {
+            width: min(100%, 80rem);
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1.25rem;
+            align-items: stretch;
+        }
+        .testimonial-card {
+            margin: 0;
+            padding: 1.7rem;
+            border: 1px solid rgba(199, 196, 216, .55);
+            border-radius: var(--radius-lg);
+            background: var(--surface-card);
+            box-shadow: 0 5px 20px rgba(19, 27, 46, .035);
+            transition: transform .2s ease, box-shadow .2s ease;
+        }
+        .testimonial-card:hover, .testimonial-card:focus-visible {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-soft);
+            outline: none;
+        }
+        .testimonial-card p { margin: 0 0 1.25rem; color: #34394a; font-size: .94rem; line-height: 1.8; }
+        .testimonial-card strong { color: var(--primary); font-weight: 700; }
+        .testimonial-card cite {
+            display: block;
+            color: var(--muted-soft);
+            font-size: .82rem;
+            font-style: normal;
+            font-weight: 600;
+        }
+
+        /* Footer */
+        .app-footer {
+            padding: 2.2rem 1.5rem;
+            background: #171d32;
+            color: #e8eaff;
+        }
+        .footer-container { width: min(100%, 80rem); margin: 0 auto; text-align: center; }
+        .footer-container p { margin: 0; color: #c2c7df; font-size: .85rem; line-height: 1.9; }
+
+        :focus-visible { outline: 3px solid rgba(75, 65, 225, .55); outline-offset: 3px; }
+        @media (max-width: 900px) {
+            .header-container { width: min(100% - 2rem, 80rem); }
+            .nav-links { gap: 1.1rem; }
+            .features-container { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .testimonials-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 640px) {
+            .header-container { min-height: 4.5rem; gap: .8rem; }
+            .logo-link { font-size: 1.05rem; }
+            .logo-emoji { width: 2.3rem; height: 2.3rem; }
+            .main-nav { display: none; }
+            .header-actions { margin-left: auto; }
+            .btn { padding: .65rem 1rem; font-size: .8rem; }
+            .hero-section { padding: 4.5rem 1.1rem 5.5rem; }
+            .hero-container::before { max-width: 100%; font-size: .56rem; letter-spacing: .045em; }
+            .hero-container h1 { font-size: clamp(2.7rem, 12vw, 4rem); }
+            .hero-container > p { font-size: 1rem; }
+            .hero-buttons { flex-direction: column; }
+            .hero-buttons .btn { width: min(100%, 20rem); }
+            .features-section, .testimonials-section { padding: 4.2rem 1.1rem; }
+            .section-title-area { margin-bottom: 2.3rem; }
+            .section-title-area h2 { font-size: 1.9rem; }
+            .features-container, .testimonials-grid { grid-template-columns: 1fr; gap: 1rem; }
+            .feature-item { padding: 1.5rem; }
+            .testimonial-card { padding: 1.4rem; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Global App Header Navigation -->
+    <header class="app-header">
+        <div class="header-container">
+            <a href="#" class="logo-link" aria-label="MemPulse home">
+                <span class="material-symbols-outlined logo-icon" aria-hidden="true">neurology</span>
+                <span>MemPulse</span>
+            </a>
+
+            <nav class="main-nav" aria-label="Main navigation">
+                <ul class="nav-links">
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="#testimonials">Reviews</a></li>
+                    <li><a href="about.html">About</a></li>
+                </ul>
+            </nav>
+
+            <div class="header-actions">
+                <a href="../authentication/login.php" class="btn btn-primary">Login</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <div class="hero-container">
+                <h1>Remember more,<br>forget less</h1>
+                <p>The easy way to organize your learning, retain what matters, and master topics with spaced repetition.</p>
+                <div class="hero-buttons">
+                    <a href="../authentication/login.php" class="btn btn-filled">Start Studying</a>
+                    <a href="#features" class="btn btn-outlined">See the Features</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Core Feature Pillars -->
+        <section class="features-section" id="features">
+            <div class="section-title-area">
+                <h2>Everything you need to master heavy course loads</h2>
+                <p>Designed around cognitive science, stripped of useless clutter, and optimized for rapid academic mastery.</p>
+            </div>
+
+            <div class="features-container">
+                <article class="feature-item">
+                    <span class="feature-icon" aria-hidden="true">📁</span>
+                    <h3>Syllabus-Aligned Decks</h3>
+                    <p>Organize your entire semester into custom academic collections. Create dedicated subject decks for biology, chemistry, programming, or languages to keep your learning path completely structured.</p>
+                </article>
+
+                <article class="feature-item">
+                    <span class="feature-icon" aria-hidden="true">📝</span>
+                    <h3>Effortless Card Creation</h3>
+                    <p>Type a question on the front, flip it, and add the core concept on the back. Strip out confusing settings and build clean, highly focused text cards on the fly without missing a single beat during fast-paced lectures.</p>
+                </article>
+
+                <article class="feature-item">
+                    <span class="feature-icon" aria-hidden="true">⏱️</span>
+                    <h3>Smart "Due Cards" Queue</h3>
+                    <p>Stop wasting precious time reviewing cards you already know. Our scheduler calculates exactly when an item is about to decay in your memory and presents it inside your active study queue right when it is due.</p>
+                </article>
+            </div>
+        </section>
+
+        <!-- Testimonials -->
+        <section class="testimonials-section" id="testimonials">
+            <div class="section-title-area">
+                <h2>Loved by learners everywhere.</h2>
+                <p>From tech majors to medical students, check out why university students rely on MemPulse to master complex concepts.</p>
+            </div>
+
+            <div class="testimonials-grid">
+                <blockquote class="testimonial-card" tabindex="0">
+                    <p>"I love, love your app, I use it every day and <strong>it's a joy to use</strong>. I tried other heavy SRS apps for months, but your simple UX is way ahead."</p>
+                    <cite>— Andres B., Medical Student</cite>
+                </blockquote>
+
+                <blockquote class="testimonial-card" tabindex="0">
+                    <p>"MemPulse is <strong>everything I've ever wanted</strong> in a study and learning tool. Being able to just write my cards and jump straight into my due queue without navigating dozens of configuration pages is unmatched."</p>
+                    <cite>— TJ G., Computer Science Major</cite>
+                </blockquote>
+
+                <blockquote class="testimonial-card" tabindex="0">
+                    <p>"The extreme simplicity of the interface completely changed my study routine. It has allowed me to <strong>completely switch over from traditional flashcards</strong>. I don't regret it one bit."</p>
+                    <cite>— Nil V., Engineering Student</cite>
+                </blockquote>
+
+                <blockquote class="testimonial-card" tabindex="0">
+                    <p>"Finally being able to log into an app and see exactly which cards are due today is <strong>mind-blowing</strong>. After adding my notes, I'm instantly motivated to hop over and pass my reviews. It's unreal."</p>
+                    <cite>— Kim N., Psychology Major</cite>
+                </blockquote>
+
+                <blockquote class="testimonial-card" tabindex="0">
+                    <p>"I love this app! I love the minimalist interface, the slick keybinds, and the pasteable image support. <strong>Very rarely do I find a study tool that I vibe with so strongly</strong>."</p>
+                    <cite>— Albert H., Pre-Law Student</cite>
+                </blockquote>
+
+                <blockquote class="testimonial-card" tabindex="0">
+                    <p>"I stopped making virtual flashcards a while back because of how confusing other platforms were, but now <strong>I actually look forward to studying every single day</strong>. Thank you for keeping it so simple!"</p>
+                    <cite>— Shreyas J., Accountancy Major</cite>
+                </blockquote>
+
+                <blockquote class="testimonial-card" tabindex="0">
+                    <p>"MemPulse turned my scattered lecture notes into a study routine I can actually keep. The daily queue makes progress feel <strong>simple, focused, and surprisingly satisfying</strong>."</p>
+                    <cite>— Bea M., Nursing Student</cite>
+                </blockquote>
+            </div>
+        </section>
+    </main>
+
+    <footer class="app-footer">
+        <div class="footer-container">
+            <p>&copy; 2026 MemPulse. All rights reserved.<br>Helping you practice, retain, and grow at your own pace.</p>
+        </div>
+    </footer>
+</body>
+</html>
+```
+
+login.php
+```
+<?php
+session_start();
+require_once '../config/db.php';
+
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    
+    $email = trim($_POST['login-email'] ?? '');
+    $password = $_POST['login-password'] ?? '';
+
+    if (empty($email) || empty($password)) {
+        header("Location: login.php?error=empty_fields");
+        exit;
+    }
+
+    $sql  = "SELECT id, first_name, last_name, password_hash, account_status FROM users WHERE email = ? AND deleted_at IS NULL";
+    $stmt = mysqli_prepare($conn, $sql);
+    
+    mysqli_stmt_bind_param($stmt, "s", $email);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_bind_result($stmt, $user_id, $first_name, $last_name, $hashed_password, $account_status);
+    
+    if (mysqli_stmt_fetch($stmt)) {
+        if (password_verify($password, $hashed_password)) {
+            if ($account_status !== 'approved') {
+                mysqli_stmt_close($stmt);
+                mysqli_close($conn);
+                header("Location: login.php?error=pending_approval#login");
+                exit;
+            }
+
+            // Prevent Session Fixation
+            session_regenerate_id(true);
+            
+            $_SESSION['user_id']    = $user_id;
+            $_SESSION['first_name'] = $first_name;
+            $_SESSION['last_name']  = $last_name;
+            $_SESSION['logged_in']  = true;
+
+            mysqli_stmt_close($stmt);
+            mysqli_close($conn);
+
+            header("Location: ../app/views/index.php");
+            exit;
+        }
+    }
+
+    mysqli_stmt_close($stmt);
+    mysqli_close($conn);
+    
+    // Invalid credentials back-route
+    header("Location: login.php?error=invalid_credentials");
+    exit;
+}
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Sign in or create an account for MemPulse.">
+    <title>MemPulse | Welcome</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            color-scheme: light;
+            --surface: #faf8ff;
+            --surface-card: #ffffff;
+            --surface-container: #eaedff;
+            --surface-pulse: #d2d8ff;
+            --ink: #131b2e;
+            --muted: #464555;
+            --primary: #3525cd;
+            --primary-deep: #1e00a9;
+            --secondary: #4b41e1;
+            --radius-lg: 1rem;
+            --radius-xl: 1.25rem;
+            --shadow-card: 0 20px 50px rgba(53, 37, 205, .10);
+            --line: rgba(199, 196, 216, .48);
+            --error: #d93025;
+            --error-bg: #fce8e6;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: var(--surface);
+            color: var(--ink);
+            font-family: "Inter", sans-serif;
+            font-size: 1rem;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 1.5rem;
+        }
+
+        .material-symbols-outlined {
+            font-family: "Material Symbols Outlined";
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            font-feature-settings: "liga";
+            -webkit-font-feature-settings: "liga";
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .auth-container {
+            width: 100%;
+            max-width: 440px;
+            background: var(--surface-card);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-card);
+            border: 1px solid var(--line);
+            padding: 2.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .brand-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        @keyframes pulse-bg {
+            0%, 100% { background-color: var(--surface-container); }
+            50% { background-color: var(--surface-pulse); }
+        }
+
+        .logo-icon {
+            display: grid;
+            width: 3.5rem;
+            height: 3.5rem;
+            place-items: center;
+            border-radius: 1rem;
+            background: var(--surface-container);
+            color: rgb(53, 37, 205);
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            animation: pulse-bg 2.5s infinite ease-in-out;
+        }
+
+        .brand-header h1 {
+            margin: 0;
+            font-family: "Plus Jakarta Sans", sans-serif;
+            font-weight: 800;
+            font-size: 1.8rem;
+            letter-spacing: -.04em;
+        }
+
+        .brand-header p {
+            margin: 0.5rem 0 0;
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.15rem; /* Slightly increased gap for error messages */
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .form-group label:not(.check-label) {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--ink);
+        }
+
+        .required-indicator { color: var(--error); }
+
+        .form-group input:not([type="checkbox"]) {
+            width: 100%;
+            height: 3rem;
+            border: 1px solid var(--line);
+            border-radius: 0.5rem;
+            padding: 0 1rem;
+            font-family: inherit;
+            font-size: 0.95rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-group input:not([type="checkbox"]):focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(53, 37, 205, 0.15);
+        }
+
+        /* Validation Styles */
+        .form-group input.input-error {
+            border-color: var(--error) !important;
+        }
+        .form-group input.input-error:focus {
+            box-shadow: 0 0 0 3px rgba(217, 48, 37, 0.15) !important;
+        }
+        
+        .error-text {
+            color: var(--error);
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-top: -0.1rem;
+            display: none;
+        }
+        .error-text.active {
+            display: block;
+        }
+        
+        .check-error-text {
+            color: var(--error);
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-top: 0.2rem;
+            display: none;
+            margin-left: 1.6rem; /* Align with text, skipping checkbox */
+        }
+        .check-error-text.active {
+            display: block;
+        }
+
+        .btn-primary {
+            min-height: 3rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            border-radius: 999px;
+            padding: 0.7rem 1.25rem;
+            background: var(--primary);
+            color: #fff;
+            font: 700 0.95rem/1.2 "Plus Jakarta Sans", sans-serif;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 8px 22px rgba(53, 37, 205, 0.22);
+            margin-top: 0.5rem;
+        }
+
+        .btn-primary:hover {
+            background: var(--secondary);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 26px rgba(75, 65, 225, 0.28);
+        }
+
+        .form-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            margin-top: -0.5rem; /* Pull up closer to password */
+        }
+
+        .check-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        
+        .check-label input[type="checkbox"] {
+            width: 1.1rem;
+            height: 1.1rem;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        a:hover { text-decoration: underline; }
+
+        .auth-message {
+            font-size: 0.85rem;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .auth-message-error {
+            display: block;
+            background: var(--error-bg);
+            color: #c5221f;
+            border: 1px solid #f9d0c4;
+        }
+        
+        .auth-message-success {
+            display: block;
+            background: #e6f4ea;
+            color: #137333;
+            border: 1px solid #ceead6;
+        }
+
+        .toggle-view {
+            text-align: center;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
+
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+        .field-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+    <main class="auth-container">
+        <div class="brand-header">
+            <span class="material-symbols-outlined logo-icon" aria-hidden="true">neurology</span>
+            <h1>MemPulse</h1>
+            <p id="header-desc">Welcome back to your rhythm.</p>
+        </div>
+
+        <!-- Login View -->
+        <section id="login-view" class="view-section active">
+            <?php if (isset($_GET['error'])): ?>
+                <div class="auth-message auth-message-error" role="alert">
+                    <?php 
+                        if ($_GET['error'] === 'pending_approval') echo "Your account is waiting for approval. Please try again after it has been approved.";
+                        elseif ($_GET['error'] === 'invalid_credentials') echo "Invalid email or password.";
+                        elseif ($_GET['error'] === 'empty_fields') echo "Please enter your email and password.";
+                    ?>
+                </div>
+            <?php endif; ?>
+            
+            <?php if (isset($_GET['registered']) && $_GET['registered'] === 'approved'): ?>
+                <div class="auth-message auth-message-success" role="status">
+                    Registration confirmed. You can now log in.
+                </div>
+            <?php endif; ?>
+
+            <!-- Added novalidate to bypass default browser tooltips -->
+            <form class="auth-form" id="form-login" action="login.php" method="POST" autocomplete="off" novalidate>
+                <div class="form-group">
+                    <label>Email address <span class="required-indicator">*</span></label>
+                    <input type="email" id="login-email" name="login-email" placeholder="student@university.edu" autocomplete="off">
+                    <span class="error-text" id="err-login-email">Please enter a valid email address.</span>
+                </div>
+                <div class="form-group">
+                    <label>Password <span class="required-indicator">*</span></label>
+                    <input type="password" id="login-password" name="login-password" placeholder="••••••••" autocomplete="new-password">
+                    <span class="error-text" id="err-login-password">Password is required.</span>
+                </div>
+                
+                <div class="form-options">
+                    <label class="check-label">
+                        <input type="checkbox" onchange="document.getElementById('login-password').type = this.checked ? 'text' : 'password'">
+                        <span>Show password</span>
+                    </label>
+                    <a href="#forgot">Forgot password?</a>
+                </div>
+
+                <button class="btn-primary" type="submit">Log In</button>
+            </form>
+
+            <div class="toggle-view">
+                New to MemPulse? <a href="#" onclick="toggleView('signup'); return false;">Create an account</a>
+            </div>
+        </section>
+
+        <!-- Signup View -->
+        <section id="signup-view" class="view-section">
+            <!-- Added novalidate to bypass default browser tooltips -->
+            <form class="auth-form" id="form-signup" action="register.php" method="POST" autocomplete="off" novalidate>
+                <div class="field-row">
+                    <div class="form-group">
+                        <label>First name <span class="required-indicator">*</span></label>
+                        <input type="text" id="first-name" name="first-name" autocomplete="off">
+                        <span class="error-text" id="err-first-name">First name is required.</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Last name <span class="required-indicator">*</span></label>
+                        <input type="text" id="last-name" name="last-name" autocomplete="off">
+                        <span class="error-text" id="err-last-name">Last name is required.</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Email address <span class="required-indicator">*</span></label>
+                    <input type="email" id="signup-email" name="email" autocomplete="off">
+                    <span class="error-text" id="err-signup-email">Please enter a valid email address.</span>
+                </div>
+                <div class="form-group">
+                    <label>Password <span class="required-indicator">*</span></label>
+                    <input type="password" id="signup-password" name="password" autocomplete="new-password">
+                    <span class="error-text" id="err-signup-password">Password must be at least 8 characters.</span>
+                </div>
+                <div class="form-group">
+                    <label>Confirm password <span class="required-indicator">*</span></label>
+                    <input type="password" id="confirm-password" name="confirm-password" autocomplete="new-password">
+                    <span class="error-text" id="err-confirm-password">Passwords do not match.</span>
+                </div>
+                
+                <div class="form-options">
+                    <label class="check-label">
+                        <input type="checkbox" onchange="
+                            const isChecked = this.checked;
+                            document.getElementById('signup-password').type = isChecked ? 'text' : 'password';
+                            document.getElementById('confirm-password').type = isChecked ? 'text' : 'password';
+                        ">
+                        <span>Show passwords</span>
+                    </label>
+                </div>
+                
+                <div>
+                    <label class="check-label" style="margin-top: 0.5rem;">
+                        <input type="checkbox" id="terms" name="terms">
+                        <span>I agree to the <a href="terms.html">Terms &amp; Conditions</a> and <a href="privacy-policy.html">Privacy Policy</a> <span class="required-indicator">*</span></span>
+                    </label>
+                    <span class="check-error-text" id="err-terms">You must agree to the terms to continue.</span>
+                </div>
+
+                <button class="btn-primary" type="submit">Create Account</button>
+            </form>
+
+            <div class="toggle-view">
+                Already have an account? <a href="#" onclick="toggleView('login'); return false;">Log in</a>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Form View Toggling
+        function toggleView(view) {
+            document.getElementById('login-view').classList.remove('active');
+            document.getElementById('signup-view').classList.remove('active');
+            
+            // Clear all errors when switching views
+            document.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
+            document.querySelectorAll('.error-text, .check-error-text').forEach(el => el.classList.remove('active'));
+            
+            if(view === 'signup') {
+                document.getElementById('signup-view').classList.add('active');
+                document.getElementById('header-desc').innerText = 'Start learning smarter.';
+            } else {
+                document.getElementById('login-view').classList.add('active');
+                document.getElementById('header-desc').innerText = 'Welcome back to your rhythm.';
+            }
+        }
+        
+        if (window.location.hash === '#signup') {
+            toggleView('signup');
+        } else if (window.location.hash === '#login') {
+            toggleView('login');
+        }
+
+        // Custom Form Validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        function showError(inputId, errorId, show = true) {
+            const input = document.getElementById(inputId);
+            const errorMsg = document.getElementById(errorId);
+            if (show) {
+                if(input) input.classList.add('input-error');
+                if(errorMsg) errorMsg.classList.add('active');
+            } else {
+                if(input) input.classList.remove('input-error');
+                if(errorMsg) errorMsg.classList.remove('active');
+            }
+        }
+
+        // Login Form Validation
+        document.getElementById('form-login').addEventListener('submit', function(e) {
+            let isValid = true;
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+
+            // Reset errors
+            showError('login-email', 'err-login-email', false);
+            showError('login-password', 'err-login-password', false);
+
+            if (!emailRegex.test(email)) {
+                showError('login-email', 'err-login-email');
+                isValid = false;
+            }
+
+            if (password === '') {
+                showError('login-password', 'err-login-password');
+                isValid = false;
+            }
+
+            if (!isValid) e.preventDefault(); // Stop submission if invalid
+        });
+
+        // Signup Form Validation
+        document.getElementById('form-signup').addEventListener('submit', function(e) {
+            let isValid = true;
+            
+            const fname = document.getElementById('first-name').value.trim();
+            const lname = document.getElementById('last-name').value.trim();
+            const email = document.getElementById('signup-email').value.trim();
+            const pass = document.getElementById('signup-password').value;
+            const confirmPass = document.getElementById('confirm-password').value;
+            const terms = document.getElementById('terms').checked;
+
+            // Reset all errors
+            ['first-name', 'last-name', 'signup-email', 'signup-password', 'confirm-password'].forEach(id => {
+                showError(id, 'err-' + id, false);
+            });
+            document.getElementById('err-terms').classList.remove('active');
+
+            if (fname === '') { showError('first-name', 'err-first-name'); isValid = false; }
+            
+            if (lname === '') { showError('last-name', 'err-last-name'); isValid = false; }
+            
+            if (!emailRegex.test(email)) { showError('signup-email', 'err-signup-email'); isValid = false; }
+            
+            if (pass.length < 8) { showError('signup-password', 'err-signup-password'); isValid = false; }
+            
+            if (pass !== confirmPass || confirmPass === '') { 
+                showError('confirm-password', 'err-confirm-password'); 
+                isValid = false; 
+            }
+            
+            if (!terms) { 
+                document.getElementById('err-terms').classList.add('active'); 
+                isValid = false; 
+            }
+
+            if (!isValid) e.preventDefault(); // Stop submission if invalid
+        });
+
+        // Clear error styling on input typing
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', function() {
+                this.classList.remove('input-error');
+                const err = document.getElementById('err-' + this.id);
+                if (err) err.classList.remove('active');
+                
+                // Special case for checkbox
+                if (this.id === 'terms') {
+                    document.getElementById('err-terms').classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+```
+
