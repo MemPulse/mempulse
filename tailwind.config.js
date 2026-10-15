@@ -3,6 +3,13 @@ module.exports = {
     // Every file Tailwind should scan for class names.
     content: ['./app/**/*.{php,html,js}'],
     darkMode: 'class',
+
+    safelist: [
+        'bg-emerald-200',
+        'bg-emerald-400',
+        'bg-emerald-600',
+        'bg-emerald-800',
+    ],
     theme: {
         extend: {
             // Colors point at CSS variables defined in app/assets/css/theme.css,

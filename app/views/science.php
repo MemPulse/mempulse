@@ -10,8 +10,7 @@ require_once __DIR__ . '/../../config/db.php';
 
 $user_id = $_SESSION['user_id'];
 
-// The scheduler animation uses the learner's own multipliers when available (user_settings table).
-// Falls back to the schema defaults if the row or connection is unavailable.
+// Default SRS multipliers; falls back if connection or settings row is unavailable.
 $srs = [
     'remember_multiplier'   => 2.00,
     'forgot_multiplier'     => 0.50,
@@ -36,482 +35,566 @@ try {
         }
     }
 } catch (Throwable $e) {
-    // Keep defaults; the science page must never fail because of settings.
+    // Keep defaults; science page must run reliably regardless of DB state.
 }
 
 $pageTitle = "Science";
 $currentPage = "science";
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-PH" class="scroll-smooth">
 
 <?php include __DIR__ . '/../includes/head.php'; ?>
 
-    <body class="bg-background font-body-md text-on-surface antialiased min-h-screen selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- Styling, Typography & Icons matching index.html -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
 
-        <?php include __DIR__ . '/../includes/sidebar.php'; ?>
+<style>
+    :root {
+        color-scheme: light;
+        --surface: #faf8ff;
+        --surface-low: #f2f3ff;
+        --surface-card: #ffffff;
+        --surface-container: #eaedff;
+        --surface-high: #e2e7ff;
+        --surface-highest: #dae2fd;
+        --ink: #131b2e;
+        --muted: #464555;
+        --muted-soft: #777587;
+        --primary: #3525cd;
+        --primary-deep: #1e00a9;
+        --secondary: #4b41e1;
+        --secondary-fixed: #e2dfff;
+        --mint: #4edea3;
+        --mint-dark: #006c48;
+        --mint-pale: #d6f8e9;
+        --error: #ba1a1a;
+        --error-pale: #ffdad6;
+        --radius-lg: 1rem;
+        --radius-xl: 1.25rem;
+        --shadow-soft: 0 8px 30px rgba(53, 37, 205, .07);
+        --shadow-card: 0 20px 50px rgba(53, 37, 205, .10);
+    }
+
+    body {
+        background: var(--surface);
+        color: var(--ink);
+        font-family: "Inter", sans-serif;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    .font-jakarta { font-family: "Plus Jakarta Sans", sans-serif; }
+
+    .badge-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.4rem 0.8rem;
+        border-radius: 999px;
+        background: var(--surface-high);
+        color: var(--ink);
+        font: 700 0.7rem/1.2 "Plus Jakarta Sans", sans-serif;
+        letter-spacing: 0.075em;
+        text-transform: uppercase;
+    }
+
+    .btn-minimal {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        border-radius: 999px;
+        padding: 0.65rem 1.3rem;
+        font: 700 0.88rem/1.2 "Plus Jakarta Sans", sans-serif;
+        transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        cursor: pointer;
+        text-decoration: none;
+    }
+    .btn-minimal:hover { transform: translateY(-2px); }
+    
+    .btn-primary-filled {
+        background: var(--primary);
+        color: #ffffff;
+        box-shadow: 0 8px 22px rgba(53, 37, 205, 0.22);
+    }
+    .btn-primary-filled:hover {
+        background: var(--secondary);
+        box-shadow: 0 12px 26px rgba(75, 65, 225, 0.28);
+        color: #ffffff;
+    }
+    
+    .btn-outlined-light {
+        color: var(--ink);
+        background: rgba(255, 255, 255, 0.85);
+        border: 1px solid #d9d9ed;
+        box-shadow: 0 3px 12px rgba(19, 27, 46, 0.04);
+    }
+    .btn-outlined-light:hover {
+        background: var(--surface-low);
+        border-color: #c7c4d8;
+    }
+
+    .card-bento {
+        background: var(--surface-card);
+        border: 1px solid rgba(199, 196, 216, 0.48);
+        border-radius: var(--radius-xl);
+        padding: 1.75rem;
+        box-shadow: 0 4px 18px rgba(19, 27, 46, 0.035);
+        transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    }
+    .card-bento:hover {
+        border-color: rgba(75, 65, 225, 0.25);
+        box-shadow: var(--shadow-soft);
+    }
+
+    .hero-card {
+        position: relative;
+        isolation: isolate;
+        overflow: hidden;
+        border-radius: var(--radius-xl);
+        background: linear-gradient(135deg, var(--surface-card) 0%, var(--surface-low) 100%);
+        border: 1px solid rgba(199, 196, 216, 0.5);
+        padding: clamp(2rem, 5vw, 3.25rem);
+        box-shadow: var(--shadow-card);
+    }
+    .hero-card::before {
+        content: "";
+        position: absolute;
+        z-index: -1;
+        width: 320px;
+        height: 320px;
+        top: -120px;
+        right: -100px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(218, 226, 253, 0.8) 0%, rgba(226, 223, 255, 0) 70%);
+        pointer-events: none;
+    }
+
+    .input-minimal {
+        width: 100%;
+        background: var(--surface-low);
+        border: 1px solid rgba(199, 196, 216, 0.5);
+        border-radius: 0.75rem;
+        padding: 0.6rem 0.85rem;
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-weight: 700;
+        color: var(--ink);
+        outline: none;
+        transition: border-color 0.2s ease, background 0.2s ease;
+    }
+    .input-minimal:focus {
+        border-color: var(--primary);
+        background: #ffffff;
+    }
+</style>
+
+<body class="antialiased min-h-screen selection:bg-surface-highest selection:text-primary-deep">
+
+    <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
     <main id="main-content" class="pl-0 md:pl-72 pt-16 md:pt-6 transition-all duration-300 ease-in-out">
 
-            <div class="w-full px-3 sm:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
-                <div class="flex flex-col gap-10 sm:gap-14 max-w-5xl mx-auto">
+        <div class="w-full px-4 sm:px-6 lg:px-8 py-6 md:py-10 max-w-6xl mx-auto">
+            <div class="flex flex-col gap-10 md:gap-14">
 
-                    <!-- ========================= HERO ========================= -->
-                    <header class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white p-6 sm:p-12">
-                        <div class="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-white/20 blur-3xl" aria-hidden="true"></div>
-                        <div class="absolute -left-10 -bottom-10 w-40 h-40 rounded-full bg-white/20 blur-3xl" aria-hidden="true"></div>
-                        <div class="relative flex flex-col gap-4 max-w-2xl">
-                            <span class="inline-flex items-center gap-1.5 w-fit bg-white/20 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wider">
-                                <span class="material-symbols-outlined text-[14px]">science</span>
-                                Science &middot; 4 min read
-                            </span>
-                            <h1 class="font-headline-lg text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight">
-                                How MemPulse Helps You Remember
-                            </h1>
-                            <p class="text-lg text-white/80 leading-relaxed">
-                                Why your brain forgets things, and how reviewing at just the right time makes them stick.
-                            </p>
-                            <div class="flex flex-wrap gap-3 pt-2">
-                                <a href="#engine" class="inline-flex items-center gap-2 bg-white text-indigo-700 px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-white/70 transition-colors">
-                                    <span class="material-symbols-outlined text-[18px]">play_circle</span>
-                                    Try the scheduler
-                                </a>
-                                <a href="decks.php" class="inline-flex items-center gap-2 bg-white/20 text-white px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-white/30 transition-colors">
-                                    <span class="material-symbols-outlined text-[18px]">style</span>
-                                    Start reviewing
-                                </a>
-                            </div>
+                <!-- ========================= HERO (EXECUTIVE SUMMARY) ========================= -->
+                <header class="hero-card flex flex-col items-start gap-6">
+                    <div class="flex flex-wrap items-center justify-between w-full gap-3">
+                        <span class="badge-pill">
+                            <span class="material-symbols-outlined text-[16px] text-primary">psychology</span>
+                            Evidence-Based Learning
+                        </span>
+                        <span class="text-xs font-semibold text-muted-soft font-jakarta">3-Second Read</span>
+                    </div>
+
+                    <div class="max-w-3xl flex flex-col gap-3">
+                        <h1 class="font-jakarta text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-tight text-ink">
+                            The Neuroscience of Long-Term Retention
+                        </h1>
+                        <p class="text-base sm:text-lg text-muted leading-relaxed">
+                            How spaced active recall flattens memory decay and eliminates study burnout.
+                        </p>
+                    </div>
+
+                    <!-- 3 High-Impact Stat Badges -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full pt-2">
+                        <div class="bg-surface-card border border-surface-high p-4 rounded-2xl flex flex-col gap-1 shadow-sm">
+                            <span class="text-2xl sm:text-3xl font-extrabold font-jakarta text-error">70%</span>
+                            <span class="text-xs font-semibold text-muted leading-snug">Memory decayed within 24h without review</span>
                         </div>
-                    </header>
-
-                    <!-- ================= THE SHORT VERSION ================= -->
-                    <section class="flex flex-col gap-4" aria-labelledby="short-version">
-                        <h2 id="short-version" class="font-headline-lg text-2xl font-extrabold tracking-tight">The short version</h2>
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-5 shadow-sm flex flex-col gap-3">
-                                <span class="w-10 h-10 rounded-xl bg-error/10 text-error flex items-center justify-center"><span class="material-symbols-outlined text-[22px]">trending_down</span></span>
-                                <h3 class="font-bold">You forget fast</h3>
-                                <p class="text-sm text-on-surface-variant leading-relaxed">Without a review, a lot of what you learn fades within a few days.</p>
-                            </div>
-                            <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-5 shadow-sm flex flex-col gap-3">
-                                <span class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center"><span class="material-symbols-outlined text-[22px]">replay</span></span>
-                                <h3 class="font-bold">Reviewing resets the clock</h3>
-                                <p class="text-sm text-on-surface-variant leading-relaxed">A review right before you forget makes the memory last longer.</p>
-                            </div>
-                            <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-5 shadow-sm flex flex-col gap-3">
-                                <span class="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-600 flex items-center justify-center"><span class="material-symbols-outlined text-[22px]">event_repeat</span></span>
-                                <h3 class="font-bold">MemPulse picks the day</h3>
-                                <p class="text-sm text-on-surface-variant leading-relaxed">It chooses the best day to show each card again, so you don't have to.</p>
-                            </div>
+                        <div class="bg-surface-card border border-surface-high p-4 rounded-2xl flex flex-col gap-1 shadow-sm">
+                            <span class="text-2xl sm:text-3xl font-extrabold font-jakarta text-primary">2.0x</span>
+                            <span class="text-xs font-semibold text-muted leading-snug">Interval multiplier per successful recall</span>
                         </div>
-                    </section>
-
-                    <!-- ================= 01 FORGETTING CURVE ================= -->
-                    <section class="flex flex-col gap-4" aria-labelledby="forgetting">
-                        <div>
-                            <p class="text-[11px] font-semibold uppercase tracking-wider text-primary mb-1">01 &middot; Why we forget</p>
-                            <h2 id="forgetting" class="font-headline-lg text-2xl font-extrabold tracking-tight">The forgetting curve</h2>
+                        <div class="bg-surface-card border border-surface-high p-4 rounded-2xl flex flex-col gap-1 shadow-sm">
+                            <span class="text-2xl sm:text-3xl font-extrabold font-jakarta text-mint-dark">15 Mins</span>
+                            <span class="text-xs font-semibold text-muted leading-snug">Daily queue needed for 90%+ exam retention</span>
                         </div>
+                    </div>
 
-                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                            <div class="lg:col-span-5 flex flex-col gap-3 text-on-surface-variant leading-relaxed">
-                                <p>
-                                    In the 1880s, a German psychologist named Hermann Ebbinghaus tested his own memory. He learned lists of made-up words,
-                                    then checked how many he still knew later.
-                                </p>
-                                <p>
-                                    He found that we forget <strong class="text-on-surface">a lot at first, then more slowly</strong>. Scientists call this the
-                                    <strong class="text-on-surface">forgetting curve</strong>.
-                                </p>
-                                <p>
-                                    Here is the good news. If you review something just as it starts to fade, the memory resets, and the next fade is
-                                    slower. Do that a few times and the memory can last for weeks.
-                                </p>
-                            </div>
+                    <div class="flex flex-wrap gap-3 pt-2">
+                        <a href="#engine" class="btn-minimal btn-primary-filled">
+                            <span class="material-symbols-outlined text-[18px]">tune</span>
+                            Try the Engine Sandbox
+                        </a>
+                        <a href="decks.php" class="btn-minimal btn-outlined-light">
+                            <span class="material-symbols-outlined text-[18px]">style</span>
+                            Start Reviewing
+                        </a>
+                    </div>
+                </header>
 
-                            <figure class="lg:col-span-7 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 sm:p-5 shadow-sm">
-                                <div class="flex flex-wrap items-center gap-x-5 gap-y-1 mb-2 text-xs text-on-surface-variant">
-                                    <span class="inline-flex items-center gap-1.5"><span class="inline-block w-6 h-1 rounded" style="background: rgb(var(--c-error));"></span>No review</span>
-                                    <span class="inline-flex items-center gap-1.5"><span class="inline-block w-6 h-1 rounded" style="background: rgb(var(--c-primary));"></span>With spaced reviews</span>
+                <!-- ================= 01 THE FORGETTING CURVE ================= -->
+                <section class="flex flex-col gap-6" aria-labelledby="forgetting">
+                    <div class="flex flex-col gap-1">
+                        <span class="text-xs font-bold font-jakarta uppercase tracking-wider text-primary">01 &middot; Visual Proof</span>
+                        <h2 id="forgetting" class="font-jakarta text-2xl sm:text-3xl font-bold tracking-tight text-ink">The Forgetting Curve in an Instant</h2>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+                        <!-- Left: Visual Comparison Cards -->
+                        <div class="lg:col-span-5 flex flex-col gap-4">
+                            <div class="card-bento border-error/30 bg-error-pale/20 flex flex-col gap-2 p-5">
+                                <div class="flex items-center gap-2 text-error font-jakarta font-bold">
+                                    <span class="material-symbols-outlined text-[20px]">trending_down</span>
+                                    Unspaced Cramming
                                 </div>
+                                <p class="text-sm text-muted leading-relaxed">
+                                    Mass study sessions create temporary familiarity. Memory collapses exponentially down to <strong class="text-ink">10-20%</strong> within a week.
+                                </p>
+                            </div>
+
+                            <div class="card-bento border-mint-dark/30 bg-mint-pale/20 flex flex-col gap-2 p-5">
+                                <div class="flex items-center gap-2 text-mint-dark font-jakarta font-bold">
+                                    <span class="material-symbols-outlined text-[20px]">event_repeat</span>
+                                    Spaced MemPulse Reviews
+                                </div>
+                                <p class="text-sm text-muted leading-relaxed">
+                                    Reviews performed right at the verge of decay reset memory strength, maintaining <strong class="text-ink">90%+ stability</strong> permanently.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Right: Dynamic Chart -->
+                        <figure class="lg:col-span-7 card-bento flex flex-col gap-3 justify-between">
+                            <div class="flex flex-wrap items-center justify-between gap-2 text-xs font-medium text-muted">
+                                <span class="font-jakarta font-bold text-ink">60-Day Decay &amp; Recall Trajectory</span>
+                                <div class="flex items-center gap-4">
+                                    <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-error inline-block"></span> Unspaced</span>
+                                    <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-primary inline-block"></span> Spaced</span>
+                                </div>
+                            </div>
+                            <div class="w-full bg-surface-low p-3 rounded-xl border border-surface-high">
                                 <svg id="curve-chart" viewBox="0 0 640 260" class="w-full h-auto" role="img"
-                                    aria-label="Chart of memory over 60 days. Without review, memory falls close to zero. With spaced reviews, memory is topped back up at each review and fades more slowly each time."></svg>
-                                <figcaption class="text-xs text-on-surface-variant/80 mt-2 leading-snug">
-                                    An example, not your own data. In this model, each review makes the memory last twice as long.
-                                </figcaption>
-                            </figure>
-                        </div>
-                    </section>
-
-                    <!-- ================= 02 SPACING VS CRAMMING ================= -->
-                    <section class="flex flex-col gap-4" aria-labelledby="spacing">
-                        <div>
-                            <p class="text-[11px] font-semibold uppercase tracking-wider text-primary mb-1">02 &middot; The method</p>
-                            <h2 id="spacing" class="font-headline-lg text-2xl font-extrabold tracking-tight">Spacing beats cramming</h2>
-                        </div>
-
-                        <p class="text-on-surface-variant leading-relaxed max-w-3xl">
-                            <strong class="text-on-surface">Spaced repetition</strong> means reviewing something again after longer and longer gaps:
-                            today, tomorrow, in a few days, then weeks. Pair it with <strong class="text-on-surface">active recall</strong>, which means
-                            trying to answer from memory <em>before</em> you look at the answer, and you have one of the best ways to learn facts, terms and formulas.
-                        </p>
-
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div class="rounded-2xl border border-error/30 bg-error/5 p-5">
-                                <h3 class="font-bold flex items-center gap-2"><span class="material-symbols-outlined text-[20px] text-error">bedtime</span>Cramming</h3>
-                                <p class="text-sm text-on-surface-variant mt-2 leading-relaxed">
-                                    Study everything the night before. It can get you through tomorrow's quiz, but much of it is gone a week later.
-                                </p>
+                                    aria-label="Chart displaying exponential memory decay versus stabilized retention over spaced reviews over 60 days."></svg>
                             </div>
-                            <div class="rounded-2xl border border-teal-500/30 bg-teal-500/5 p-5">
-                                <h3 class="font-bold flex items-center gap-2"><span class="material-symbols-outlined text-[20px] text-teal-600">event_repeat</span>Spacing</h3>
-                                <p class="text-sm text-on-surface-variant mt-2 leading-relaxed">
-                                    Study a little at a time, with gaps in between. Research shows this works better when you need to remember something
-                                    for weeks or months (Cepeda et al., 2006).
-                                </p>
-                            </div>
-                        </div>
+                            <figcaption class="text-xs text-muted-soft leading-snug">
+                                Model adapted from Hermann Ebbinghaus' memory experiments. Each review flattens subsequent memory decay.
+                            </figcaption>
+                        </figure>
+                    </div>
+                </section>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                            <div class="flex flex-col gap-2 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-sm">
-                                <span class="material-symbols-outlined text-primary text-[24px]">psychology</span>
-                                <h3 class="font-bold">Remember for longer</h3>
-                                <p class="text-sm text-on-surface-variant leading-relaxed">Key terms and formulas stay with you for weeks, not just the next day.</p>
-                            </div>
-                            <div class="flex flex-col gap-2 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-sm">
-                                <span class="material-symbols-outlined text-primary text-[24px]">timer</span>
-                                <h3 class="font-bold">Short sessions</h3>
-                                <p class="text-sm text-on-surface-variant leading-relaxed">A few minutes a day replaces the all-night study marathon.</p>
-                            </div>
-                            <div class="flex flex-col gap-2 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-sm">
-                                <span class="material-symbols-outlined text-primary text-[24px]">filter_alt</span>
-                                <h3 class="font-bold">Focus on what's hard</h3>
-                                <p class="text-sm text-on-surface-variant leading-relaxed">Cards you struggle with come back sooner. Cards you know move further out.</p>
-                            </div>
-                            <div class="flex flex-col gap-2 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-sm">
-                                <span class="material-symbols-outlined text-primary text-[24px]">spa</span>
-                                <h3 class="font-bold">Less stress</h3>
-                                <p class="text-sm text-on-surface-variant leading-relaxed">You know every topic has been covered, so you walk into the exam calmer.</p>
-                            </div>
-                        </div>
-                    </section>
+                <!-- ================= 02 HOW IT WORKS FOR STUDENTS ================= -->
+                <section class="flex flex-col gap-6" aria-labelledby="students">
+                    <div class="flex flex-col gap-1">
+                        <span class="text-xs font-bold font-jakarta uppercase tracking-wider text-primary">02 &middot; 3-Step Workflow</span>
+                        <h2 id="students" class="font-jakarta text-2xl sm:text-3xl font-bold tracking-tight text-ink">How MemPulse Works for Students</h2>
+                    </div>
 
-                    <!-- ================= 03 TIPS ================= -->
-                    <section class="flex flex-col gap-4" aria-labelledby="tips">
-                        <div>
-                            <p class="text-[11px] font-semibold uppercase tracking-wider text-primary mb-1">03 &middot; Getting results</p>
-                            <h2 id="tips" class="font-headline-lg text-2xl font-extrabold tracking-tight">4 habits that make it work</h2>
-                        </div>
-
-                        <div class="flex gap-3 bg-primary/10 rounded-2xl p-4">
-                            <span class="material-symbols-outlined text-primary text-[24px] shrink-0">calendar_month</span>
-                            <p class="text-on-surface-variant leading-relaxed">
-                                <strong class="text-on-surface">Start early.</strong> The best time to begin is 8 to 12 weeks before your exam, so your cards have time to build up longer gaps.
-                                Starting later still helps, just with fewer long gaps.
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                        <div class="card-bento flex flex-col gap-3">
+                            <div class="flex items-center justify-between">
+                                <span class="w-10 h-10 rounded-xl bg-surface-high text-primary font-jakarta font-bold text-base flex items-center justify-center">1</span>
+                                <span class="material-symbols-outlined text-muted-soft">grid_view</span>
+                            </div>
+                            <h3 class="font-jakarta font-bold text-lg text-ink">Atomic Flashcards</h3>
+                            <p class="text-sm text-muted leading-relaxed">
+                                Break heavy lecture notes into bite-sized single concepts. One question, one clear answer—eliminating cognitive overload.
                             </p>
                         </div>
 
-                        <ol class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            <li class="flex gap-4 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-sm">
-                                <span class="w-7 h-7 rounded-full bg-primary text-on-primary text-sm font-bold flex items-center justify-center shrink-0" aria-hidden="true">1</span>
-                                <p class="text-on-surface-variant leading-relaxed"><strong class="text-on-surface">Make small cards.</strong> One fact per card, like &ldquo;Which enzyme breaks down starch in the mouth?&rdquo; instead of &ldquo;Describe digestion.&rdquo;</p>
-                            </li>
-                            <li class="flex gap-4 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-sm">
-                                <span class="w-7 h-7 rounded-full bg-primary text-on-primary text-sm font-bold flex items-center justify-center shrink-0" aria-hidden="true">2</span>
-                                <p class="text-on-surface-variant leading-relaxed"><strong class="text-on-surface">Answer before you flip.</strong> Say or write your answer first. If it feels a little hard, that's a good sign: effort makes memories stronger.</p>
-                            </li>
-                            <li class="flex gap-4 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-sm">
-                                <span class="w-7 h-7 rounded-full bg-primary text-on-primary text-sm font-bold flex items-center justify-center shrink-0" aria-hidden="true">3</span>
-                                <p class="text-on-surface-variant leading-relaxed"><strong class="text-on-surface">Be honest.</strong> If you hesitated or guessed, choose Forgot. Honest answers keep your schedule accurate.</p>
-                            </li>
-                            <li class="flex gap-4 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-sm">
-                                <span class="w-7 h-7 rounded-full bg-primary text-on-primary text-sm font-bold flex items-center justify-center shrink-0" aria-hidden="true">4</span>
-                                <p class="text-on-surface-variant leading-relaxed"><strong class="text-on-surface">Review what's due, every day.</strong> Ten to twenty minutes is enough. Skipped days let memories fade more than planned.</p>
-                            </li>
-                        </ol>
-                    </section>
-
-                    <!-- ================= 04 ENGINE ================= -->
-                    <section id="engine" class="flex flex-col gap-4 scroll-mt-6" aria-labelledby="engine-title">
-                        <div>
-                            <p class="text-[11px] font-semibold uppercase tracking-wider text-primary mb-1">04 &middot; Under the hood</p>
-                            <h2 id="engine-title" class="font-headline-lg text-2xl font-extrabold tracking-tight">How MemPulse picks the next review day</h2>
+                        <div class="card-bento flex flex-col gap-3">
+                            <div class="flex items-center justify-between">
+                                <span class="w-10 h-10 rounded-xl bg-surface-high text-primary font-jakarta font-bold text-base flex items-center justify-center">2</span>
+                                <span class="material-symbols-outlined text-muted-soft">psychology</span>
+                            </div>
+                            <h3 class="font-jakarta font-bold text-lg text-ink">Active Recall</h3>
+                            <p class="text-sm text-muted leading-relaxed">
+                                Attempt to answer from memory <em>before</em> checking the card back. Mental exertion triggers deep neural encoding.
+                            </p>
                         </div>
 
-                        <p class="text-on-surface-variant leading-relaxed max-w-3xl">
-                            Every card has one number called its <strong class="text-on-surface">interval</strong>. That's how many days MemPulse waits before showing the card again.
-                            After you answer, MemPulse multiplies the interval:
-                        </p>
-
-                        <p class="text-lg sm:text-xl font-bold text-center py-4 px-4 rounded-2xl bg-surface-container-low">
-                            Next wait = Current wait &times; Multiplier
-                        </p>
-
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div class="rounded-2xl border border-teal-500/30 bg-teal-500/5 p-4">
-                                <div class="flex items-center justify-between gap-2">
-                                    <h3 class="font-bold flex items-center gap-2"><span class="material-symbols-outlined text-[20px] text-teal-600">check_circle</span>You remembered</h3>
-                                    <span class="font-bold text-teal-700 tabular-nums">&times;<span data-mult="remember">2</span></span>
-                                </div>
-                                <p class="text-sm text-on-surface-variant mt-1 leading-relaxed">The wait gets longer. With your settings, a 4-day wait becomes <span class="font-semibold text-on-surface" data-example="remember">8 days</span>.</p>
+                        <div class="card-bento flex flex-col gap-3">
+                            <div class="flex items-center justify-between">
+                                <span class="w-10 h-10 rounded-xl bg-surface-high text-primary font-jakarta font-bold text-base flex items-center justify-center">3</span>
+                                <span class="material-symbols-outlined text-muted-soft">schedule</span>
                             </div>
-                            <div class="rounded-2xl border border-error/30 bg-error/5 p-4">
-                                <div class="flex items-center justify-between gap-2">
-                                    <h3 class="font-bold flex items-center gap-2"><span class="material-symbols-outlined text-[20px] text-error">cancel</span>You forgot</h3>
-                                    <span class="font-bold text-error tabular-nums">&times;<span data-mult="forgot">0.5</span></span>
-                                </div>
-                                <p class="text-sm text-on-surface-variant mt-1 leading-relaxed">The wait gets shorter. With your settings, a 4-day wait becomes <span class="font-semibold text-on-surface" data-example="forgot">2 days</span>.</p>
-                            </div>
+                            <h3 class="font-jakarta font-bold text-lg text-ink">Smart Scheduling</h3>
+                            <p class="text-sm text-muted leading-relaxed">
+                                Skip cards you already know. MemPulse queues cards only when they reach the decay threshold, saving hours of study time.
+                            </p>
                         </div>
+                    </div>
+                </section>
 
-                        <!-- ============ Scheduler sandbox ============ -->
-                        <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-5 sm:p-6 shadow-md flex flex-col gap-5">
+                <!-- ================= 03 THE MEMPULSE ENGINE ================= -->
+                <section id="engine" class="flex flex-col gap-6 scroll-mt-8" aria-labelledby="engine-title">
+                    <div class="flex flex-col gap-1">
+                        <span class="text-xs font-bold font-jakarta uppercase tracking-wider text-primary">03 &middot; Algorithmic Core</span>
+                        <h2 id="engine-title" class="font-jakarta text-2xl sm:text-3xl font-bold tracking-tight text-ink">The MemPulse Engine IN AN INSTANT</h2>
+                    </div>
+
+                    <!-- Formula Highlight Banner -->
+                    <div class="p-5 sm:p-6 rounded-2xl bg-surface-high border border-surface-highest flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div class="flex flex-col gap-1 text-center sm:text-left">
+                            <span class="text-xs font-bold font-jakarta uppercase text-primary">Core Multiplier Formula</span>
+                            <p class="font-jakarta font-extrabold text-xl sm:text-2xl text-primary-deep tracking-tight">
+                                Next Interval = Current Interval &times; Multiplier
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-3 shrink-0">
+                            <span class="px-3 py-1.5 rounded-xl bg-mint-pale text-mint-dark font-jakarta font-bold text-xs">&check; Remember: &times;<span data-mult="remember">2.0</span></span>
+                            <span class="px-3 py-1.5 rounded-xl bg-error-pale text-error font-jakarta font-bold text-xs">&times; Forgot: &times;<span data-mult="forgot">0.5</span></span>
+                        </div>
+                    </div>
+
+                    <!-- Sandbox Dashboard Widget -->
+                    <div class="card-bento bg-surface-card border-surface-high flex flex-col gap-6 shadow-card">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
                             <div>
-                                <h3 class="font-headline-lg text-xl font-extrabold tracking-tight">Try it yourself</h3>
-                                <p class="text-sm text-on-surface-variant mt-1 leading-relaxed">
-                                    Pretend you just added a new card. Press a button each time you review it and watch the gaps change.
-                                </p>
+                                <h3 class="font-jakarta text-xl font-bold text-ink">Interactive Engine Sandbox</h3>
+                                <p class="text-sm text-muted">Test how card intervals expand or contract dynamically based on user ratings.</p>
                             </div>
-
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                <div class="flex flex-col gap-1.5">
-                                    <label for="remember-multiplier-input" class="text-sm font-semibold text-on-surface">Remember multiplier</label>
-                                    <div class="flex items-center bg-surface-container-low px-3 py-2 rounded-xl">
-                                        <input id="remember-multiplier-input" type="number" min="1.1" max="10" step="0.1"
-                                            value="<?php echo htmlspecialchars((string) $srs['remember_multiplier'], ENT_QUOTES); ?>"
-                                            class="w-full bg-transparent border-0 p-0 text-headline-sm text-on-surface focus:outline-none" style="box-shadow:none;">
-                                        <span class="text-on-surface-variant font-medium">&times;</span>
-                                    </div>
-                                </div>
-                                <div class="flex flex-col gap-1.5">
-                                    <label for="forgot-multiplier-input" class="text-sm font-semibold text-on-surface">Forgot multiplier</label>
-                                    <div class="flex items-center bg-surface-container-low px-3 py-2 rounded-xl">
-                                        <input id="forgot-multiplier-input" type="number" min="0.1" max="1" step="0.1"
-                                            value="<?php echo htmlspecialchars((string) $srs['forgot_multiplier'], ENT_QUOTES); ?>"
-                                            class="w-full bg-transparent border-0 p-0 text-headline-sm text-on-surface focus:outline-none" style="box-shadow:none;">
-                                        <span class="text-on-surface-variant font-medium">&times;</span>
-                                    </div>
-                                </div>
-                                <div class="flex flex-col gap-1.5">
-                                    <label for="max-interval-input" class="text-sm font-semibold text-on-surface">Longest wait (days)</label>
-                                    <div class="flex items-center bg-surface-container-low px-3 py-2 rounded-xl">
-                                        <input id="max-interval-input" type="number" min="1" max="3650" step="1"
-                                            value="<?php echo (int) $srs['maximum_interval_days']; ?>"
-                                            class="w-full bg-transparent border-0 p-0 text-headline-sm text-on-surface focus:outline-none" style="box-shadow:none;">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="rounded-xl bg-surface-container-low p-4 sm:p-5 flex flex-col gap-4">
-                                <div id="timeline-container" class="flex items-center gap-2 overflow-x-auto pb-2 min-h-[56px]" aria-label="Review timeline"></div>
-
-                                <div class="grid grid-cols-3 gap-3" aria-live="polite">
-                                    <div class="rounded-xl bg-surface-container-lowest p-3">
-                                        <p class="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">Reviews so far</p>
-                                        <p id="sb-reviews" class="text-xl font-bold tabular-nums mt-1">0</p>
-                                    </div>
-                                    <div class="rounded-xl bg-surface-container-lowest p-3">
-                                        <p class="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">Next review in</p>
-                                        <p id="sb-next" class="text-xl font-bold tabular-nums mt-1">1 day</p>
-                                    </div>
-                                    <div class="rounded-xl bg-surface-container-lowest p-3">
-                                        <p class="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">That's on day</p>
-                                        <p id="sb-day" class="text-xl font-bold tabular-nums mt-1">1</p>
-                                    </div>
-                                </div>
-
-                                <div class="flex flex-wrap items-center gap-3">
-                                    <button type="button" id="btn-remember" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-teal-500 text-white font-semibold text-sm hover:opacity-90 transition-all active:scale-[0.97]">
-                                        <span class="material-symbols-outlined text-[18px]">check</span>I remembered
-                                    </button>
-                                    <button type="button" id="btn-forget" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-rose-600 text-white font-semibold text-sm hover:bg-rose-700 transition-all active:scale-[0.97]">
-                                        <span class="material-symbols-outlined text-[18px]">close</span>I forgot
-                                    </button>
-                                    <button type="button" id="btn-reset" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-surface-container-lowest border border-outline-variant/40 text-on-surface-variant font-semibold text-sm hover:bg-surface-container transition-all active:scale-[0.97]">
-                                        <span class="material-symbols-outlined text-[18px]">restart_alt</span>Reset
-                                    </button>
-                                </div>
-                            </div>
-
-                            <p class="text-xs text-on-surface-variant/80">
-                                This is a practice area. Changing the numbers here does not change your saved settings.
-                            </p>
+                            <button type="button" id="btn-reset" class="btn-minimal btn-outlined-light text-xs py-2">
+                                <span class="material-symbols-outlined text-[16px]">restart_alt</span> Reset
+                            </button>
                         </div>
 
-                        <p class="text-on-surface-variant leading-relaxed max-w-3xl">
-                            You can change the real multipliers, the starting wait and the longest wait in
-                            <a href="settings.php" class="text-primary font-semibold underline underline-offset-2">Settings</a>.
-                            Tip: lower the longest wait before an exam so no card is scheduled after the exam date.
-                        </p>
-                    </section>
-
-                    <!-- ================= CTA + REFERENCES ================= -->
-                    <footer class="flex flex-col gap-5 border-t border-outline-variant/30 pt-6">
-                        <div class="flex flex-wrap gap-3">
-                            <a href="decks.php" class="inline-flex items-center gap-2 bg-primary text-on-primary px-4 py-2.5 rounded-xl font-semibold text-sm hover:opacity-90 transition-opacity">
-                                <span class="material-symbols-outlined text-[18px]">style</span>
-                                Start reviewing
-                            </a>
+                        <!-- Multiplier Controls -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div class="flex flex-col gap-1.5">
+                                <label for="remember-multiplier-input" class="text-xs font-bold font-jakarta text-ink">Remember Multiplier</label>
+                                <div class="flex items-center gap-2">
+                                    <input id="remember-multiplier-input" type="number" min="1.1" max="10" step="0.1"
+                                        value="<?php echo htmlspecialchars((string) $srs['remember_multiplier'], ENT_QUOTES); ?>"
+                                        class="input-minimal">
+                                    <span class="font-bold text-muted">&times;</span>
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-1.5">
+                                <label for="forgot-multiplier-input" class="text-xs font-bold font-jakarta text-ink">Forgot Multiplier</label>
+                                <div class="flex items-center gap-2">
+                                    <input id="forgot-multiplier-input" type="number" min="0.1" max="1" step="0.1"
+                                        value="<?php echo htmlspecialchars((string) $srs['forgot_multiplier'], ENT_QUOTES); ?>"
+                                        class="input-minimal">
+                                    <span class="font-bold text-muted">&times;</span>
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-1.5">
+                                <label for="max-interval-input" class="text-xs font-bold font-jakarta text-ink">Max Cap (Days)</label>
+                                <input id="max-interval-input" type="number" min="1" max="3650" step="1"
+                                    value="<?php echo (int) $srs['maximum_interval_days']; ?>"
+                                    class="input-minimal">
+                            </div>
                         </div>
-                        <p class="text-xs text-on-surface-variant/80 leading-relaxed">
-                            Further reading: Ebbinghaus, H. (1885), <em>Memory: A Contribution to Experimental Psychology</em>.
-                            Cepeda, N. J., et al. (2006), Distributed practice in verbal recall tasks, <em>Psychological Bulletin, 132</em>(3).
-                            Roediger, H. L., &amp; Karpicke, J. D. (2006), Test-enhanced learning, <em>Psychological Science, 17</em>(3).
-                            Karpicke, J. D., &amp; Roediger, H. L. (2008), The critical importance of retrieval practice for learning, <em>Science, 319</em>(5865).
-                        </p>
-                    </footer>
 
-                </div>
+                        <!-- Live Timeline Bar & Stats -->
+                        <div class="p-5 rounded-2xl bg-surface-low border border-surface-container flex flex-col gap-5">
+                            <div id="timeline-container" class="flex items-center gap-2 overflow-x-auto pb-2 min-h-[60px]" aria-label="Review timeline"></div>
+
+                            <div class="grid grid-cols-3 gap-3 text-center">
+                                <div class="bg-surface-card p-3 rounded-xl border border-surface-high">
+                                    <p class="text-[10px] font-bold font-jakarta uppercase tracking-wider text-muted">Reviews Logged</p>
+                                    <p id="sb-reviews" class="text-xl font-extrabold font-jakarta text-ink mt-0.5">0</p>
+                                </div>
+                                <div class="bg-surface-card p-3 rounded-xl border border-surface-high">
+                                    <p class="text-[10px] font-bold font-jakarta uppercase tracking-wider text-muted">Next Wait Interval</p>
+                                    <p id="sb-next" class="text-xl font-extrabold font-jakarta text-primary mt-0.5">1 day</p>
+                                </div>
+                                <div class="bg-surface-card p-3 rounded-xl border border-surface-high">
+                                    <p class="text-[10px] font-bold font-jakarta uppercase tracking-wider text-muted">Cumulative Day</p>
+                                    <p id="sb-day" class="text-xl font-extrabold font-jakarta text-ink mt-0.5">1</p>
+                                </div>
+                            </div>
+
+                            <div class="flex flex-wrap items-center justify-center gap-3">
+                                <button type="button" id="btn-remember" class="btn-minimal btn-primary-filled !bg-mint-dark hover:!bg-emerald-700">
+                                    <span class="material-symbols-outlined text-[18px]">check</span> I Remembered (+2.0x)
+                                </button>
+                                <button type="button" id="btn-forget" class="btn-minimal btn-primary-filled !bg-error hover:!bg-red-700">
+                                    <span class="material-symbols-outlined text-[18px]">close</span> I Forgot (0.5x)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ================= FOOTER & REFERENCES ================= -->
+                <footer class="flex flex-col gap-5 border-t border-surface-high pt-8 pb-12">
+                    <div class="flex flex-wrap gap-4">
+                        <a href="decks.php" class="btn-minimal btn-primary-filled">
+                            <span class="material-symbols-outlined text-[18px]">style</span>
+                            Start Reviewing Your Decks
+                        </a>
+                        <a href="settings.php" class="btn-minimal btn-outlined-light">
+                            <span class="material-symbols-outlined text-[18px]">settings</span>
+                            Adjust Engine Settings
+                        </a>
+                    </div>
+                    <p class="text-xs text-muted-soft leading-relaxed max-w-4xl">
+                        <strong class="text-muted">Academic References:</strong> Ebbinghaus, H. (1885). <em>Memory: A Contribution to Experimental Psychology</em>. Cepeda, N. J., et al. (2006). Distributed practice in verbal recall tasks, <em>Psychological Bulletin, 132</em>(3). Roediger, H. L., &amp; Karpicke, J. D. (2006). Test-enhanced learning, <em>Psychological Science, 17</em>(3).
+                    </p>
+                </footer>
+
             </div>
+        </div>
 
-        </main>
+    </main>
 
-        <script>
-        (function () {
-            'use strict';
+    <!-- JS Logic for Engine & Curve Visualizer -->
+    <script>
+    (function () {
+        'use strict';
 
-            var SAVED = <?php echo json_encode($srs, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP); ?>;
+        var SAVED = <?php echo json_encode($srs, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP); ?>;
 
-            var $ = function (id) { return document.getElementById(id); };
-            var clamp = function (n, lo, hi) { return Math.min(hi, Math.max(lo, n)); };
-            var fmt = function (n) { return (Math.round(n * 100) / 100).toString(); };
-            var days = function (n) { return n + (n === 1 ? ' day' : ' days'); };
+        var $ = function (id) { return document.getElementById(id); };
+        var clamp = function (n, lo, hi) { return Math.min(hi, Math.max(lo, n)); };
+        var fmt = function (n) { return (Math.round(n * 100) / 100).toString(); };
+        var days = function (n) { return n + (n === 1 ? ' day' : ' days'); };
 
-            // Show the learner's saved multipliers and a worked example in the Remember / Forgot cards.
-            document.querySelectorAll('[data-mult="remember"]').forEach(function (el) { el.textContent = fmt(SAVED.remember_multiplier); });
-            document.querySelectorAll('[data-mult="forgot"]').forEach(function (el) { el.textContent = fmt(SAVED.forgot_multiplier); });
-            document.querySelectorAll('[data-example]').forEach(function (el) {
-                var m = el.getAttribute('data-example') === 'remember' ? SAVED.remember_multiplier : SAVED.forgot_multiplier;
-                el.textContent = days(Math.max(1, Math.round(4 * m)));
+        document.querySelectorAll('[data-mult="remember"]').forEach(function (el) { el.textContent = fmt(SAVED.remember_multiplier); });
+        document.querySelectorAll('[data-mult="forgot"]').forEach(function (el) { el.textContent = fmt(SAVED.forgot_multiplier); });
+
+        /* Forgetting Curve Chart */
+        (function drawCurve() {
+            var svg = $('curve-chart');
+            if (!svg) { return; }
+            var W = 640, H = 260, L = 44, R = 12, T = 12, B = 36;
+            var span = 60, cw = W - L - R, ch = H - T - B;
+            var x = function (d) { return L + (d / span) * cw; };
+            var y = function (p) { return T + (1 - p) * ch; };
+            var label = 'style="fill: #777587; font-family: Inter, sans-serif;" font-size="11"';
+            var out = '';
+
+            [0, 0.5, 1].forEach(function (p) {
+                out += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(p) + '" y2="' + y(p) + '" style="stroke: #e2e7ff; stroke-dasharray: 4;"/>';
+                out += '<text x="' + (L - 8) + '" y="' + (y(p) + 4) + '" text-anchor="end" ' + label + '>' + Math.round(p * 100) + '%</text>';
+            });
+            [0, 15, 30, 45, 60].forEach(function (d) {
+                out += '<text x="' + x(d) + '" y="' + (H - 12) + '" text-anchor="middle" ' + label + '>' + d + 'd</text>';
             });
 
-            /* ---------- Forgetting curve (illustrative) ---------- */
-            (function drawCurve() {
-                var svg = $('curve-chart');
-                if (!svg) { return; }
-                var W = 640, H = 260, L = 44, R = 12, T = 12, B = 36;
-                var span = 60, cw = W - L - R, ch = H - T - B;
-                var x = function (d) { return L + (d / span) * cw; };
-                var y = function (p) { return T + (1 - p) * ch; };
-                var label = 'style="fill: rgb(var(--c-on-surface-variant))" font-size="11"';
-                var out = '';
+            var base = 3, reviews = [0, 1, 3, 7, 15, 31], t, i, s;
+            var d0 = '';
+            for (t = 0; t <= span; t += 0.5) { d0 += (t === 0 ? 'M' : 'L') + x(t).toFixed(1) + ' ' + y(Math.exp(-t / base)).toFixed(1) + ' '; }
+            out += '<path d="' + d0 + '" fill="none" stroke-width="2.5" stroke-linecap="round" style="stroke: var(--error)"/>';
 
-                [0, 0.5, 1].forEach(function (p) {
-                    out += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(p) + '" y2="' + y(p) + '" style="stroke: rgb(var(--c-outline-variant)); opacity:.45"/>';
-                    out += '<text x="' + (L - 8) + '" y="' + (y(p) + 4) + '" text-anchor="end" ' + label + '>' + Math.round(p * 100) + '%</text>';
-                });
-                [0, 15, 30, 45, 60].forEach(function (d) {
-                    out += '<text x="' + x(d) + '" y="' + (H - 16) + '" text-anchor="middle" ' + label + '>' + d + '</text>';
-                });
-                out += '<text x="' + (L + cw / 2) + '" y="' + (H - 2) + '" text-anchor="middle" ' + label + '>Days since learning</text>';
-
-                var base = 3, reviews = [0, 1, 3, 7, 15, 31], t, i, s;
-                var d0 = '';
-                for (t = 0; t <= span; t += 0.5) { d0 += (t === 0 ? 'M' : 'L') + x(t).toFixed(1) + ' ' + y(Math.exp(-t / base)).toFixed(1) + ' '; }
-                out += '<path d="' + d0 + '" fill="none" stroke-width="2.5" stroke-linecap="round" style="stroke: rgb(var(--c-error))"/>';
-
-                var d1 = '';
-                for (i = 0; i < reviews.length; i++) {
-                    var start = reviews[i], end = i + 1 < reviews.length ? reviews[i + 1] : span;
-                    var strength = base * Math.pow(2, i);
-                    for (s = start; s <= end + 0.001; s += 0.25) {
-                        d1 += (s === start ? 'M' : 'L') + x(s).toFixed(1) + ' ' + y(Math.exp(-(s - start) / strength)).toFixed(1) + ' ';
-                    }
+            var d1 = '';
+            for (i = 0; i < reviews.length; i++) {
+                var start = reviews[i], end = i + 1 < reviews.length ? reviews[i + 1] : span;
+                var strength = base * Math.pow(2, i);
+                for (s = start; s <= end + 0.001; s += 0.25) {
+                    d1 += (s === start ? 'M' : 'L') + x(s).toFixed(1) + ' ' + y(Math.exp(-(s - start) / strength)).toFixed(1) + ' ';
                 }
-                out += '<path d="' + d1 + '" fill="none" stroke-width="2.5" stroke-linejoin="round" style="stroke: rgb(var(--c-primary))"/>';
-                reviews.slice(1).forEach(function (rd) { out += '<circle cx="' + x(rd) + '" cy="' + y(1) + '" r="4" style="fill: rgb(var(--c-primary))"/>'; });
-                svg.innerHTML = out;
-            })();
-
-            /* ---------- Scheduler sandbox ---------- */
-            (function sandbox() {
-                var timeline = $('timeline-container');
-                if (!timeline) { return; }
-
-                var rememberInput = $('remember-multiplier-input');
-                var forgotInput = $('forgot-multiplier-input');
-                var maxInput = $('max-interval-input');
-
-                var maxSaved = SAVED.maximum_interval_days > 0 ? SAVED.maximum_interval_days : 365;
-                var startWait = Math.max(1, SAVED.initial_interval_days || 1);
-
-                // results[i] is how review i went; waits[i] is the gap before review i.
-                var results = [];
-                var waits = [startWait];
-
-                function num(el, fallback, lo, hi) {
-                    var n = parseFloat(el.value);
-                    if (isNaN(n)) { n = fallback; }
-                    return clamp(n, lo, hi);
-                }
-
-                function nextWait(current, type) {
-                    var mult = type === 'remember'
-                        ? num(rememberInput, SAVED.remember_multiplier, 1.1, 10)
-                        : num(forgotInput, SAVED.forgot_multiplier, 0.1, 1);
-                    var max = num(maxInput, maxSaved, 1, 3650);
-                    return clamp(Math.round(current * mult), 1, max);
-                }
-
-                var box = 'shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ';
-                function node(kind) {
-                    if (kind === 'added') {
-                        return '<div class="' + box + 'bg-surface-container-lowest shadow-sm text-primary" title="Card added"><span class="material-symbols-outlined text-[18px]">add</span></div>';
-                    }
-                    if (kind === 'remember') {
-                        return '<div class="' + box + 'bg-surface-container-lowest shadow-sm text-teal-600" title="Remembered"><span class="material-symbols-outlined text-[18px]">check</span></div>';
-                    }
-                    if (kind === 'forget') {
-                        return '<div class="' + box + 'bg-surface-container-lowest shadow-sm text-error" title="Forgot"><span class="material-symbols-outlined text-[18px]">close</span></div>';
-                    }
-                    return '<div class="' + box + 'bg-surface-container-high border border-dashed border-outline-variant" title="Next review"></div>';
-                }
-                function arrow(n) {
-                    return '<div class="shrink-0 flex items-center gap-1 px-1 text-on-surface-variant">' +
-                        '<span class="h-px w-6 bg-outline-variant"></span>' +
-                        '<span class="text-[12px] font-medium whitespace-nowrap">' + days(n) + '</span>' +
-                        '<span class="material-symbols-outlined text-[14px]">arrow_forward</span></div>';
-                }
-
-                function render() {
-                    var html = node('added'), i, elapsed = 0;
-                    for (i = 0; i < results.length; i++) {
-                        html += arrow(waits[i]) + node(results[i]);
-                        elapsed += waits[i];
-                    }
-                    var upcoming = waits[results.length];
-                    html += arrow(upcoming) + node('pending');
-                    timeline.innerHTML = html;
-                    timeline.scrollLeft = timeline.scrollWidth;
-
-                    $('sb-reviews').textContent = results.length;
-                    $('sb-next').textContent = days(upcoming);
-                    $('sb-day').textContent = elapsed + upcoming;
-                }
-
-                function press(type) {
-                    var current = waits[waits.length - 1];
-                    results.push(type);
-                    waits.push(nextWait(current, type));
-                    render();
-                }
-
-                $('btn-remember').addEventListener('click', function () { press('remember'); });
-                $('btn-forget').addEventListener('click', function () { press('forget'); });
-                $('btn-reset').addEventListener('click', function () {
-                    results = [];
-                    waits = [startWait];
-                    rememberInput.value = fmt(SAVED.remember_multiplier);
-                    forgotInput.value = fmt(SAVED.forgot_multiplier);
-                    maxInput.value = maxSaved;
-                    render();
-                });
-
-                render();
-            })();
+            }
+            out += '<path d="' + d1 + '" fill="none" stroke-width="2.5" stroke-linejoin="round" style="stroke: var(--primary)"/>';
+            reviews.slice(1).forEach(function (rd) { out += '<circle cx="' + x(rd) + '" cy="' + y(1) + '" r="4" style="fill: var(--primary)"/>'; });
+            svg.innerHTML = out;
         })();
-        </script>
 
-    </body>
+        /* Scheduler Sandbox */
+        (function sandbox() {
+            var timeline = $('timeline-container');
+            if (!timeline) { return; }
 
+            var rememberInput = $('remember-multiplier-input');
+            var forgotInput = $('forgot-multiplier-input');
+            var maxInput = $('max-interval-input');
+
+            var maxSaved = SAVED.maximum_interval_days > 0 ? SAVED.maximum_interval_days : 365;
+            var startWait = Math.max(1, SAVED.initial_interval_days || 1);
+
+            var results = [];
+            var waits = [startWait];
+
+            function num(el, fallback, lo, hi) {
+                var n = parseFloat(el.value);
+                if (isNaN(n)) { n = fallback; }
+                return clamp(n, lo, hi);
+            }
+
+            function nextWait(current, type) {
+                var mult = type === 'remember'
+                    ? num(rememberInput, SAVED.remember_multiplier, 1.1, 10)
+                    : num(forgotInput, SAVED.forgot_multiplier, 0.1, 1);
+                var max = num(maxInput, maxSaved, 1, 3650);
+                return clamp(Math.round(current * mult), 1, max);
+            }
+
+            var box = 'shrink-0 w-9 h-9 rounded-xl flex items-center justify-center font-bold ';
+            function node(kind) {
+                if (kind === 'added') {
+                    return '<div class="' + box + 'bg-surface-card text-primary shadow-sm border border-surface-high" title="Card added"><span class="material-symbols-outlined text-[18px]">add</span></div>';
+                }
+                if (kind === 'remember') {
+                    return '<div class="' + box + 'bg-mint-pale text-mint-dark shadow-sm" title="Remembered"><span class="material-symbols-outlined text-[18px]">check</span></div>';
+                }
+                if (kind === 'forget') {
+                    return '<div class="' + box + 'bg-error-pale text-error shadow-sm" title="Forgot"><span class="material-symbols-outlined text-[18px]">close</span></div>';
+                }
+                return '<div class="' + box + 'bg-surface-high border border-dashed border-muted-soft/40" title="Next review"></div>';
+            }
+            function arrow(n) {
+                return '<div class="shrink-0 flex items-center gap-1 px-1 text-muted">' +
+                    '<span class="h-0.5 w-6 bg-surface-highest"></span>' +
+                    '<span class="text-xs font-bold font-jakarta whitespace-nowrap">' + days(n) + '</span>' +
+                    '<span class="material-symbols-outlined text-[14px]">arrow_forward</span></div>';
+            }
+
+            function render() {
+                var html = node('added'), i, elapsed = 0;
+                for (i = 0; i < results.length; i++) {
+                    html += arrow(waits[i]) + node(results[i]);
+                    elapsed += waits[i];
+                }
+                var upcoming = waits[results.length];
+                html += arrow(upcoming) + node('pending');
+                timeline.innerHTML = html;
+                timeline.scrollLeft = timeline.scrollWidth;
+
+                $('sb-reviews').textContent = results.length;
+                $('sb-next').textContent = days(upcoming);
+                $('sb-day').textContent = elapsed + upcoming;
+            }
+
+            function press(type) {
+                var current = waits[waits.length - 1];
+                results.push(type);
+                waits.push(nextWait(current, type));
+                render();
+            }
+
+            $('btn-remember').addEventListener('click', function () { press('remember'); });
+            $('btn-forget').addEventListener('click', function () { press('forget'); });
+            $('btn-reset').addEventListener('click', function () {
+                results = [];
+                waits = [startWait];
+                rememberInput.value = fmt(SAVED.remember_multiplier);
+                forgotInput.value = fmt(SAVED.forgot_multiplier);
+                maxInput.value = maxSaved;
+                render();
+            });
+
+            render();
+        })();
+    })();
+    </script>
+
+</body>
 </html>

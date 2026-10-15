@@ -172,9 +172,9 @@
                         <div class="relative w-full h-full min-h-[280px]">
                             
                             <!-- DIV: SLIDE 0 - Memory Science -->
-                            <div class="hero-slide absolute inset-0 transition-opacity duration-500 ease-in-out flex flex-col justify-between p-5 sm:p-6 opacity-100 z-10" data-slide-index="0" aria-hidden="false">
+                            <!-- <div class="hero-slide absolute inset-0 transition-opacity duration-500 ease-in-out flex flex-col justify-between p-5 sm:p-6 opacity-100 z-10" data-slide-index="0" aria-hidden="false"> -->
                                 <!-- DIV: Slide Header & Description Block -->
-                                <div class="relative z-10 flex flex-col gap-2">
+                                <!-- <div class="relative z-10 flex flex-col gap-2">
                                     <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-primary/20 border border-primary/30 backdrop-blur-md text-cyan-200 font-label-sm text-[10px] font-bold tracking-wider uppercase w-fit">
                                         <span class="material-symbols-outlined text-[14px]">psychology</span>
                                         <span>Memory Science</span>
@@ -185,15 +185,15 @@
                                     <p class="font-body-sm text-xs sm:text-sm text-slate-300 leading-relaxed max-w-lg">
                                         Explore the science behind spaced repetition, forgetting curves, and effective long-term learning.
                                     </p>
-                                </div>
+                                </div> -->
                                 <!-- DIV: Slide Action Button & Wayfinder Dots Bar -->
-                                <div class="relative z-10 flex items-center justify-between pt-4 border-t border-white/10">
+                                <!-- <div class="relative z-10 flex items-center justify-between pt-4 border-t border-white/10">
                                     <a href="science.php" class="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-900 font-label-md text-xs font-bold shadow-xs transition-all group">
                                         <span>Learn More</span>
                                         <span class="material-symbols-outlined text-[16px] transition-transform group-hover:translate-x-1">arrow_forward</span>
-                                    </a>
+                                    </a> -->
                                     <!-- DIV: Wayfinder Pagination Navigation Dots Shell -->
-                                    <div class="flex items-center gap-2 hero-dots-container" aria-label="Carousel navigation">
+                                    <!-- <div class="flex items-center gap-2 hero-dots-container" aria-label="Carousel navigation">
                                         <button type="button" title="Memory Science" aria-label="Slide 1: Memory Science" class="hero-dot h-2 rounded-full transition-all duration-300 bg-cyan-400 w-6" data-dot-index="0" aria-current="true"></button>
                                         <button type="button" title="Decks" aria-label="Slide 2: Decks" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="1" aria-current="false"></button>
                                         <button type="button" title="Create Flashcards" aria-label="Slide 3: Create Flashcards" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="2" aria-current="false"></button>
@@ -201,7 +201,7 @@
                                         <button type="button" title="Reports & Statistics" aria-label="Slide 5: Reports & Statistics" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="4" aria-current="false"></button>
                                     </div>
                                 </div>
-                            </div>
+                            </div> -->
 
                             <!-- DIV: SLIDE 1 - Decks -->
                             <div class="hero-slide absolute inset-0 transition-opacity duration-500 ease-in-out flex flex-col justify-between p-5 sm:p-6 opacity-0 pointer-events-none z-0" data-slide-index="1" aria-hidden="true">
@@ -494,14 +494,13 @@
                         </p>
                     </div>
 
-                    <!-- DIV: Activity Level Color Legend -->
                     <div class="flex items-center gap-1.5 font-label-sm text-[10px] text-on-surface-variant">
                         <span>Less</span>
-                        <span class="w-3 h-3 rounded bg-surface-container-high"></span>
-                        <span class="w-3 h-3 rounded bg-primary-fixed"></span>
-                        <span class="w-3 h-3 rounded bg-primary-fixed-dim"></span>
-                        <span class="w-3 h-3 rounded bg-primary-container"></span>
-                        <span class="w-3 h-3 rounded bg-primary"></span>
+                        <span class="w-3 h-3 rounded" style="background-color: transparent; border: 1px solid rgba(150,150,150,0.3);" title="0 reviews"></span>
+                        <span class="w-3 h-3 rounded" style="background-color: #86efac;" title="1-14 reviews"></span>
+                        <span class="w-3 h-3 rounded" style="background-color: #4ade80;" title="15-39 reviews"></span>
+                        <span class="w-3 h-3 rounded" style="background-color: #16a34a;" title="40-79 reviews"></span>
+                        <span class="w-3 h-3 rounded" style="background-color: #15803d;" title="80+ reviews"></span>
                         <span>More</span>
                     </div>
                 </div>
@@ -533,8 +532,7 @@
                                 $key = $date->format('Y-m-d');
                                 $reviews = $streakData['heatmapData'][$key] ?? 0;
                                 $tooltip = $date->format('M j, Y') . ' • ' . ($reviews === 0 ? 'No reviews' : ($reviews === 1 ? '1 review' : $reviews . ' reviews'));
-                                echo '<div class="heatmap-cell rounded-[4px] transition-transform hover:scale-110 ' . heatmap_level_class($reviews) . '" style="grid-row: ' . ($d + 2) . '; grid-column: ' . ($w + 2) . ';" data-tooltip="' . htmlspecialchars($tooltip, ENT_QUOTES) . '"></div>';
-                            }
+                                echo '<div class="heatmap-cell rounded-[4px] transition-transform hover:scale-110" style="grid-row: ' . ($d + 2) . '; grid-column: ' . ($w + 2) . '; ' . heatmap_level_style($reviews) . '" data-tooltip="' . htmlspecialchars($tooltip, ENT_QUOTES) . '"></div>';                            }
                             $weekStart->modify('+7 days');
                         }
                         ?>

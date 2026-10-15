@@ -27,15 +27,15 @@ $pageTitle      = "Home Dashboard";
 $currentPage    = 'home';
 
 /**
- * Helper function for Heatmap grid CSS class matching review intensity.
+ * Helper function for Heatmap grid CSS class matching review intensity (Green Palette).
  */
-if (!function_exists('heatmap_level_class')) {
-    function heatmap_level_class(int $reviews): string {
-        if ($reviews <= 0) return 'bg-surface-container-high';
-        if ($reviews <= 14) return 'bg-primary-fixed';
-        if ($reviews <= 39) return 'bg-primary-fixed-dim';
-        if ($reviews <= 79) return 'bg-primary-container';
-        return 'bg-primary';
+if (!function_exists('heatmap_level_style')) {
+    function heatmap_level_style(int $reviews): string {
+        if ($reviews <= 0) return 'background-color: #F6F6FD; border: 1px solid rgba(150,150,150,0.2);';
+        if ($reviews <= 7) return 'background-color: #86efac;';
+        if ($reviews <= 14) return 'background-color: #4ade80;';
+        if ($reviews <= 21) return 'background-color: #16a34a;';
+        return 'background-color: #15803d;';
     }
 }
 ?>

@@ -304,14 +304,14 @@ if ($user_id && isset($conn)) {
             </div>
         </a>
 
-        <a data-tooltip="Science" aria-current="<?= $currentPage === 'science' ? 'page' : 'false' ?>"
+        <!-- <a data-tooltip="Science" aria-current="<?= $currentPage === 'science' ? 'page' : 'false' ?>"
            class="sidebar-tooltip sidebar-row sidebar-gap flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group <?= $currentPage === 'science' ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm' : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface' ?>"
            href="<?php echo BASE_URL; ?>views/science.php">
             <div class="flex items-center gap-3 sidebar-gap">
                 <span class="material-symbols-outlined text-[24px] <?= $currentPage === 'science' ? '' : 'text-on-surface-variant group-hover:text-on-surface' ?> transition-colors">psychology</span>
                 <span class="hide-collapsed transition-opacity duration-200">Science</span>
             </div>
-        </a>
+        </a> -->
     </nav>
 
     <!-- Bottom Section: System Settings, Profile Menu -->
