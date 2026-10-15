@@ -153,6 +153,8 @@ foreach ($recentSessions as $s) {
     $recentRows[] = [
         'title'       => (string) $s['deckTitle'],
         'detailsUrl'  => 'session-details.php?id=' . (int) $s['sessionID'],
+        'practiceUrl' => ((int) $s['cardsReviewed'] > 0)
+            ? 'review.php?mode=practice&from=sessions&session_id=' . (int) $s['sessionID'] : '',
         'cards'       => (int) $s['cardsReviewed'],
         'accuracy'    => (int) $s['accuracy'],
         'accuracyCls' => ReviewHubService::accuracyBadgeClass((int) $s['accuracy']),
@@ -402,6 +404,14 @@ document.addEventListener('DOMContentLoaded', function () {
           formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
         { title: 'When', field: 'when', width: 130, hozAlign: 'right', headerHozAlign: 'right', responsive: 1,
           formatter: function (c) { return '<span class="' + muted + ' text-xs">' + esc(c.getValue()) + '</span>'; } },
+        { title: '', field: 'practiceUrl', width: 160, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
+          formatter: function (c) {
+              var r = c.getRow().getData();
+              if (!r.practiceUrl) return '';
+              return '<a href="' + esc(r.practiceUrl) + '" title="Practice these cards again (nothing is saved)" ' +
+                     'class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-outline-variant text-on-surface text-xs font-bold hover:bg-surface-container-low transition-colors whitespace-nowrap">' +
+                     '<span class="material-symbols-outlined text-[16px]">play_arrow</span><span>Practice again</span></a>';
+          } },
         { title: '', field: 'detailsUrl', width: 70, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
           formatter: function (c) {
               var r = c.getRow().getData();

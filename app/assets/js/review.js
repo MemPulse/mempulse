@@ -2,6 +2,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const data = window.MemPulseReviewData;
     if (!data.deckId || !data.dueCards || data.dueCards.length === 0) return;
 
+    // PRACTICE MODE: replay cards without saving anything. No saveSession(), no
+    // unsaved-changes warning, no endpoint calls. `practice` can also be switched on
+    // client-side from a normal review's finished screen ("Practice again").
+    let practice = data.mode === 'practice';
+    const cleanCard = c => ({ id: c.id, front: c.front, back: c.back, interval_days: c.interval_days, next_review_at: c.next_review_at });
+    let lastSet = data.dueCards.map(cleanCard);   // what "Practice again" replays
+    let finishToken = 0;                          // cancels a running stats animation on restart
+
     let queue = data.dueCards;
     let currentIndex = 0;
 
@@ -39,6 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const formatDays = (d) => `in ${d} ${d === 1 ? 'day' : 'days'}`;
 
     function updateProjections() {
+        if (practice) return;   // Forgot / Remember day labels are hidden in practice
         const card = queue[currentIndex];
         if (!card) return;
         const interval = parseInt(card.interval_days, 10) || 0;
@@ -86,6 +95,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const btnMissed = document.getElementById('review-missed-btn');
     const returnLink = document.getElementById('return-hub-link');
+    const btnPracticeAgain = document.getElementById('practice-again-btn');
+    const practiceBanner = document.getElementById('practice-banner');
     const sumAccuracy = document.getElementById('summary-accuracy');
     const sumRem = document.getElementById('summary-remembered');
     const sumFor = document.getElementById('summary-forgotten');
@@ -167,7 +178,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (sessionEnded || isAnimating) return;
         const card = queue[currentIndex];
         ratings[card.id] = status;
-        unsavedRatings = true;
+        unsavedRatings = !practice;
         updateTally(status);
 
         const dir = status === 'remembered' ? 1 : -1;
@@ -211,7 +222,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (ratings[card.id]) {              // reached with Back: un-rate it
             delete ratings[card.id];
             updateTally();
-            unsavedRatings = Object.keys(ratings).length > 0;
+            unsavedRatings = !practice && Object.keys(ratings).length > 0;
         }
 
         card._again = true;                  // this slot can be skipped with Next
@@ -332,7 +343,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const ratedIds = Object.keys(ratings);
-        if (ratedIds.length === 0) return;
+        if (ratedIds.length === 0) {
+            if (practice) {   // ended early with nothing rated: still allow another go
+                document.getElementById('finished-headline').textContent = 'Practice complete';
+                showPracticeAgain(false);
+                styleFinishedButtons(false);
+            }
+            return;
+        }
 
         const total = ratedIds.length;
         const remCount = Object.values(ratings).filter(r => r === 'remembered').length;
@@ -344,17 +362,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (forgCount > 0) {
             missedCount = forgCount;
-            btnMissed.disabled = true;
-            btnMissed.textContent = 'Saving…';
             btnMissed.classList.remove('hidden');
-            // Demote "Return to Review Hub" to a secondary button
-            returnLink.classList.remove('bg-primary', 'text-on-primary', 'shadow-sm', 'hover:bg-primary-container');
-            returnLink.classList.add('border', 'border-outline-variant', 'text-on-surface', 'hover:bg-surface-container-low');
+            if (practice) {
+                setMissedLabel();            // nothing to wait for: enabled right away
+                btnMissed.disabled = false;
+            } else {
+                btnMissed.disabled = true;
+                btnMissed.textContent = 'Saving…';
+            }
         }
+        // Practice again: in a real review it unlocks once the save has succeeded
+        showPracticeAgain(!practice);
+        styleFinishedButtons(forgCount > 0);
 
         // Confetti pop + stats showcase run alongside the save
         // confettiBurst({ x: 0.5, y: 0.35, count: accuracy >= 80 ? 170 : 120, power: 17 });
         statsDone = showStats(remCount, forgCount, accuracy);
+
+        if (practice) {
+            armMissedButton();               // practice never saves anything
+            return;
+        }
 
         try {
             await saveSession();
@@ -410,17 +438,93 @@ document.addEventListener("DOMContentLoaded", () => {
     const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
     function headlineFor(accuracy) {
+        if (practice) return 'Practice complete';
         if (accuracy >= 80) return 'Solid session';
         if (accuracy >= 50) return 'Good progress';
         return 'Those will come back soon';
     }
 
-    // Enabled only after the save succeeded, so forgotten cards are due again on reload
+    // Real review: enabled only after the save succeeded, so forgotten cards are due again on reload.
+    // Practice: nothing is saved, so everything is enabled right away.
     async function armMissedButton() {
-        await statsDone;               // don't let the user jump away mid-stamp
+        if (!practice) await statsDone;   // don't let the user jump away mid-stamp
+        btnPracticeAgain.disabled = false;
         if (missedCount < 1) return;
-        btnMissed.textContent = `Review ${missedCount} missed ${missedCount === 1 ? 'card' : 'cards'}`;
+        setMissedLabel();
         btnMissed.disabled = false;
+    }
+
+    function setMissedLabel() {
+        const noun = missedCount === 1 ? 'card' : 'cards';
+        btnMissed.textContent = practice
+            ? `Practice ${missedCount} missed ${noun}`
+            : `Review ${missedCount} missed ${noun}`;
+    }
+
+    const PRIMARY_BTN = ['bg-primary', 'text-on-primary', 'shadow-sm', 'hover:bg-primary-container'];
+    const SECONDARY_BTN = ['border', 'border-outline-variant', 'text-on-surface', 'hover:bg-surface-container-low'];
+    function setPrimary(el, primary) {
+        el.classList.remove(...PRIMARY_BTN, ...SECONDARY_BTN);
+        el.classList.add(...(primary ? PRIMARY_BTN : SECONDARY_BTN));
+    }
+
+    // Missed button is always the main action when shown; otherwise Practice again leads in
+    // practice mode and the Back / Return link leads in a real review.
+    function styleFinishedButtons(hasMissed) {
+        setPrimary(btnPracticeAgain, practice && !hasMissed);
+        setPrimary(returnLink, !practice && !hasMissed);
+    }
+
+    function showPracticeAgain(disabled) {
+        btnPracticeAgain.disabled = disabled;
+        btnPracticeAgain.classList.remove('hidden');
+    }
+
+    function setPracticeMode(on) {
+        practice = on;
+        practiceBanner?.classList.toggle('hidden', !on);
+        projForgot.classList.toggle('hidden', on);
+        projRemember.classList.toggle('hidden', on);
+        if (on) {
+            returnLink.href = data.returnUrl || 'review.php';
+            returnLink.textContent = 'Back';
+        }
+    }
+
+    // Deals a fresh set of cards. Shared by "missed" and "practice" restarts.
+    function resetSession(cards) {
+        queue = cards;
+        uniqueTotal = cards.length;
+        currentIndex = 0;
+        ratings = {};
+        isAnswerShown = false;
+        sessionEnded = false;
+        unsavedRatings = false;
+        sessionStartedAt = Date.now();
+        sessionDuration = 0;
+        missedCount = 0;
+        finishToken++;
+
+        // Reset header tally and finished screen
+        txtRem.textContent = '0';
+        txtFor.textContent = '0';
+        sumAccuracy.textContent = '0%';
+        sumRem.textContent = '0';
+        sumFor.textContent = '0';
+        document.getElementById('summary-accuracy-bar').style.width = '0%';
+        document.getElementById('session-summary-stats').classList.add('hidden');
+        document.getElementById('finished-headline').textContent = practice ? 'Practice complete' : 'Session Complete!';
+        document.getElementById('save-status')?.remove();
+        document.getElementById('practice-skipped')?.classList.add('hidden');   // only about the first set
+        btnMissed.classList.add('hidden');
+        btnPracticeAgain.classList.add('hidden');
+        styleFinishedButtons(false);
+
+        // Swap views and deal the first card
+        viewFinished.classList.add('hidden');
+        viewFinished.classList.remove('flex');
+        viewActive.classList.remove('hidden');
+        renderCard();
     }
 
     function startMissedSession() {
@@ -431,42 +535,25 @@ document.addEventListener("DOMContentLoaded", () => {
             .map(c => ({ ...c, _again: false, _repeat: false }));
         if (missed.length === 0) return;
 
-        // save-session.php just gave these cards their "forgot" interval, so mirror it locally
-        missed.forEach(c => { c.interval_days = nextInterval(parseInt(c.interval_days, 10) || 0, 'forgotten'); });
+        // Real review: save-session.php just gave these cards their "forgot" interval, so mirror it locally.
+        // Practice: the server never changed anything, so leave the intervals alone.
+        if (!practice) {
+            missed.forEach(c => { c.interval_days = nextInterval(parseInt(c.interval_days, 10) || 0, 'forgotten'); });
+        }
 
-        // Fresh session state
-        queue = missed;
-        uniqueTotal = missed.length;
-        currentIndex = 0;
-        ratings = {};
-        isAnswerShown = false;
-        sessionEnded = false;
-        unsavedRatings = false;
-        sessionStartedAt = Date.now();
-        sessionDuration = 0;
-        missedCount = 0;
+        lastSet = missed.map(cleanCard);
+        resetSession(missed);
+    }
 
-        // Reset header tally and finished screen
-        txtRem.textContent = '0';
-        txtFor.textContent = '0';
-        sumAccuracy.textContent = '0%';
-        sumRem.textContent = '0';
-        sumFor.textContent = '0';
-        document.getElementById('summary-accuracy-bar').style.width = '0%';
-        document.getElementById('session-summary-stats').classList.add('hidden');
-        document.getElementById('finished-headline').textContent = 'Session Complete!';
-        document.getElementById('save-status')?.remove();
-        btnMissed.classList.add('hidden');
-        returnLink.classList.add('bg-primary', 'text-on-primary', 'shadow-sm', 'hover:bg-primary-container');
-        returnLink.classList.remove('border', 'border-outline-variant', 'text-on-surface', 'hover:bg-surface-container-low');
-
-        // Swap views and deal the first missed card
-        viewFinished.classList.add('hidden');
-        viewFinished.classList.remove('flex');
-        viewActive.classList.remove('hidden');
-        renderCard();
+    // Replays a set of cards in practice mode (nothing is saved)
+    function startPractice(cards) {
+        if (!cards.length) return;
+        setPracticeMode(true);
+        lastSet = cards.map(cleanCard);
+        resetSession(lastSet.map(c => ({ ...c })));
     }
     btnMissed.addEventListener('click', startMissedSession);
+    btnPracticeAgain.addEventListener('click', () => startPractice(lastSet));
 
     // function countUp(el, to, { duration = 900, suffix = '' } = {}) {
     //     if (reduceMotion || to === 0) {
@@ -485,6 +572,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // }
 
     async function showStats(rem, forg, accuracy) {
+        const token = finishToken;
         const headline = document.getElementById('finished-headline');
         const bar = document.getElementById('summary-accuracy-bar');
         const tiles = document.querySelectorAll('#session-summary-stats [data-stat-tile]');
@@ -508,11 +596,17 @@ document.addEventListener("DOMContentLoaded", () => {
             { duration: 350, easing: 'ease-out', fill: 'backwards' }));
 
         await sleep(500);
+        if (token !== finishToken) return;
         await stampStat(sumRem, tileRem, 'border-emerald-400', { scale: 3, duration: 520, shakePx: 4 });
+        if (token !== finishToken) return;
         await sleep(300);
+        if (token !== finishToken) return;
         await stampStat(sumFor, tileFor, 'border-rose-400', { scale: 3, duration: 520, shakePx: 4 });
+        if (token !== finishToken) return;
         await sleep(650);   // beat of suspense before the hero number
+        if (token !== finishToken) return;
         await stampStat(sumAccuracy, tileAcc, 'border-primary', { scale: 4.5, duration: 720, shakePx: 10, hero: true });
+        if (token !== finishToken) return;
 
         // Climax: bar fills, headline appears, confetti explodes
         bar.animate([{ width: '0%' }, { width: accuracy + '%' }],
@@ -655,6 +749,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // Init
-    loadSrsSettings();
+    if (practice) setPracticeMode(true);
+    else loadSrsSettings();   // practice never needs the interval settings
     renderCard();
 });

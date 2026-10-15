@@ -8,6 +8,7 @@ if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || !isset(
 
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../api/ReviewHubService.php';
+require_once __DIR__ . '/../api/PracticeService.php';
 
 // Anti-CSRF token, sent along with the batch save in review.js
 if (empty($_SESSION['csrf_token'])) {
@@ -21,7 +22,55 @@ $isReviewing = false;
 $dueCards = [];
 $hubDecks = [];
 
-if ($deckId) {
+// PRACTICE MODE (read-only): replay chosen cards without touching the schedule.
+//   review.php?deck_id=12&mode=practice&from=deck&cards=5,9,14
+//   review.php?mode=practice&from=sessions&session_id=88
+$isPractice   = (($_GET['mode'] ?? '') === 'practice');
+$practiceSkipped = 0;
+$returnUrl    = 'review.php';
+$practiceSessionId = 0;
+
+if ($isPractice) {
+    $isReviewing = true;
+    $from = (string) ($_GET['from'] ?? '');
+    $practiceSessionId = isset($_GET['session_id']) && ctype_digit((string) $_GET['session_id']) ? (int) $_GET['session_id'] : 0;
+
+    if ($practiceSessionId > 0) {
+        // From session history: all cards of that session, in the order they were reviewed
+        $info = PracticeService::sessionInfo($conn, $userId, $practiceSessionId);
+        if ($info === null) {
+            header("Location: review.php");
+            exit;
+        }
+        $deckId   = $info['deckId'];
+        $deckName = $info['deckTitle'];
+        $dueCards = PracticeService::cardsFromSession($conn, $userId, $practiceSessionId);
+        $practiceSkipped = max(0, $info['requested'] - count($dueCards));
+    } else {
+        // From the deck page: the selected card ids, in grid order
+        $ids = PracticeService::parseIds($_GET['cards'] ?? '');
+        if (!$deckId || !$ids) {
+            header("Location: review.php");
+            exit;
+        }
+        $deckName = null;
+        if ($stmt = mysqli_prepare($conn, "SELECT title FROM decks WHERE id = ? AND user_id = ? AND deleted_at IS NULL")) {
+            mysqli_stmt_bind_param($stmt, "ii", $deckId, $userId);
+            mysqli_stmt_execute($stmt);
+            $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+            $deckName = $row['title'] ?? null;
+            mysqli_stmt_close($stmt);
+        }
+        if ($deckName === null) {
+            header("Location: review.php");
+            exit;
+        }
+        $dueCards = PracticeService::cardsByIds($conn, $userId, $deckId, $ids);
+        $practiceSkipped = max(0, count($ids) - count($dueCards));
+    }
+    $returnUrl = PracticeService::returnUrl($from, $deckId ?? 0, $practiceSessionId);
+
+} elseif ($deckId) {
     // ACTIVE REVIEW STATE: Fetch due cards for the specific deck
     $isReviewing = true;
     // Ownership check: only this user's non-archived decks, non-archived cards
@@ -87,6 +136,35 @@ $currentPage = "review";
                 <?php include __DIR__ . '/review-hub-view.php'; ?>
 
             <?php else: ?>
+                <!-- Practice mode banner (JS also shows it when a finished review switches to practice) -->
+                <div id="practice-banner" class="<?= $isPractice ? '' : 'hidden' ?> max-w-[55rem] mx-auto mb-6 sm:px-14">
+                    <div class="rounded-xl bg-surface-container-low border border-outline-variant/30 px-4 py-2.5 text-sm text-on-surface">
+                        <p class="font-bold flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[18px] text-primary">play_arrow</span>
+                            Practice mode: results are not saved
+                        </p>
+                        <?php if ($isPractice && $practiceSkipped > 0): ?>
+                            <p id="practice-skipped" class="mt-1 text-xs text-on-surface-variant">
+                                <?= $practiceSkipped === 1
+                                    ? '1 card was skipped because it was archived or deleted.'
+                                    : (int) $practiceSkipped . ' cards were skipped because they were archived or deleted.' ?>
+                            </p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <?php if ($isPractice && empty($dueCards)): ?>
+                    <!-- Practice with no cards left -->
+                    <div id="practice-empty" class="max-w-2xl mx-auto flex flex-col items-center justify-center text-center pb-12">
+                        <div class="w-20 h-20 bg-surface-container-high text-on-surface-variant rounded-full flex items-center justify-center mb-6">
+                            <span class="material-symbols-outlined text-[40px]">inventory_2</span>
+                        </div>
+                        <h2 class="font-headline-md text-3xl font-extrabold text-on-surface mb-2">No cards to practice</h2>
+                        <p class="text-on-surface-variant mb-8">These cards have been archived or deleted since the session.</p>
+                        <a href="<?= htmlspecialchars($returnUrl, ENT_QUOTES, 'UTF-8') ?>" class="px-6 py-3 rounded-xl bg-primary text-on-primary font-bold shadow-sm hover:bg-primary-container transition-colors">Back</a>
+                    </div>
+                <?php endif; ?>
+
                 <!-- STATE B: ACTIVE REVIEW INTERFACE -->
                 <div id="active-review-container" class="max-w-[55rem] mx-auto flex flex-col h-full <?= empty($dueCards) ? 'hidden' : '' ?>">
                     
@@ -192,7 +270,7 @@ $currentPage = "review";
                 </div>
 
                 <!-- STATE C: ZERO CARDS / FINISHED SCREEN -->
-                <div id="review-finished-screen" class="max-w-2xl mx-auto flex-col items-center justify-center text-center h-full pb-12 <?= empty($dueCards) ? 'flex' : 'hidden' ?>">
+                <div id="review-finished-screen" class="max-w-2xl mx-auto flex-col items-center justify-center text-center h-full pb-12 <?= (empty($dueCards) && !$isPractice) ? 'flex' : 'hidden' ?>">
                     <div id="finished-icon" class="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-6">
                         <span class="material-symbols-outlined text-[40px]">task_alt</span>
                     </div>
@@ -221,6 +299,9 @@ $currentPage = "review";
                         <button id="review-missed-btn" type="button" disabled class="hidden px-6 py-3 rounded-xl bg-primary text-on-primary font-bold shadow-sm hover:bg-primary-container transition-colors disabled:opacity-60 disabled:cursor-wait">
                             Saving…
                         </button>
+                        <button id="practice-again-btn" type="button" disabled class="hidden px-6 py-3 rounded-xl font-bold border border-outline-variant text-on-surface hover:bg-surface-container-low transition-colors disabled:opacity-60 disabled:cursor-wait">
+                            Practice again
+                        </button>
                         <a id="return-hub-link" href="review.php" class="px-6 py-3 rounded-xl bg-primary text-on-primary font-bold shadow-sm hover:bg-primary-container transition-colors">
                             Return to Review Hub
                         </a>
@@ -235,8 +316,11 @@ $currentPage = "review";
     <script>
         window.MemPulseReviewData = {
             deckId: <?= json_encode($deckId) ?>,
-            dueCards: <?= json_encode($dueCards ?? []) ?>,
-            csrfToken: <?= json_encode($_SESSION['csrf_token'] ?? '') ?>
+            dueCards: <?= json_encode($dueCards ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+            csrfToken: <?= json_encode($_SESSION['csrf_token'] ?? '') ?>,
+            mode: <?= json_encode($isPractice ? 'practice' : null) ?>,
+            skipped: <?= (int) $practiceSkipped ?>,
+            returnUrl: <?= json_encode($returnUrl) ?>
         };
     </script>
     <script src="../assets/js/review.js" defer></script>

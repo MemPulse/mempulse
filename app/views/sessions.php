@@ -41,6 +41,9 @@ foreach ($sessions as $s) {
     $sessionRows[] = [
         'title'       => (string) $s['deckTitle'],
         'detailsUrl'  => 'session-details.php?id=' . (int) $s['id'],
+        // Practice again (read-only replay); sessions with no cards have nothing to replay
+        'practiceUrl' => ((int) $s['totalReviewed'] > 0)
+            ? 'review.php?mode=practice&from=sessions&session_id=' . (int) $s['id'] : '',
         'date'        => date('M j, Y, g:i A', strtotime($s['startedAt'])),
         'cards'       => (int) $s['totalReviewed'],
         'remembered'  => (int) $s['rememberedCount'],
@@ -187,6 +190,11 @@ unset($s);
                       return '<span class="inline-block text-xs font-bold border px-2 py-0.5 rounded-md tabular-nums ' + esc(r.accuracyCls) + '">' + esc(r.accuracy) + '%</span>';
                   } }, right),
                 Object.assign({ title: 'Duration', field: 'duration', width: 120, responsive: 3, formatter: mutedCell }, right),
+                Object.assign({ title: '', field: 'practiceUrl', width: 160, responsive: 0, formatter: function (c) {
+                      var r = c.getRow().getData();
+                      if (!r.practiceUrl) return '';
+                      return '<a href="' + esc(r.practiceUrl) + '" title="Practice these cards again (nothing is saved)" class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-outline-variant text-on-surface text-xs font-bold hover:bg-surface-container-low transition-colors whitespace-nowrap"><span class="material-symbols-outlined text-[16px]">play_arrow</span><span>Practice again</span></a>';
+                  } }, right),
                 Object.assign({ title: '', field: 'detailsUrl', width: 70, responsive: 0,
                   formatter: function (c) {
                       var r = c.getRow().getData();

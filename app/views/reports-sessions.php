@@ -142,6 +142,7 @@ $insightRows = [
                             <th class="text-right px-3 py-2.5">Remembered</th>
                             <th class="text-right px-3 py-2.5">Accuracy</th>
                             <th class="text-left px-3 py-2.5">Status</th>
+                            <th class="text-right px-4 py-2.5" aria-label="Practice"></th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-outline-variant/20">
@@ -160,6 +161,18 @@ $insightRows = [
                                         <span class="text-xs font-semibold text-teal-700">Completed</span>
                                     <?php else: ?>
                                         <span class="text-xs font-semibold text-rose-600">Abandoned</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="px-4 py-2.5 text-right whitespace-nowrap">
+                                    <?php
+                                    // NOTE: needs the session id in each history row from ReportsService::getSessionsReport
+                                    $practiceSid = (int) ($s['id'] ?? $s['sessionId'] ?? $s['sessionID'] ?? 0);
+                                    if ($practiceSid > 0 && (int) $s['reviewed'] > 0): ?>
+                                        <a href="review.php?mode=practice&amp;from=reports&amp;session_id=<?= $practiceSid ?>"
+                                           title="Practice these cards again (nothing is saved)"
+                                           class="rp-no-print inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-outline-variant text-on-surface text-xs font-bold hover:bg-surface-container-low transition-colors">
+                                            <span class="material-symbols-outlined text-[16px]">play_arrow</span>Practice again
+                                        </a>
                                     <?php endif; ?>
                                 </td>
                             </tr>

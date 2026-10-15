@@ -798,7 +798,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const bulkSelectAll = document.getElementById('bulk-select-all');
     const bulkPanel = document.getElementById('bulk-panel');
     const bulkStatus = document.getElementById('bulk-status');
+    const PRACTICE_MAX = 300;   // ids travel in the URL; review.php also cuts the list at 300
+    const practiceBtn = document.getElementById('bulk-practice-btn');
     const bulkActionBtns = [
+        practiceBtn,
         document.getElementById('bulk-duplicate-btn'),
         document.getElementById('bulk-move-btn'),
         document.getElementById('bulk-archive-btn'),
@@ -863,6 +866,16 @@ document.addEventListener("DOMContentLoaded", () => {
         // Panel buttons depend on the view
         bulkActionBtns.forEach((btn) => { if (btn) { btn.hidden = viewArchived; btn.disabled = !hasSelection; } });
         archiveActionBtns.forEach((btn) => { if (btn) { btn.hidden = !viewArchived; btn.disabled = !hasSelection; } });
+
+        // Practice: needs a selection, and at most PRACTICE_MAX cards
+        if (practiceBtn) {
+            if (selected > PRACTICE_MAX) {
+                practiceBtn.disabled = true;
+                practiceBtn.title = `Select up to ${PRACTICE_MAX} cards`;
+            } else {
+                practiceBtn.title = 'Practice selected cards (nothing is saved)';
+            }
+        }
 
         const moveBtn = document.getElementById('bulk-move-btn');
         if (moveBtn) {
@@ -1005,6 +1018,34 @@ document.addEventListener("DOMContentLoaded", () => {
             updateBulkUI();
         }
     });
+
+    // Practice: replay the selected cards in the review screen. Nothing is saved.
+    // (Reports what it does, so a silent failure can be told apart from a server-side one.)
+    if (practiceBtn) {
+        practiceBtn.addEventListener('click', () => {
+            try {
+                if (viewArchived) return;
+                // Grid order, not click order (loaded rows first, then the ones not rendered yet)
+                const gridOrder = [...tabulatorTable.getData(), ...pending].map(r => Number(r.id));
+                const ids = gridOrder.filter(id => checkedIds.has(id));
+                console.log('[practice] selected:', Array.from(checkedIds), 'in grid order:', ids);
+                if (ids.length === 0) {
+                    Archive.toast('Practice: no matching selected cards found', { type: 'error' });
+                    return;
+                }
+                if (ids.length > PRACTICE_MAX) {
+                    Archive.toast(`Select up to ${PRACTICE_MAX} cards`, { type: 'error' });
+                    return;
+                }
+                const url = `review.php?deck_id=${DECK_ID}&mode=practice&from=deck&cards=${ids.join(',')}`;
+                console.log('[practice] opening', url);
+                window.location.assign(url);
+            } catch (err) {
+                console.error('[practice] failed', err);
+                Archive.toast('Practice failed: ' + err.message, { type: 'error' });
+            }
+        });
+    }
 
     // Reset
     const resetDialog = document.getElementById('reset-cards-dialog');
