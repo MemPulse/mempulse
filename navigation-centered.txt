@@ -1,0 +1,2526 @@
+index.html
+```
+<!DOCTYPE html>
+<html lang="en-PH" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MemPulse | Ace Your Exams with Spaced Repetition Flashcards</title>
+
+    <!-- Student-focused SEO metadata -->
+    <meta name="title" content="MemPulse | Ace Your Exams with Spaced Repetition Flashcards">
+    <meta name="description" content="Stop cramming and start retaining. MemPulse helps university students crush heavy course loads using organized decks, effortless card creation, and smart active recall reviewing.">
+    <meta name="keywords" content="MemPulse, flashcards app, study tools for college, active recall, spaced repetition, study decks, university exam prep, study app">
+    <meta name="author" content="MemPulse Team">
+    <meta name="robots" content="index, follow">
+
+    <!-- Open Graph metadata -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://example.com">
+    <meta property="og:title" content="MemPulse | Ace Your Exams with Spaced Repetition Flashcards">
+    <meta property="og:description" content="The ultimate flashcard tool built for university students. Organize subjects, create cards quickly, and study only what is due today.">
+    <meta property="og:image" content="https://example.com/assets/og-student-preview.png">
+
+    <!-- Fonts and icon set used by the visual reference -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+
+    <!-- Styling is intentionally embedded here so index.html is self-contained. -->
+    <style>
+        :root {
+            color-scheme: light;
+            --surface: #faf8ff;
+            --surface-low: #f2f3ff;
+            --surface-card: #ffffff;
+            --surface-container: #eaedff;
+            --surface-high: #e2e7ff;
+            --surface-highest: #dae2fd;
+            --ink: #131b2e;
+            --muted: #464555;
+            --muted-soft: #777587;
+            --primary: #3525cd;
+            --primary-deep: #1e00a9;
+            --secondary: #4b41e1;
+            --secondary-fixed: #e2dfff;
+            --mint: #4edea3;
+            --mint-pale: #d6f8e9;
+            --error-pale: #ffdad6;
+            --radius-lg: 1rem;
+            --radius-xl: 1.25rem;
+            --shadow-soft: 0 8px 30px rgba(53, 37, 205, .07);
+            --shadow-card: 0 20px 50px rgba(53, 37, 205, .10);
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            scroll-padding-top: 6rem;
+        }
+
+        body {
+            margin: 0;
+            background: var(--surface);
+            color: var(--ink);
+            font-family: "Inter", sans-serif;
+            font-size: 1rem;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body::selection {
+            background: var(--surface-highest);
+            color: var(--primary-deep);
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        img,
+        svg {
+            max-width: 100%;
+        }
+
+        button,
+        a {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .material-symbols-outlined {
+            font-family: "Material Symbols Outlined";
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            font-feature-settings: "liga";
+            -webkit-font-feature-settings: "liga";
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Header */
+        .app-header {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            background: rgba(250, 248, 255, .86);
+            border-bottom: 1px solid rgba(199, 196, 216, .38);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+        }
+
+        .header-container {
+            width: min(100% - 3rem, 80rem);
+            min-height: 5rem;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.5rem;
+        }
+
+        .logo-link {
+            display: inline-flex;
+            align-items: center;
+            gap: .7rem;
+            font-family: "Plus Jakarta Sans", sans-serif;
+            font-weight: 800;
+            font-size: 1.2rem;
+            letter-spacing: -.04em;
+            white-space: nowrap;
+        }
+
+        .logo-icon {
+            display: grid;
+            width: 2.6rem;
+            height: 2.6rem;
+            place-items: center;
+            border-radius: .85rem;
+            background: var(--surface-container);
+            box-shadow: 0 3px 12px rgba(53, 37, 205, .10);
+            font-size: 1.35rem;
+            color: rgb(53, 37, 205);
+        }
+
+        .main-nav {
+            margin-left: auto;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--muted);
+            font-size: .88rem;
+            font-weight: 600;
+            transition: color .2s ease;
+        }
+
+        .nav-links a:hover,
+        .nav-links a:focus-visible {
+            color: var(--primary);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: .8rem;
+        }
+
+        .btn {
+            min-height: 2.75rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .5rem;
+            border: 1px solid transparent;
+            border-radius: 999px;
+            padding: .7rem 1.25rem;
+            font: 700 .88rem/1.2 "Plus Jakarta Sans", sans-serif;
+            transition: transform .2s ease, background .2s ease, box-shadow .2s ease, border-color .2s ease;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-primary,
+        .btn-filled {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 8px 22px rgba(53, 37, 205, .22);
+        }
+
+        .btn-primary:hover,
+        .btn-filled:hover {
+            background: var(--secondary);
+            box-shadow: 0 12px 26px rgba(75, 65, 225, .28);
+        }
+
+        .btn-outlined {
+            color: var(--ink);
+            background: rgba(255, 255, 255, .82);
+            border-color: #d9d9ed;
+            box-shadow: 0 3px 12px rgba(19, 27, 46, .04);
+        }
+
+        .btn-outlined:hover {
+            background: var(--surface-low);
+            border-color: #c7c4d8;
+        }
+
+        /* Hero */
+        main {
+            overflow: hidden;
+        }
+
+        .hero-section {
+            position: relative;
+            isolation: isolate;
+            overflow: hidden;
+            padding: clamp(5rem, 9vw, 8rem) 1.5rem clamp(6rem, 10vw, 9rem);
+            text-align: center;
+        }
+
+        .hero-section::before,
+        .hero-section::after {
+            content: "";
+            position: absolute;
+            z-index: -1;
+            pointer-events: none;
+            border-radius: 50%;
+            filter: blur(2px);
+        }
+
+        .hero-section::before {
+            width: min(76vw, 850px);
+            height: 450px;
+            top: -230px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: radial-gradient(ellipse, rgba(218, 226, 253, .92) 0%, rgba(226, 223, 255, .45) 45%, transparent 72%);
+        }
+
+        .hero-section::after {
+            width: 420px;
+            height: 350px;
+            right: -220px;
+            bottom: 0;
+            background: radial-gradient(ellipse, rgba(78, 222, 163, .17), transparent 70%);
+        }
+
+        .hero-container {
+            width: min(100%, 72rem);
+            margin: 0 auto;
+        }
+
+        .hero-container::before {
+            content: "●  EVIDENCE-BASED ACTIVE RECALL & SPACED REPETITION";
+            display: inline-flex;
+            align-items: center;
+            margin-bottom: 1.7rem;
+            padding: .55rem 1rem;
+            border-radius: 999px;
+            background: var(--surface-high);
+            color: var(--ink);
+            font: 700 .7rem/1.4 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: .075em;
+            box-shadow: 0 3px 12px rgba(19, 27, 46, .04);
+        }
+
+        .hero-container h1 {
+            max-width: 900px;
+            margin: 0 auto 1.5rem;
+            font: 800 clamp(3rem, 7.5vw, 5.4rem)/1.04 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: -.065em;
+        }
+
+        .hero-container h1 br {
+            display: block;
+        }
+
+        .hero-container h1 {
+            text-wrap: balance;
+        }
+
+        .hero-container h1::first-line {
+            color: var(--ink);
+        }
+
+        .hero-container>p {
+            max-width: 680px;
+            margin: 0 auto 2.25rem;
+            color: var(--muted);
+            font-size: clamp(1rem, 2vw, 1.15rem);
+            line-height: 1.8;
+        }
+
+        .hero-buttons {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: .85rem;
+        }
+
+        .hero-buttons .btn {
+            min-height: 3.25rem;
+            padding: .95rem 1.7rem;
+        }
+
+        /* Features */
+        .features-section,
+        .testimonials-section {
+            padding: clamp(4.5rem, 8vw, 7rem) 1.5rem;
+        }
+
+        .features-section {
+            background: rgba(242, 243, 255, .72);
+        }
+
+        .section-title-area {
+            max-width: 760px;
+            margin: 0 auto 3.5rem;
+            text-align: center;
+        }
+
+        .section-title-area::before {
+            content: "OPTIMIZED COGNITIVE WORKFLOW";
+            display: inline-block;
+            margin-bottom: 1rem;
+            padding: .45rem .8rem;
+            border-radius: 999px;
+            background: var(--secondary-fixed);
+            color: #3323cc;
+            font: 700 .68rem/1.4 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: .08em;
+        }
+
+        .section-title-area h2 {
+            margin: 0 0 1rem;
+            font: 700 clamp(1.9rem, 4vw, 2.7rem)/1.2 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: -.045em;
+            text-wrap: balance;
+        }
+
+        .section-title-area p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+
+        .features-container {
+            width: min(100%, 80rem);
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1.5rem;
+        }
+
+        .feature-item {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            min-width: 0;
+            padding: 2rem;
+            border: 1px solid rgba(199, 196, 216, .48);
+            border-radius: var(--radius-xl);
+            background: var(--surface-card);
+            box-shadow: 0 4px 18px rgba(19, 27, 46, .035);
+            transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+        }
+
+        .feature-item:hover {
+            transform: translateY(-5px);
+            border-color: rgba(75, 65, 225, .25);
+            box-shadow: var(--shadow-soft);
+        }
+
+        .feature-icon {
+            display: grid;
+            width: 3.25rem;
+            height: 3.25rem;
+            place-items: center;
+            margin-bottom: 1.5rem;
+            border-radius: 1rem;
+            background: var(--mint-pale);
+            box-shadow: 0 3px 10px rgba(19, 27, 46, .04);
+            font-size: 1.6rem;
+        }
+
+        .feature-item:nth-child(2) .feature-icon {
+            background: var(--secondary-fixed);
+        }
+
+        .feature-item:nth-child(3) .feature-icon {
+            background: var(--surface-high);
+        }
+
+        .feature-item h3 {
+            margin: 0 0 .8rem;
+            font: 700 1.25rem/1.35 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: -.025em;
+        }
+
+        .feature-item p {
+            margin: 0;
+            color: var(--muted);
+            font-size: .92rem;
+            line-height: 1.8;
+        }
+
+        /* Testimonials */
+        .testimonials-section {
+            background: var(--surface);
+        }
+
+        .testimonials-section .section-title-area::before {
+            content: "REAL STUDY ROUTINES, BETTER RETENTION";
+            background: var(--mint-pale);
+            color: #005236;
+        }
+
+        .testimonials-grid {
+            width: min(100%, 80rem);
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1.25rem;
+            align-items: stretch;
+        }
+
+        .testimonial-card {
+            margin: 0;
+            padding: 1.7rem;
+            border: 1px solid rgba(199, 196, 216, .55);
+            border-radius: var(--radius-lg);
+            background: var(--surface-card);
+            box-shadow: 0 5px 20px rgba(19, 27, 46, .035);
+            transition: transform .2s ease, box-shadow .2s ease;
+        }
+
+        .testimonial-card:hover,
+        .testimonial-card:focus-visible {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-soft);
+            outline: none;
+        }
+
+        .testimonial-card p {
+            margin: 0 0 1.25rem;
+            color: #34394a;
+            font-size: .94rem;
+            line-height: 1.8;
+        }
+
+        .testimonial-card strong {
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        .testimonial-card cite {
+            display: block;
+            color: var(--muted-soft);
+            font-size: .82rem;
+            font-style: normal;
+            font-weight: 600;
+        }
+
+        /* Footer */
+        .app-footer {
+            padding: 2.2rem 1.5rem;
+            background: #171d32;
+            color: #e8eaff;
+        }
+
+        .footer-container {
+            width: min(100%, 80rem);
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .footer-container p {
+            margin: 0;
+            color: #c2c7df;
+            font-size: .85rem;
+            line-height: 1.9;
+        }
+
+        :focus-visible {
+            outline: 3px solid rgba(75, 65, 225, .55);
+            outline-offset: 3px;
+        }
+
+        @media (max-width: 900px) {
+            .header-container {
+                width: min(100% - 2rem, 80rem);
+            }
+
+            .nav-links {
+                gap: 1.1rem;
+            }
+
+            .features-container {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .testimonials-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 640px) {
+            .header-container {
+                min-height: 4.5rem;
+                gap: .8rem;
+            }
+
+            .logo-link {
+                font-size: 1.05rem;
+            }
+
+            .logo-emoji {
+                width: 2.3rem;
+                height: 2.3rem;
+            }
+
+            .main-nav {
+                display: none;
+            }
+
+            .header-actions {
+                margin-left: auto;
+            }
+
+            .btn {
+                padding: .65rem 1rem;
+                font-size: .8rem;
+            }
+
+            .hero-section {
+                padding: 4.5rem 1.1rem 5.5rem;
+            }
+
+            .hero-container::before {
+                max-width: 100%;
+                font-size: .56rem;
+                letter-spacing: .045em;
+            }
+
+            .hero-container h1 {
+                font-size: clamp(2.7rem, 12vw, 4rem);
+            }
+
+            .hero-container>p {
+                font-size: 1rem;
+            }
+
+            .hero-buttons {
+                flex-direction: column;
+            }
+
+            .hero-buttons .btn {
+                width: min(100%, 20rem);
+            }
+
+            .features-section,
+            .testimonials-section {
+                padding: 4.2rem 1.1rem;
+            }
+
+            .section-title-area {
+                margin-bottom: 2.3rem;
+            }
+
+            .section-title-area h2 {
+                font-size: 1.9rem;
+            }
+
+            .features-container,
+            .testimonials-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .feature-item {
+                padding: 1.5rem;
+            }
+
+            .testimonial-card {
+                padding: 1.4rem;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+
+            *,
+            *::before,
+            *::after {
+                scroll-behavior: auto !important;
+                transition-duration: .01ms !important;
+                animation-duration: .01ms !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Global App Header Navigation -->
+    <header class="app-header">
+        <div class="header-container">
+            <a href="#" class="logo-link" aria-label="MemPulse home">
+                <span class="material-symbols-outlined logo-icon" aria-hidden="true">neurology</span>
+                <span>MemPulse</span>
+            </a>
+
+            <nav class="main-nav" aria-label="Main navigation">
+                <ul class="nav-links">
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="#testimonials">Reviews</a></li>
+                    <li><a href="pricing.html">Pricing</a></li>
+                    <li><a href="about.html">About</a></li>
+                </ul>
+            </nav>
+
+            <div class="header-actions">
+                <a href="../authentication/login.php" class="btn btn-primary">Login</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <div class="hero-container">
+                <h1>Remember more,<br>forget less</h1>
+                <p>The easy way to organize your learning, retain what matters, and master topics with spaced repetition.</p>
+                <div class="hero-buttons">
+                    <a href="../authentication/login.php" class="btn btn-filled">Start Studying</a>
+                    <a href="#features" class="btn btn-outlined">See the Features</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Core Feature Pillars -->
+        <section class="features-section" id="features">
+            <div class="section-title-area">
+                <h2>Everything you need to master heavy course loads</h2>
+                <p>Designed around cognitive science, stripped of useless clutter, and optimized for rapid academic mastery.</p>
+            </div>
+
+            <div class="features-container">
+                <article class="feature-item">
+                    <span class="feature-icon" aria-hidden="true">📁</span>
+                    <h3>Syllabus-Aligned Decks</h3>
+                    <p>Organize your entire semester into custom academic collections. Create dedicated subject decks for biology, chemistry, programming, or languages to keep your learning path completely structured.</p>
+                </article>
+
+                <article class="feature-item">
+                    <span class="feature-icon" aria-hidden="true">📝</span>
+                    <h3>Effortless Card Creation</h3>
+                    <p>Type a question on the front, flip it, and add the core concept on the back. Strip out confusing settings and build clean, highly focused text cards on the fly without missing a single beat during fast-paced lectures.</p>
+                </article>
+
+                <article class="feature-item">
+                    <span class="feature-icon" aria-hidden="true">⏱️</span>
+                    <h3>Smart "Due Cards" Queue</h3>
+                    <p>Stop wasting precious time reviewing cards you already know. Our scheduler calculates exactly when an item is about to decay in your memory and presents it inside your active study queue right when it is due.</p>
+                </article>
+            </div>
+        </section>
+
+        <!-- Testimonials -->
+        <section class="testimonials-section" id="testimonials">
+            <div class="section-title-area">
+                <h2>Loved by learners everywhere.</h2>
+                <p>From tech majors to medical students, check out why university students rely on MemPulse to master complex concepts.</p>
+            </div>
+
+            <div class="testimonials-grid">
+                <blockquote class="testimonial-card" tabindex="0">
+                    <p>"I love, love your app, I use it every day and <strong>it's a joy to use</strong>. I tried other heavy SRS apps for months, but your simple UX is way ahead."</p>
+                    <cite>— Andres B., Medical Student</cite>
+                </blockquote>
+
+                <blockquote class="testimonial-card" tabindex="0">
+                    <p>"MemPulse is <strong>everything I've ever wanted</strong> in a study and learning tool. Being able to just write my cards and jump straight into my due queue without navigating dozens of configuration pages is unmatched."</p>
+                    <cite>— TJ G., Computer Science Major</cite>
+                </blockquote>
+
+                <blockquote class="testimonial-card" tabindex="0">
+                    <p>"The extreme simplicity of the interface completely changed my study routine. It has allowed me to <strong>completely switch over from traditional flashcards</strong>. I don't regret it one bit."</p>
+                    <cite>— Nil V., Engineering Student</cite>
+                </blockquote>
+
+                <blockquote class="testimonial-card" tabindex="0">
+                    <p>"Finally being able to log into an app and see exactly which cards are due today is <strong>mind-blowing</strong>. After adding my notes, I'm instantly motivated to hop over and pass my reviews. It's unreal."</p>
+                    <cite>— Kim N., Psychology Major</cite>
+                </blockquote>
+
+                <blockquote class="testimonial-card" tabindex="0">
+                    <p>"I love this app! I love the minimalist interface, the slick keybinds, and the pasteable image support. <strong>Very rarely do I find a study tool that I vibe with so strongly</strong>."</p>
+                    <cite>— Albert H., Pre-Law Student</cite>
+                </blockquote>
+
+                <blockquote class="testimonial-card" tabindex="0">
+                    <p>"I stopped making virtual flashcards a while back because of how confusing other platforms were, but now <strong>I actually look forward to studying every single day</strong>. Thank you for keeping it so simple!"</p>
+                    <cite>— Shreyas J., Accountancy Major</cite>
+                </blockquote>
+
+                <blockquote class="testimonial-card" tabindex="0">
+                    <p>"MemPulse turned my scattered lecture notes into a study routine I can actually keep. The daily queue makes progress feel <strong>simple, focused, and surprisingly satisfying</strong>."</p>
+                    <cite>— Bea M., Nursing Student</cite>
+                </blockquote>
+            </div>
+        </section>
+    </main>
+
+    <footer class="app-footer">
+        <div class="footer-container">
+            <p>&copy; 2026 MemPulse. All rights reserved.<br>Helping you practice, retain, and grow at your own pace.</p>
+        </div>
+    </footer>
+</body>
+
+</html>
+```
+
+about.html
+```
+<!DOCTYPE html>
+<html lang="en-PH">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About the MemPulse Development Team</title>
+    <meta name="description" content="Meet the four-member development team behind MemPulse, a focused spaced-repetition study tool.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            color-scheme: light;
+            --surface: #faf8ff;
+            --surface-low: #f2f3ff;
+            --surface-card: #ffffff;
+            --surface-container: #eaedff;
+            --surface-high: #e2e7ff;
+            --surface-highest: #dae2fd;
+            --ink: #131b2e;
+            --muted: #464555;
+            --muted-soft: #777587;
+            --primary: #3525cd;
+            --primary-deep: #1e00a9;
+            --secondary: #4b41e1;
+            --secondary-fixed: #e2dfff;
+            --mint: #4edea3;
+            --mint-pale: #d6f8e9;
+            --error-pale: #ffdad6;
+            --radius-lg: 1rem;
+            --radius-xl: 1.25rem;
+            --shadow-soft: 0 8px 30px rgba(53, 37, 205, .07);
+            --shadow-card: 0 20px 50px rgba(53, 37, 205, .10);
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            scroll-padding-top: 6rem;
+        }
+
+        body {
+            margin: 0;
+            background: var(--surface);
+            color: var(--ink);
+            font-family: "Inter", sans-serif;
+            font-size: 1rem;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body::selection {
+            background: var(--surface-highest);
+            color: var(--primary-deep);
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        img,
+        svg {
+            max-width: 100%;
+        }
+
+        button,
+        a {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .material-symbols-outlined {
+            font-family: "Material Symbols Outlined";
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            font-feature-settings: "liga";
+            -webkit-font-feature-settings: "liga";
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Header */
+        .app-header {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            background: rgba(250, 248, 255, .86);
+            border-bottom: 1px solid rgba(199, 196, 216, .38);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+        }
+
+        .header-container {
+            width: min(100% - 3rem, 80rem);
+            min-height: 5rem;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.5rem;
+        }
+
+        .logo-link {
+            display: inline-flex;
+            align-items: center;
+            gap: .7rem;
+            font-family: "Plus Jakarta Sans", sans-serif;
+            font-weight: 800;
+            font-size: 1.2rem;
+            letter-spacing: -.04em;
+            white-space: nowrap;
+        }
+
+        .logo-icon {
+            display: grid;
+            width: 2.6rem;
+            height: 2.6rem;
+            place-items: center;
+            border-radius: .85rem;
+            background: var(--surface-container);
+            box-shadow: 0 3px 12px rgba(53, 37, 205, .10);
+            font-size: 1.35rem;
+            color: rgb(53, 37, 205);
+        }
+
+        .logo-icon {
+            display: grid;
+            width: 2.6rem;
+            height: 2.6rem;
+            place-items: center;
+            border-radius: .85rem;
+            background: var(--surface-container);
+            box-shadow: 0 3px 12px rgba(53, 37, 205, .10);
+            font-size: 1.35rem;
+        }
+
+        .main-nav {
+            margin-left: auto;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--muted);
+            font-size: .88rem;
+            font-weight: 600;
+            transition: color .2s ease;
+        }
+
+        .nav-links a:hover,
+        .nav-links a:focus-visible {
+            color: var(--primary);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: .8rem;
+        }
+
+        .btn {
+            min-height: 2.75rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .5rem;
+            border: 1px solid transparent;
+            border-radius: 999px;
+            padding: .7rem 1.25rem;
+            font: 700 .88rem/1.2 "Plus Jakarta Sans", sans-serif;
+            transition: transform .2s ease, background .2s ease, box-shadow .2s ease, border-color .2s ease;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-primary,
+        .btn-filled {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 8px 22px rgba(53, 37, 205, .22);
+        }
+
+        .btn-primary:hover,
+        .btn-filled:hover {
+            background: var(--secondary);
+            box-shadow: 0 12px 26px rgba(75, 65, 225, .28);
+        }
+
+        .btn-outlined {
+            color: var(--ink);
+            background: rgba(255, 255, 255, .82);
+            border-color: #d9d9ed;
+            box-shadow: 0 3px 12px rgba(19, 27, 46, .04);
+        }
+
+        .btn-outlined:hover {
+            background: var(--surface-low);
+            border-color: #c7c4d8;
+        }
+
+        /* Hero */
+        main {
+            overflow: hidden;
+        }
+
+        .hero-section {
+            position: relative;
+            isolation: isolate;
+            overflow: hidden;
+            padding: clamp(5rem, 9vw, 8rem) 1.5rem clamp(6rem, 10vw, 9rem);
+            text-align: center;
+        }
+
+        .hero-section::before,
+        .hero-section::after {
+            content: "";
+            position: absolute;
+            z-index: -1;
+            pointer-events: none;
+            border-radius: 50%;
+            filter: blur(2px);
+        }
+
+        .hero-section::before {
+            width: min(76vw, 850px);
+            height: 450px;
+            top: -230px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: radial-gradient(ellipse, rgba(218, 226, 253, .92) 0%, rgba(226, 223, 255, .45) 45%, transparent 72%);
+        }
+
+        .hero-section::after {
+            width: 420px;
+            height: 350px;
+            right: -220px;
+            bottom: 0;
+            background: radial-gradient(ellipse, rgba(78, 222, 163, .17), transparent 70%);
+        }
+
+        .hero-container {
+            width: min(100%, 72rem);
+            margin: 0 auto;
+        }
+
+        .hero-container::before {
+            content: "●  EVIDENCE-BASED ACTIVE RECALL & SPACED REPETITION";
+            display: inline-flex;
+            align-items: center;
+            margin-bottom: 1.7rem;
+            padding: .55rem 1rem;
+            border-radius: 999px;
+            background: var(--surface-high);
+            color: var(--ink);
+            font: 700 .7rem/1.4 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: .075em;
+            box-shadow: 0 3px 12px rgba(19, 27, 46, .04);
+        }
+
+        .hero-container h1 {
+            max-width: 900px;
+            margin: 0 auto 1.5rem;
+            font: 800 clamp(3rem, 7.5vw, 5.4rem)/1.04 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: -.065em;
+        }
+
+        .hero-container h1 br {
+            display: block;
+        }
+
+        .hero-container h1 {
+            text-wrap: balance;
+        }
+
+        .hero-container h1::first-line {
+            color: var(--ink);
+        }
+
+        .hero-container>p {
+            max-width: 680px;
+            margin: 0 auto 2.25rem;
+            color: var(--muted);
+            font-size: clamp(1rem, 2vw, 1.15rem);
+            line-height: 1.8;
+        }
+
+        .hero-buttons {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: .85rem;
+        }
+
+        .hero-buttons .btn {
+            min-height: 3.25rem;
+            padding: .95rem 1.7rem;
+        }
+
+        /* Features */
+        .features-section,
+        .testimonials-section {
+            padding: clamp(4.5rem, 8vw, 7rem) 1.5rem;
+        }
+
+        .features-section {
+            background: rgba(242, 243, 255, .72);
+        }
+
+        .section-title-area {
+            max-width: 760px;
+            margin: 0 auto 3.5rem;
+            text-align: center;
+        }
+
+        .section-title-area::before {
+            content: "OPTIMIZED COGNITIVE WORKFLOW";
+            display: inline-block;
+            margin-bottom: 1rem;
+            padding: .45rem .8rem;
+            border-radius: 999px;
+            background: var(--secondary-fixed);
+            color: #3323cc;
+            font: 700 .68rem/1.4 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: .08em;
+        }
+
+        .section-title-area h2 {
+            margin: 0 0 1rem;
+            font: 700 clamp(1.9rem, 4vw, 2.7rem)/1.2 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: -.045em;
+            text-wrap: balance;
+        }
+
+        .section-title-area p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+
+        .features-container {
+            width: min(100%, 80rem);
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1.5rem;
+        }
+
+        .feature-item {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            min-width: 0;
+            padding: 2rem;
+            border: 1px solid rgba(199, 196, 216, .48);
+            border-radius: var(--radius-xl);
+            background: var(--surface-card);
+            box-shadow: 0 4px 18px rgba(19, 27, 46, .035);
+            transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+        }
+
+        .feature-item:hover {
+            transform: translateY(-5px);
+            border-color: rgba(75, 65, 225, .25);
+            box-shadow: var(--shadow-soft);
+        }
+
+        .feature-icon {
+            display: grid;
+            width: 3.25rem;
+            height: 3.25rem;
+            place-items: center;
+            margin-bottom: 1.5rem;
+            border-radius: 1rem;
+            background: var(--mint-pale);
+            box-shadow: 0 3px 10px rgba(19, 27, 46, .04);
+            font-size: 1.6rem;
+        }
+
+        .feature-item:nth-child(2) .feature-icon {
+            background: var(--secondary-fixed);
+        }
+
+        .feature-item:nth-child(3) .feature-icon {
+            background: var(--surface-high);
+        }
+
+        .feature-item h3 {
+            margin: 0 0 .8rem;
+            font: 700 1.25rem/1.35 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: -.025em;
+        }
+
+        .feature-item p {
+            margin: 0;
+            color: var(--muted);
+            font-size: .92rem;
+            line-height: 1.8;
+        }
+
+        /* Testimonials */
+        .testimonials-section {
+            background: var(--surface);
+        }
+
+        .testimonials-section .section-title-area::before {
+            content: "REAL STUDY ROUTINES, BETTER RETENTION";
+            background: var(--mint-pale);
+            color: #005236;
+        }
+
+        .testimonials-grid {
+            width: min(100%, 80rem);
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1.25rem;
+            align-items: stretch;
+        }
+
+        .testimonial-card {
+            margin: 0;
+            padding: 1.7rem;
+            border: 1px solid rgba(199, 196, 216, .55);
+            border-radius: var(--radius-lg);
+            background: var(--surface-card);
+            box-shadow: 0 5px 20px rgba(19, 27, 46, .035);
+            transition: transform .2s ease, box-shadow .2s ease;
+        }
+
+        .testimonial-card:hover,
+        .testimonial-card:focus-visible {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-soft);
+            outline: none;
+        }
+
+        .testimonial-card p {
+            margin: 0 0 1.25rem;
+            color: #34394a;
+            font-size: .94rem;
+            line-height: 1.8;
+        }
+
+        .testimonial-card strong {
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        .testimonial-card cite {
+            display: block;
+            color: var(--muted-soft);
+            font-size: .82rem;
+            font-style: normal;
+            font-weight: 600;
+        }
+
+        /* Footer */
+        .app-footer {
+            padding: 2.2rem 1.5rem;
+            background: #171d32;
+            color: #e8eaff;
+        }
+
+        .footer-container {
+            width: min(100%, 80rem);
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .footer-container p {
+            margin: 0;
+            color: #c2c7df;
+            font-size: .85rem;
+            line-height: 1.9;
+        }
+
+        :focus-visible {
+            outline: 3px solid rgba(75, 65, 225, .55);
+            outline-offset: 3px;
+        }
+
+        @media (max-width: 900px) {
+            .header-container {
+                width: min(100% - 2rem, 80rem);
+            }
+
+            .nav-links {
+                gap: 1.1rem;
+            }
+
+            .features-container {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .testimonials-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 640px) {
+            .header-container {
+                min-height: 4.5rem;
+                gap: .8rem;
+            }
+
+            .logo-link {
+                font-size: 1.05rem;
+            }
+
+            .logo-icon {
+                width: 2.3rem;
+                height: 2.3rem;
+            }
+
+            .main-nav {
+                display: none;
+            }
+
+            .header-actions {
+                margin-left: auto;
+            }
+
+            .btn {
+                padding: .65rem 1rem;
+                font-size: .8rem;
+            }
+
+            .hero-section {
+                padding: 4.5rem 1.1rem 5.5rem;
+            }
+
+            .hero-container::before {
+                max-width: 100%;
+                font-size: .56rem;
+                letter-spacing: .045em;
+            }
+
+            .hero-container h1 {
+                font-size: clamp(2.7rem, 12vw, 4rem);
+            }
+
+            .hero-container>p {
+                font-size: 1rem;
+            }
+
+            .hero-buttons {
+                flex-direction: column;
+            }
+
+            .hero-buttons .btn {
+                width: min(100%, 20rem);
+            }
+
+            .features-section,
+            .testimonials-section {
+                padding: 4.2rem 1.1rem;
+            }
+
+            .section-title-area {
+                margin-bottom: 2.3rem;
+            }
+
+            .section-title-area h2 {
+                font-size: 1.9rem;
+            }
+
+            .features-container,
+            .testimonials-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .feature-item {
+                padding: 1.5rem;
+            }
+
+            .testimonial-card {
+                padding: 1.4rem;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+
+            *,
+            *::before,
+            *::after {
+                scroll-behavior: auto !important;
+                transition-duration: .01ms !important;
+                animation-duration: .01ms !important;
+            }
+        }
+
+        /* About page: team cards follow the MemPulse surface, color, and type system */
+        .team-section {
+            position: relative;
+            isolation: isolate;
+            padding: clamp(4.5rem, 8vw, 7rem) 1.5rem clamp(5rem, 9vw, 8rem);
+            overflow: hidden;
+        }
+
+        .team-section::before {
+            content: "";
+            position: absolute;
+            z-index: -1;
+            top: -210px;
+            left: 50%;
+            width: min(76vw, 850px);
+            height: 430px;
+            transform: translateX(-50%);
+            border-radius: 50%;
+            background: radial-gradient(ellipse, rgba(218, 226, 253, .9) 0%, rgba(226, 223, 255, .42) 48%, transparent 72%);
+            pointer-events: none;
+        }
+
+        .about-kicker {
+            width: fit-content;
+            max-width: 100%;
+            margin: 0 auto 1rem;
+            padding: .5rem .9rem;
+            border-radius: 999px;
+            background: var(--surface-high);
+            color: var(--ink);
+            font: 700 .7rem/1.4 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: .075em;
+            text-align: center;
+            text-transform: uppercase;
+        }
+
+        .team-section .section-title-area {
+            margin-bottom: 3rem;
+        }
+
+        .team-section .section-title-area::before {
+            content: "THE PEOPLE BEHIND THE PULSE";
+        }
+
+        .team-section .section-title-area h1 {
+            margin: 0;
+            font: 800 clamp(2.1rem, 5vw, 3.5rem)/1.12 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: -.055em;
+            text-wrap: balance;
+        }
+
+        .team-grid {
+            width: min(100%, 80rem);
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1.5rem;
+            align-items: stretch;
+        }
+
+        .team-card {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            padding: 1.5rem;
+            border: 1px solid rgba(199, 196, 216, .48);
+            border-radius: var(--radius-xl);
+            background: var(--surface-card);
+            box-shadow: 0 4px 18px rgba(19, 27, 46, .035);
+            transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+        }
+
+        .team-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(75, 65, 225, .25);
+            box-shadow: var(--shadow-soft);
+        }
+
+        .member-image {
+            width: 100%;
+            min-height: 190px;
+            display: grid;
+            place-items: center;
+            margin-bottom: 1.35rem;
+            padding: 1rem;
+            border-radius: .9rem;
+            background: var(--surface-high);
+            color: var(--primary-deep);
+            font: 700 .85rem/1.5 "Plus Jakarta Sans", sans-serif;
+            text-align: center;
+        }
+
+        .team-card-coral .member-image {
+            background: #ffebe8;
+            color: #8c3029;
+        }
+
+        .team-card-yellow .member-image {
+            background: #fff3cf;
+            color: #6d4b00;
+        }
+
+        .team-card-mint .member-image {
+            background: var(--mint-pale);
+            color: #005236;
+        }
+
+        .team-card-lavender .member-image {
+            background: var(--secondary-fixed);
+            color: #3323cc;
+        }
+
+        .member-role {
+            margin: 0 0 .45rem;
+            color: var(--primary);
+            font: 700 .72rem/1.5 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: .065em;
+            text-transform: uppercase;
+        }
+
+        .team-card h3 {
+            margin: 0 0 .75rem;
+            color: var(--ink);
+            font: 700 1.2rem/1.35 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: -.025em;
+        }
+
+        .team-card>p:last-child {
+            margin: 0;
+            color: var(--muted);
+            font-size: .9rem;
+            line-height: 1.8;
+        }
+
+        @media (max-width: 900px) {
+            .team-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 640px) {
+            .team-section {
+                padding: 4.2rem 1.1rem 5rem;
+            }
+
+            .team-section .section-title-area {
+                margin-bottom: 2.3rem;
+            }
+
+            .team-section .section-title-area h1 {
+                font-size: clamp(2rem, 9vw, 2.7rem);
+            }
+
+            .team-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .team-card {
+                padding: 1.25rem;
+            }
+
+            .member-image {
+                min-height: 165px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header class="app-header">
+        <div class="header-container">
+            <a href="#" class="logo-link" aria-label="MemPulse home">
+                <span class="material-symbols-outlined logo-icon" aria-hidden="true">neurology</span>
+                <span>MemPulse</span>
+            </a>
+
+            <nav class="main-nav" aria-label="Main navigation">
+                <ul class="nav-links">
+                    <li><a href="index.html#features">Features</a></li>
+                    <li><a href="index.html#testimonials"> Reviews</a></li>
+                    <li><a href="pricing.html">Pricing</a></li>
+                    <li><a href="about.html" aria-current="page">About</a></li>
+                </ul>
+            </nav>
+
+            <div class="header-actions">
+                <a href="../authentication/login-page.html" class="btn btn-primary">Login</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="team-section" aria-labelledby="about-title">
+            <div class="section-title-area">
+                <h1 id="about-title">Meet the MemPulse Development Team</h1>
+                <!-- <p>A placeholder team page for the people shaping the product, the learning experience, and the technology behind MemPulse.</p> -->
+            </div>
+
+            <div class="team-grid">
+                <article class="team-card team-card-coral">
+                    <div class="member-image" role="img" aria-label="Photo placeholder for Raiza Tiangson">Image placeholder</div>
+                    <p class="member-role">Project Manager</p>
+                    <h3>Raiza Tiangson</h3>
+                    <p>Coordinates project timelines, aligns cross-functional team efforts, and ensures deliverable milestones are met efficiently.</p>
+                </article>
+
+                <article class="team-card team-card-yellow">
+                    <div class="member-image" role="img" aria-label="Photo placeholder for Mary Valenzuela">Image placeholder</div>
+                    <p class="member-role">UI/UX Designer</p>
+                    <h3>Mary Valenzuela</h3>
+                    <p>Designs intuitive user interfaces and maps out seamless user journeys to create engaging digital experiences.</p>
+                </article>
+
+                <article class="team-card team-card-mint">
+                    <div class="member-image" role="img" aria-label="Photo placeholder for Marvi Sobremonte">Image placeholder</div>
+                    <p class="member-role">Lead Documentation</p>
+                    <h3>Marvi Sobremonte</h3>
+                    <p>Establishes documentation standards, structures technical knowledge bases, and manages comprehensive project records.</p>
+                </article>
+
+                <article class="team-card team-card-lavender">
+                    <div class="member-image" role="img" aria-label="Photo placeholder for Lehi Gomez">Image placeholder</div>
+                    <p class="member-role">Lead Programmer</p>
+                    <h3>Lehi Gomez</h3>
+                    <p>Oversees software architecture, writes clean and scalable code, and directs the core engineering strategy.</p>
+                </article>
+
+                <article class="team-card team-card-coral">
+                    <div class="member-image" role="img" aria-label="Photo placeholder for Je Errol Esguerra">Image placeholder</div>
+                    <p class="member-role">Quality Assurance / Tester</p>
+                    <h3>Je Errol Esguerra</h3>
+                    <p>Develops testing frameworks, identifies software bugs, and ensures final product releases meet strict quality standards.</p>
+                </article>
+            </div>
+        </section>
+    </main>
+
+    <footer class="app-footer">
+        <div class="footer-container">
+            <p>&copy; 2026 MemPulse. All rights reserved.<br>Helping you practice, retain, and grow at your own pace.</p>
+        </div>
+    </footer>
+</body>
+
+</html>
+```
+
+login.php
+```
+<?php
+session_start();
+require_once '../config/db.php';
+
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    
+    $email = trim($_POST['login-email'] ?? '');
+    $password = $_POST['login-password'] ?? '';
+
+    if (empty($email) || empty($password)) {
+        header("Location: login.php?error=empty_fields");
+        exit;
+    }
+
+    $sql  = "SELECT id, first_name, last_name, password_hash, account_status, role FROM users WHERE email = ? AND deleted_at IS NULL";
+    $stmt = mysqli_prepare($conn, $sql);
+    
+    mysqli_stmt_bind_param($stmt, "s", $email);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_bind_result($stmt, $user_id, $first_name, $last_name, $hashed_password, $account_status, $role);
+    
+    if (mysqli_stmt_fetch($stmt)) {
+        if (password_verify($password, $hashed_password)) {
+            if ($account_status !== 'approved') {
+                mysqli_stmt_close($stmt);
+                mysqli_close($conn);
+                // Rejected accounts get their own message; everything else is still pending.
+                $reason = ($account_status === 'rejected') ? 'account_rejected' : 'pending_approval';
+                header("Location: login.php?error=" . $reason . "#login");
+                exit;
+            }
+
+            // Prevent Session Fixation
+            session_regenerate_id(true);
+            
+            $_SESSION['user_id']    = $user_id;
+            $_SESSION['first_name'] = $first_name;
+            $_SESSION['last_name']  = $last_name;
+            $_SESSION['logged_in']  = true;
+
+            mysqli_stmt_close($stmt);
+            mysqli_close($conn);
+
+            // Admins go to the admin area; everyone else to the student app.
+            // (The admin guard re-verifies the role in the database on every request.)
+            header("Location: " . ($role === 'admin' ? "../admin/views/index.php" : "../app/views/index.php"));
+            exit;
+        }
+    }
+
+    mysqli_stmt_close($stmt);
+    mysqli_close($conn);
+    
+    // Invalid credentials back-route
+    header("Location: login.php?error=invalid_credentials");
+    exit;
+}
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Sign in or create an account for MemPulse.">
+    <title>MemPulse | Welcome</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            color-scheme: light;
+            --surface: #faf8ff;
+            --surface-card: #ffffff;
+            --surface-container: #eaedff;
+            --surface-pulse: #d2d8ff;
+            --ink: #131b2e;
+            --muted: #464555;
+            --primary: #3525cd;
+            --primary-deep: #1e00a9;
+            --secondary: #4b41e1;
+            --radius-lg: 1rem;
+            --radius-xl: 1.25rem;
+            --shadow-card: 0 20px 50px rgba(53, 37, 205, .10);
+            --line: rgba(199, 196, 216, .48);
+            --error: #d93025;
+            --error-bg: #fce8e6;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: var(--surface);
+            color: var(--ink);
+            font-family: "Inter", sans-serif;
+            font-size: 1rem;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .material-symbols-outlined {
+            font-family: "Material Symbols Outlined";
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            font-feature-settings: "liga";
+            -webkit-font-feature-settings: "liga";
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* App Header with Centered Nav & Backlink */
+        .app-header {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            background: rgba(250, 248, 255, .86);
+            border-bottom: 1px solid rgba(199, 196, 216, .38);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+        }
+        .header-container {
+            width: min(100% - 3rem, 80rem);
+            min-height: 5rem;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.5rem;
+            position: relative;
+        }
+        .logo-link {
+            display: inline-flex;
+            align-items: center;
+            gap: .7rem;
+            font-family: "Plus Jakarta Sans", sans-serif;
+            font-weight: 800;
+            font-size: 1.2rem;
+            letter-spacing: -.04em;
+            white-space: nowrap;
+            color: var(--ink);
+            text-decoration: none;
+        }
+        .logo-icon {
+            display: grid;
+            width: 2.6rem;
+            height: 2.6rem;
+            place-items: center;
+            border-radius: .85rem;
+            background: var(--surface-container);
+            box-shadow: 0 3px 12px rgba(53, 37, 205, .10);
+            font-size: 1.35rem;
+            color: rgb(53, 37, 205);
+        }
+        .main-nav {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+        .nav-links a {
+            color: var(--muted);
+            font-size: .88rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: color .2s ease;
+        }
+        .nav-links a:hover, .nav-links a:focus-visible { color: var(--primary); }
+        .header-actions { display: flex; align-items: center; gap: .8rem; }
+
+        /* Main Content Wrapper */
+        .main-content-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+        }
+
+        .auth-container {
+            width: 100%;
+            max-width: 440px;
+            background: var(--surface-card);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-card);
+            border: 1px solid var(--line);
+            padding: 2.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .brand-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        @keyframes pulse-bg {
+            0%, 100% { background-color: var(--surface-container); }
+            50% { background-color: var(--surface-pulse); }
+        }
+
+        .auth-container .logo-icon {
+            width: 3.5rem;
+            height: 3.5rem;
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            animation: pulse-bg 2.5s infinite ease-in-out;
+        }
+
+        .brand-header h1 {
+            margin: 0;
+            font-family: "Plus Jakarta Sans", sans-serif;
+            font-weight: 800;
+            font-size: 1.8rem;
+            letter-spacing: -.04em;
+        }
+
+        .brand-header p {
+            margin: 0.5rem 0 0;
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .auth-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1.15rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .form-group label:not(.check-label) {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--ink);
+        }
+
+        .required-indicator { color: var(--error); }
+
+        .form-group input:not([type="checkbox"]) {
+            width: 100%;
+            height: 3rem;
+            border: 1px solid var(--line);
+            border-radius: 0.5rem;
+            padding: 0 1rem;
+            font-family: inherit;
+            font-size: 0.95rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-group input:not([type="checkbox"]):focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(53, 37, 205, 0.15);
+        }
+
+        .form-group input.input-error {
+            border-color: var(--error) !important;
+        }
+        .form-group input.input-error:focus {
+            box-shadow: 0 0 0 3px rgba(217, 48, 37, 0.15) !important;
+        }
+        
+        .error-text {
+            color: var(--error);
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-top: -0.1rem;
+            display: none;
+        }
+        .error-text.active { display: block; }
+        
+        .check-error-text {
+            color: var(--error);
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin-top: 0.2rem;
+            display: none;
+            margin-left: 1.6rem;
+        }
+        .check-error-text.active { display: block; }
+
+        .btn-primary {
+            min-height: 3rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            border-radius: 999px;
+            padding: 0.7rem 1.25rem;
+            background: var(--primary);
+            color: #fff;
+            font: 700 0.95rem/1.2 "Plus Jakarta Sans", sans-serif;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 8px 22px rgba(53, 37, 205, 0.22);
+            margin-top: 0.5rem;
+            text-decoration: none;
+        }
+
+        .btn-primary:hover {
+            background: var(--secondary);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 26px rgba(75, 65, 225, 0.28);
+        }
+
+        .form-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            margin-top: -0.5rem;
+        }
+
+        .check-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        
+        .check-label input[type="checkbox"] {
+            width: 1.1rem;
+            height: 1.1rem;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        .auth-container a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .auth-container a:hover { text-decoration: underline; }
+
+        .auth-message {
+            font-size: 0.85rem;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .auth-message-error {
+            display: block;
+            background: var(--error-bg);
+            color: #c5221f;
+            border: 1px solid #f9d0c4;
+        }
+        
+        .auth-message-success {
+            display: block;
+            background: #e6f4ea;
+            color: #137333;
+            border: 1px solid #ceead6;
+        }
+
+        .toggle-view {
+            text-align: center;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
+
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+        .field-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .main-nav { position: static; transform: none; }
+            .header-container { flex-wrap: wrap; justify-content: center; padding: 1rem 0; }
+            .main-nav { order: 3; width: 100%; justify-content: center; display: flex; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header with Centered Nav & Landing Page Backlink -->
+    <header class="app-header">
+        <div class="header-container">
+            <a href="../landing-page/index.html" class="logo-link" aria-label="MemPulse home">
+                <span class="material-symbols-outlined logo-icon" aria-hidden="true">neurology</span>
+                <span>MemPulse</span>
+            </a>
+
+            <nav class="main-nav" aria-label="Main navigation">
+                <ul class="nav-links">
+                    <li><a href="../landing-page/index.html#features">Features</a></li>
+                    <li><a href="../landing-page/index.html#testimonials">Reviews</a></li>
+                    <li><a href="pricing.html">Pricing</a></li>
+                    <li><a href="../landing-page/about.html">About</a></li>
+                </ul>
+            </nav>
+
+            <div class="header-actions"></div>
+        </div>
+    </header>
+
+    <div class="main-content-wrapper">
+        <main class="auth-container">
+            <div class="brand-header">
+                <span class="material-symbols-outlined logo-icon" aria-hidden="true">neurology</span>
+                <h1>MemPulse</h1>
+                <p id="header-desc">Welcome back to your rhythm.</p>
+            </div>
+
+            <!-- Login View -->
+            <section id="login-view" class="view-section active">
+                <?php if (isset($_GET['error'])): ?>
+                    <div class="auth-message auth-message-error" role="alert">
+                        <?php 
+                            if ($_GET['error'] === 'pending_approval') echo "Your account is waiting for approval. Please try again after it has been approved.";
+                            elseif ($_GET['error'] === 'account_rejected') echo "This account was not approved. Please contact support.";
+                            elseif ($_GET['error'] === 'invalid_credentials') echo "Invalid email or password.";
+                            elseif ($_GET['error'] === 'empty_fields') echo "Please enter your email and password.";
+                        ?>
+                    </div>
+                <?php endif; ?>
+                
+                <?php if (isset($_GET['registered']) && $_GET['registered'] === 'approved'): ?>
+                    <div class="auth-message auth-message-success" role="status">
+                        Registration confirmed. You can now log in.
+                    </div>
+                <?php endif; ?>
+
+                <form class="auth-form" id="form-login" action="login.php" method="POST" autocomplete="off" novalidate>
+                    <div class="form-group">
+                        <label>Email address <span class="required-indicator">*</span></label>
+                        <input type="email" id="login-email" name="login-email" placeholder="student@university.edu" autocomplete="off">
+                        <span class="error-text" id="err-login-email">Please enter a valid email address.</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Password <span class="required-indicator">*</span></label>
+                        <input type="password" id="login-password" name="login-password" placeholder="••••••••" autocomplete="new-password">
+                        <span class="error-text" id="err-login-password">Password is required.</span>
+                    </div>
+                    
+                    <div class="form-options">
+                        <label class="check-label">
+                            <input type="checkbox" onchange="document.getElementById('login-password').type = this.checked ? 'text' : 'password'">
+                            <span>Show password</span>
+                        </label>
+                        <a href="#forgot">Forgot password?</a>
+                    </div>
+
+                    <button class="btn-primary" type="submit">Log In</button>
+                    <!-- Back Link button style for the landing page -->
+                    <!-- <a href="../landing-page/index.html" class="btn-primary" style="background: var(--surface-container); color: var(--ink); box-shadow: none; text-align: center;">Back to Landing Page</a> -->
+                </form>
+
+                <div class="toggle-view">
+                    New to MemPulse? <a href="#" onclick="toggleView('signup'); return false;">Create an account</a>
+                </div>
+            </section>
+
+            <!-- Signup View -->
+            <section id="signup-view" class="view-section">
+                <form class="auth-form" id="form-signup" action="register.php" method="POST" autocomplete="off" novalidate>
+                    <div class="field-row">
+                        <div class="form-group">
+                            <label>First name <span class="required-indicator">*</span></label>
+                            <input type="text" id="first-name" name="first-name" autocomplete="off">
+                            <span class="error-text" id="err-first-name">First name is required.</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Last name <span class="required-indicator">*</span></label>
+                            <input type="text" id="last-name" name="last-name" autocomplete="off">
+                            <span class="error-text" id="err-last-name">Last name is required.</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Email address <span class="required-indicator">*</span></label>
+                        <input type="email" id="signup-email" name="email" autocomplete="off">
+                        <span class="error-text" id="err-signup-email">Please enter a valid email address.</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Password <span class="required-indicator">*</span></label>
+                        <input type="password" id="signup-password" name="password" autocomplete="new-password">
+                        <span class="error-text" id="err-signup-password">Password must be at least 8 characters.</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Confirm password <span class="required-indicator">*</span></label>
+                        <input type="password" id="confirm-password" name="confirm-password" autocomplete="new-password">
+                        <span class="error-text" id="err-confirm-password">Passwords do not match.</span>
+                    </div>
+                    
+                    <div class="form-options">
+                        <label class="check-label">
+                            <input type="checkbox" onchange="
+                                const isChecked = this.checked;
+                                document.getElementById('signup-password').type = isChecked ? 'text' : 'password';
+                                document.getElementById('confirm-password').type = isChecked ? 'text' : 'password';
+                            ">
+                            <span>Show passwords</span>
+                        </label>
+                    </div>
+                    
+                    <div>
+                        <label class="check-label" style="margin-top: 0.5rem;">
+                            <input type="checkbox" id="terms" name="terms">
+                            <span>I agree to the <a href="terms.html">Terms &amp; Conditions</a> and <a href="privacy-policy.html">Privacy Policy</a> <span class="required-indicator">*</span></span>
+                        </label>
+                        <span class="check-error-text" id="err-terms">You must agree to the terms to continue.</span>
+                    </div>
+
+                    <button class="btn-primary" type="submit">Create Account</button>
+                    <!-- Back Link button style for the landing page -->
+                    <!-- <a href="../landing-page/index.html" class="btn-primary" style="background: var(--surface-container); color: var(--ink); box-shadow: none; text-align: center;">Back to Landing Page</a> -->
+                </form>
+
+                <div class="toggle-view">
+                    Already have an account? <a href="#" onclick="toggleView('login'); return false;">Log in</a>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // Form View Toggling
+        function toggleView(view) {
+            document.getElementById('login-view').classList.remove('active');
+            document.getElementById('signup-view').classList.remove('active');
+            
+            document.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
+            document.querySelectorAll('.error-text, .check-error-text').forEach(el => el.classList.remove('active'));
+            
+            if(view === 'signup') {
+                document.getElementById('signup-view').classList.add('active');
+                document.getElementById('header-desc').innerText = 'Start learning smarter.';
+            } else {
+                document.getElementById('login-view').classList.add('active');
+                document.getElementById('header-desc').innerText = 'Welcome back to your rhythm.';
+            }
+        }
+        
+        if (window.location.hash === '#signup') {
+            toggleView('signup');
+        } else if (window.location.hash === '#login') {
+            toggleView('login');
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        function showError(inputId, errorId, show = true) {
+            const input = document.getElementById(inputId);
+            const errorMsg = document.getElementById(errorId);
+            if (show) {
+                if(input) input.classList.add('input-error');
+                if(errorMsg) errorMsg.classList.add('active');
+            } else {
+                if(input) input.classList.remove('input-error');
+                if(errorMsg) errorMsg.classList.remove('active');
+            }
+        }
+
+        document.getElementById('form-login').addEventListener('submit', function(e) {
+            let isValid = true;
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+
+            showError('login-email', 'err-login-email', false);
+            showError('login-password', 'err-login-password', false);
+
+            if (!emailRegex.test(email)) {
+                showError('login-email', 'err-login-email');
+                isValid = false;
+            }
+
+            if (password === '') {
+                showError('login-password', 'err-login-password');
+                isValid = false;
+            }
+
+            if (!isValid) e.preventDefault();
+        });
+
+        document.getElementById('form-signup').addEventListener('submit', function(e) {
+            let isValid = true;
+            
+            const fname = document.getElementById('first-name').value.trim();
+            const lname = document.getElementById('last-name').value.trim();
+            const email = document.getElementById('signup-email').value.trim();
+            const pass = document.getElementById('signup-password').value;
+            const confirmPass = document.getElementById('confirm-password').value;
+            const terms = document.getElementById('terms').checked;
+
+            ['first-name', 'last-name', 'signup-email', 'signup-password', 'confirm-password'].forEach(id => {
+                showError(id, 'err-' + id, false);
+            });
+            document.getElementById('err-terms').classList.remove('active');
+
+            if (fname === '') { showError('first-name', 'err-first-name'); isValid = false; }
+            if (lname === '') { showError('last-name', 'err-last-name'); isValid = false; }
+            if (!emailRegex.test(email)) { showError('signup-email', 'err-signup-email'); isValid = false; }
+            if (pass.length < 8) { showError('signup-password', 'err-signup-password'); isValid = false; }
+            if (pass !== confirmPass || confirmPass === '') { 
+                showError('confirm-password', 'err-confirm-password'); 
+                isValid = false; 
+            }
+            if (!terms) { 
+                document.getElementById('err-terms').classList.add('active'); 
+                isValid = false; 
+            }
+
+            if (!isValid) e.preventDefault();
+        });
+
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', function() {
+                this.classList.remove('input-error');
+                const err = document.getElementById('err-' + this.id);
+                if (err) err.classList.remove('active');
+                
+                if (this.id === 'terms') {
+                    document.getElementById('err-terms').classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+```
+
+pricing.html
+```
+<!DOCTYPE html>
+<html lang="en-PH" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Compare MemPulse Free and Plus plans. Build a study habit with spaced repetition and unlock advanced study insights with Premium.">
+  <meta name="theme-color" content="#faf8ff">
+  <title>MemPulse | Plans & Pricing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light;
+      --surface: #faf8ff;
+      --surface-low: #f2f3ff;
+      --surface-card: #ffffff;
+      --surface-container: #eaedff;
+      --surface-high: #e2e7ff;
+      --surface-highest: #dae2fd;
+      --ink: #131b2e;
+      --muted: #464555;
+      --muted-soft: #777587;
+      --primary: #3525cd;
+      --primary-deep: #1e00a9;
+      --secondary: #4b41e1;
+      --secondary-fixed: #e2dfff;
+      --mint: #4edea3;
+      --mint-pale: #d6f8e9;
+      --radius-lg: 1rem;
+      --radius-xl: 1.25rem;
+      --shadow-soft: 0 8px 30px rgba(53, 37, 205, .07);
+      --shadow-card: 0 20px 50px rgba(53, 37, 205, .10);
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 6rem; }
+    body { margin: 0; background: var(--surface); color: var(--ink); font-family: "Inter", sans-serif; font-size: 1rem; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; -webkit-tap-highlight-color: transparent; }
+    .material-symbols-outlined { font-family: "Material Symbols Outlined"; font-weight: normal; font-style: normal; font-size: 24px; line-height: 1; letter-spacing: normal; text-transform: none; display: inline-block; white-space: nowrap; direction: ltr; font-feature-settings: "liga"; -webkit-font-smoothing: antialiased; }
+    .app-header { position: sticky; top: 0; z-index: 20; background: rgba(250,248,255,.88); border-bottom: 1px solid rgba(199,196,216,.38); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+    .header-container { width: min(100% - 3rem, 80rem); min-height: 5rem; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
+    .logo-link { display: inline-flex; align-items: center; gap: .7rem; font-family: "Plus Jakarta Sans", sans-serif; font-weight: 800; font-size: 1.2rem; letter-spacing: -.04em; white-space: nowrap; }
+    .logo-icon { display: grid; width: 2.6rem; height: 2.6rem; place-items: center; border-radius: .85rem; background: var(--surface-container); box-shadow: 0 3px 12px rgba(53,37,205,.10); font-size: 1.35rem; color: var(--primary); }
+    .header-links { display: flex; align-items: center; gap: 1.75rem; margin-left: auto; }
+    .header-links a { color: var(--muted); font-size: .88rem; font-weight: 600; }
+    .header-links a:hover { color: var(--primary); }
+    .btn { min-height: 2.75rem; display: inline-flex; align-items: center; justify-content: center; gap: .5rem; border: 1px solid transparent; border-radius: 999px; padding: .75rem 1.25rem; font: 700 .88rem/1.2 "Plus Jakarta Sans", sans-serif; transition: transform .2s ease, background .2s ease, box-shadow .2s ease, border-color .2s ease; cursor: pointer; }
+    .btn:hover { transform: translateY(-2px); }
+    .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 8px 22px rgba(53,37,205,.22); }
+    .btn-primary:hover { background: var(--secondary); box-shadow: 0 12px 26px rgba(75,65,225,.28); }
+    .btn-outlined { color: var(--ink); background: rgba(255,255,255,.82); border-color: #d9d9ed; box-shadow: 0 3px 12px rgba(19,27,46,.04); }
+    .btn-outlined:hover { background: var(--surface-low); border-color: #c7c4d8; }
+    main { overflow: hidden; }
+    .pricing-hero { position: relative; isolation: isolate; padding: clamp(3.5rem, 7vw, 5.5rem) 1.5rem 4.5rem; text-align: center; }
+    .pricing-hero::before { content: ""; position: absolute; z-index: -1; pointer-events: none; width: min(76vw,850px); height: 430px; top: -230px; left: 50%; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(ellipse, rgba(218,226,253,.92) 0%, rgba(226,223,255,.45) 45%, transparent 72%); }
+    .hero-container { width: min(100%, 72rem); margin: 0 auto; }
+    .eyebrow { display: inline-flex; align-items: center; gap: .5rem; margin-bottom: 1.2rem; padding: .55rem 1rem; border-radius: 999px; background: var(--surface-high); color: var(--ink); font: 700 .7rem/1.4 "Plus Jakarta Sans", sans-serif; letter-spacing: .075em; box-shadow: 0 3px 12px rgba(19,27,46,.04); }
+    .eyebrow .material-symbols-outlined { font-size: 1rem; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { max-width: 900px; margin: 0 auto 1.1rem; font: 800 clamp(2.55rem, 6vw, 4.5rem)/1.08 "Plus Jakarta Sans", sans-serif; letter-spacing: -.065em; text-wrap: balance; }
+    .hero-copy { max-width: 650px; margin: 0 auto; color: var(--muted); font-size: clamp(1rem, 2vw, 1.1rem); line-height: 1.8; }
+    .pricing-section { padding: 0 1.5rem clamp(4rem, 7vw, 6rem); }
+    .pricing-grid { width: min(100%, 76rem); margin: 0 auto; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 1.25rem; align-items: stretch; }
+    .plan-card { position: relative; min-width: 0; display: flex; flex-direction: column; padding: 2rem; border: 1px solid rgba(199,196,216,.58); border-radius: var(--radius-xl); background: var(--surface-card); box-shadow: 0 5px 22px rgba(19,27,46,.035); }
+    .plan-card.featured { border: 2px solid var(--primary); box-shadow: var(--shadow-card); transform: translateY(-.5rem); }
+    .popular-badge { align-self: center; position: absolute; top: -.9rem; left: 50%; transform: translateX(-50%); padding: .35rem .85rem; border-radius: 999px; background: var(--primary); color: white; font: 700 .7rem/1.3 "Plus Jakarta Sans", sans-serif; white-space: nowrap; letter-spacing: .02em; }
+    .plan-label { margin-bottom: .45rem; color: var(--primary); font-size: .77rem; letter-spacing: .08em; text-transform: uppercase; font-weight: 800; }
+    .plan-card h2 { margin-bottom: .5rem; font: 700 1.5rem/1.3 "Plus Jakarta Sans", sans-serif; letter-spacing: -.035em; }
+    .plan-description { min-height: 3.2rem; margin-bottom: 1.35rem; color: var(--muted); font-size: .9rem; }
+    .price-row { display: flex; align-items: baseline; gap: .45rem; margin-bottom: .25rem; }
+    .price { font: 800 clamp(2.4rem, 4vw, 3rem)/1.1 "Plus Jakarta Sans", sans-serif; letter-spacing: -.065em; }
+    .period { color: var(--muted-soft); font-size: .9rem; }
+    .billing-note { min-height: 1.4rem; margin-bottom: 1.35rem; color: var(--muted-soft); font-size: .78rem; }
+    .savings { display: inline-flex; align-items: center; align-self: flex-start; margin: -.2rem 0 .8rem; padding: .3rem .55rem; border-radius: .5rem; background: var(--mint-pale); color: #005236; font-size: .72rem; font-weight: 800; }
+    .plan-cta { width: 100%; min-height: 3.15rem; margin-bottom: 1.45rem; }
+    .plan-card .btn-outlined { background: #fff; }
+    .features-title { padding-top: 1.15rem; margin-bottom: .8rem; border-top: 1px solid #eeedf7; color: var(--muted); font-size: .74rem; font-weight: 800; letter-spacing: .065em; text-transform: uppercase; }
+    .feature-list { display: grid; gap: .72rem; margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: .87rem; }
+    .feature-list li { display: flex; align-items: flex-start; gap: .6rem; }
+    .feature-list .material-symbols-outlined { flex: 0 0 auto; margin-top: .1rem; font-size: 1.05rem; color: #16835f; }
+    .feature-list .planned .material-symbols-outlined { color: var(--primary); }
+    .feature-list .muted { color: var(--muted-soft); }
+    .value-section { padding: 0 1.5rem 4.5rem; }
+    .value-panel { width: min(100%, 76rem); margin: 0 auto; padding: clamp(1.5rem, 4vw, 2.5rem); border: 1px solid rgba(199,196,216,.4); border-radius: var(--radius-xl); background: rgba(242,243,255,.78); }
+    .value-heading { max-width: 680px; margin: 0 auto 1.8rem; text-align: center; }
+    .value-heading h2 { margin-bottom: .5rem; font: 700 clamp(1.5rem,3vw,2rem)/1.25 "Plus Jakarta Sans",sans-serif; letter-spacing: -.04em; }
+    .value-heading p { margin: 0; color: var(--muted); font-size: .92rem; }
+    .value-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 1rem; }
+    .value-item { display: flex; align-items: flex-start; gap: .8rem; padding: 1rem; border-radius: .9rem; background: rgba(255,255,255,.82); }
+    .value-icon { flex: 0 0 auto; display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: .75rem; background: var(--mint-pale); color: #005236; }
+    .value-item:nth-child(2) .value-icon { background: var(--secondary-fixed); color: var(--primary); }
+    .value-item:nth-child(3) .value-icon { background: var(--surface-high); color: var(--primary); }
+    .value-item h3 { margin: .05rem 0 .25rem; font: 700 .95rem/1.4 "Plus Jakarta Sans",sans-serif; }
+    .value-item p { margin: 0; color: var(--muted); font-size: .82rem; line-height: 1.65; }
+    .pricing-note { max-width: 900px; margin: 1.4rem auto 0; text-align: center; color: var(--muted-soft); font-size: .78rem; line-height: 1.7; }
+    .faq-section { padding: 0 1.5rem 5rem; }
+    .faq-inner { width: min(100%, 52rem); margin: 0 auto; }
+    .faq-inner h2 { margin-bottom: 1.4rem; text-align: center; font: 700 clamp(1.5rem,3vw,2rem)/1.25 "Plus Jakarta Sans",sans-serif; letter-spacing: -.04em; }
+    details { padding: 1.15rem 0; border-bottom: 1px solid rgba(199,196,216,.65); }
+    summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-weight: 700; font-size: .93rem; }
+    summary::-webkit-details-marker { display:none; }
+    summary::after { content: "add"; font-family: "Material Symbols Outlined"; font-size: 1.3rem; color: var(--primary); }
+    details[open] summary::after { content: "remove"; }
+    details p { margin: .75rem 2rem 0 0; color: var(--muted); font-size: .9rem; line-height: 1.8; }
+    .app-footer { padding: 2.2rem 1.5rem; background: #171d32; color: #e8eaff; }
+    .footer-container { width: min(100%,80rem); margin: 0 auto; text-align: center; }
+    .footer-container p { margin: 0; color: #c2c7df; font-size: .85rem; line-height: 1.9; }
+    .toast { position: fixed; z-index: 50; right: 1.25rem; bottom: 1.25rem; width: min(27rem,calc(100% - 2.5rem)); padding: 1rem 1.1rem; border: 1px solid rgba(255,255,255,.15); border-radius: 1rem; background: #171d32; color: #fff; box-shadow: 0 15px 40px rgba(19,27,46,.24); font-size: .88rem; opacity: 0; transform: translateY(1rem); pointer-events: none; transition: opacity .2s ease,transform .2s ease; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    :focus-visible { outline: 3px solid rgba(75,65,225,.55); outline-offset: 3px; }
+    @media(max-width: 900px) { .header-container { width: min(100% - 2rem,80rem); } .pricing-grid { grid-template-columns: repeat(2,minmax(0,1fr)); max-width: 50rem; row-gap: 1.5rem; } .plan-card.featured { transform: none; } .plan-card:last-child { grid-column: 1 / -1; width: calc(50% - .625rem); justify-self: center; } .value-grid { grid-template-columns: 1fr; } }
+    @media(max-width: 640px) { .header-container { min-height: 4.5rem; gap: .8rem; } .logo-link { font-size: 1.05rem; } .header-links { display: none; } .header-actions { margin-left: auto; } .btn { padding: .65rem 1rem; font-size: .8rem; } .pricing-hero { padding: 3.4rem 1.1rem 3rem; } .eyebrow { max-width: 100%; font-size: .6rem; letter-spacing: .045em; } h1 { font-size: clamp(2.5rem,12vw,3.6rem); } .hero-copy { font-size: .96rem; } .pricing-section { padding: 0 1rem 3.5rem; } .pricing-grid { grid-template-columns: 1fr; max-width: 27rem; gap: 1.2rem; } .plan-card { padding: 1.55rem; } .plan-card:last-child { grid-column: auto; width: auto; } .plan-description { min-height: 0; } .value-section { padding: 0 1rem 3.5rem; } .value-panel { padding: 1.25rem; } .faq-section { padding: 0 1.2rem 3.5rem; } }
+    @media(prefers-reduced-motion: reduce) { *,*::before,*::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-container">
+      <a href="index.html" class="logo-link" aria-label="MemPulse home">
+        <span class="material-symbols-outlined logo-icon" aria-hidden="true">neurology</span>
+        <span>MemPulse</span>
+      </a>
+      <nav class="header-links" aria-label="Pricing navigation">
+        <a href="#plans">Plans</a>
+        <a href="#included">What's included</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <div class="header-actions">
+        <a href="../authentication/login.php" class="btn btn-primary">Login</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="pricing-hero">
+      <div class="hero-container">
+        <div class="eyebrow"><span class="material-symbols-outlined" aria-hidden="true">auto_awesome</span> STUDY SMARTER, AT YOUR OWN PACE</div>
+        <h1>More focus.<br>Better retention.</h1>
+        <p class="hero-copy">Start for free and build a study habit that lasts. Upgrade to MemPulse Plus when you're ready for deeper insights and a more guided exam-prep routine.</p>
+      </div>
+    </section>
+
+    <section class="pricing-section" id="plans" aria-label="MemPulse pricing plans">
+      <div class="pricing-grid">
+        <article class="plan-card">
+          <div class="plan-label">For getting started</div>
+          <h2>Free</h2>
+          <p class="plan-description">All the essentials to organize your subjects and start remembering more.</p>
+          <div class="price-row"><span class="price">₱0</span></div>
+          <div class="billing-note">Forever free · No credit card</div>
+          <a class="btn btn-outlined plan-cta" href="../authentication/login.php">Start studying free</a>
+          <div class="features-title">Included in Free</div>
+          <ul class="feature-list">
+            <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Create decks and flashcards</span></li>
+            <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Spaced repetition and due cards</span></li>
+            <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Daily review sessions</span></li>
+            <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Streaks and basic progress reports</span></li>
+            <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Review history and CSV export</span></li>
+          </ul>
+        </article>
+
+        <article class="plan-card">
+          <div class="plan-label">For focused learners</div>
+          <h2>Plus Monthly</h2>
+          <p class="plan-description">Extra study guidance for exam seasons, busy semesters, and ambitious goals.</p>
+          <div class="price-row"><span class="price">₱79</span><span class="period">/ month</span></div>
+          <div class="billing-note">Billed monthly · Cancel anytime*</div>
+          <button class="btn btn-outlined plan-cta" type="button" data-plan="plus-monthly">Choose monthly</button>
+          <div class="features-title">Everything in Free, plus</div>
+          <ul class="feature-list">
+            <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Advanced performance trends</span></li>
+            <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">insights</span><span>Weak-topic insights <span class="muted">(planned)</span></span></li>
+            <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">event_available</span><span>Personalized exam study planner <span class="muted">(planned)</span></span></li>
+            <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">auto_awesome</span><span>Optional AI card tools <span class="muted">(planned)</span></span></li>
+          </ul>
+        </article>
+
+        <article class="plan-card featured">
+          <div class="popular-badge">BEST VALUE · RECOMMENDED</div>
+          <div class="plan-label">For the whole academic year</div>
+          <h2>Plus Annual</h2>
+          <p class="plan-description">Get all Plus benefits for the year at a lower effective monthly price.</p>
+          <div class="price-row"><span class="price">₱599</span><span class="period">/ year</span></div>
+          <div class="billing-note">One annual payment · About ₱50/month</div>
+          <div class="savings">Save ₱349 · 37% vs monthly</div>
+          <button class="btn btn-primary plan-cta" type="button" data-plan="plus-annual">Choose annual <span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></button>
+          <div class="features-title">Everything in Plus Monthly</div>
+          <ul class="feature-list">
+            <li><span class="material-symbols-outlined" aria-hidden="true">check_circle</span><span>Advanced performance trends</span></li>
+            <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">insights</span><span>Weak-topic insights <span class="muted">(planned)</span></span></li>
+            <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">event_available</span><span>Personalized exam study planner <span class="muted">(planned)</span></span></li>
+            <li class="planned"><span class="material-symbols-outlined" aria-hidden="true">auto_awesome</span><span>Optional AI card tools <span class="muted">(planned)</span></span></li>
+          </ul>
+        </article>
+      </div>
+      <p class="pricing-note">Proposed launch pricing in Philippine pesos (PHP). Premium features marked “planned” are not represented as currently available. Paid-plan buttons are front-end placeholders; connect a payment provider before accepting payments. *Cancellation terms depend on the final subscription setup.</p>
+    </section>
+
+    <section class="value-section" id="included">
+      <div class="value-panel">
+        <div class="value-heading">
+          <h2>Your study routine stays simple</h2>
+          <p>Every plan is built around the MemPulse essentials that help you show up and keep learning.</p>
+        </div>
+        <div class="value-grid">
+          <article class="value-item"><div class="value-icon"><span class="material-symbols-outlined" aria-hidden="true">schedule</span></div><div><h3>Know what is due</h3><p>Use the daily review queue to focus on cards that need attention.</p></div></article>
+          <article class="value-item"><div class="value-icon"><span class="material-symbols-outlined" aria-hidden="true">psychology</span></div><div><h3>Recall, don't reread</h3><p>Practice retrieving answers and strengthen long-term retention.</p></div></article>
+          <article class="value-item"><div class="value-icon"><span class="material-symbols-outlined" aria-hidden="true">monitoring</span></div><div><h3>See your progress</h3><p>Track your review habits and use your study history to stay consistent.</p></div></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="faq-section" id="faq">
+      <div class="faq-inner">
+        <h2>Questions, answered</h2>
+        <details><summary>Can I use MemPulse for free?</summary><p>Yes. The Free plan includes deck and flashcard creation, spaced repetition, daily review sessions, and basic progress tracking. You do not need a paid plan to build a study routine.</p></details>
+        <details><summary>What is the difference between monthly and annual Plus?</summary><p>The proposed Plus features are the same on both plans. Monthly is ₱79 per month, while annual is ₱599 for a year—about ₱50 per month and around 37% less than twelve monthly payments.</p></details>
+        <details><summary>Are all Plus features available today?</summary><p>No. This page is a pricing concept. Advanced features marked as planned need to be developed and tested before they are advertised as available in a live paid plan.</p></details>
+        <details><summary>Can I pay on this page now?</summary><p>Not yet. The paid-plan buttons demonstrate the selection flow only. A payment provider, secure server-side payment verification, and subscription management must be connected before checkout can go live.</p></details>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <div class="footer-container"><p>&copy; 2026 MemPulse. All rights reserved.<br>Helping you practice, retain, and grow at your own pace.</p></div>
+  </footer>
+
+  <div id="plan-toast" class="toast" role="status" aria-live="polite"></div>
+  <script>
+    // Front-end preview only. Replace this handler with your authenticated checkout flow
+    // after connecting a payment provider and implementing server-side plan entitlements.
+    const toast = document.getElementById('plan-toast');
+    let toastTimer;
+    document.querySelectorAll('[data-plan]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const label = button.dataset.plan === 'plus-annual' ? 'MemPulse Plus Annual (₱599/year)' : 'MemPulse Plus Monthly (₱79/month)';
+        toast.textContent = `${label} selected. Checkout is not connected in this preview yet.`;
+        toast.classList.add('show');
+        window.clearTimeout(toastTimer);
+        toastTimer = window.setTimeout(() => toast.classList.remove('show'), 4500);
+      });
+    });
+  </script>
+</body>
+</html>
+```
+

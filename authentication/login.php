@@ -135,11 +135,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             width: min(100% - 3rem, 80rem);
             min-height: 5rem;
             margin: 0 auto;
-            display: flex;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
             align-items: center;
-            justify-content: space-between;
             gap: 1.5rem;
-            position: relative;
         }
         .logo-link {
             display: inline-flex;
@@ -164,10 +163,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             font-size: 1.35rem;
             color: rgb(53, 37, 205);
         }
+
+        .logo-link {
+            justify-self: start;
+        }
+
         .main-nav {
-            position: absolute;
-            left: 50%;
-            transform: translateX(-50%);
+            justify-self: center;
         }
         .nav-links {
             display: flex;
@@ -185,8 +187,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             transition: color .2s ease;
         }
         .nav-links a:hover, .nav-links a:focus-visible { color: var(--primary); }
-        .header-actions { display: flex; align-items: center; gap: .8rem; }
-
+        .header-actions { display: flex; align-items: center; justify-content: flex-end; justify-self: end; gap: .8rem; }
         /* Main Content Wrapper */
         .main-content-wrapper {
             flex: 1;
@@ -398,10 +399,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             gap: 1rem;
         }
 
+        @media (max-width: 900px) {
+            .header-container { width: min(100% - 2rem, 80rem); }
+            .nav-links { gap: 1.1rem; }
+        }
+
         @media (max-width: 768px) {
-            .main-nav { position: static; transform: none; }
-            .header-container { flex-wrap: wrap; justify-content: center; padding: 1rem 0; }
-            .main-nav { order: 3; width: 100%; justify-content: center; display: flex; }
+            .header-container { grid-template-columns: 1fr auto; row-gap: .5rem; min-height: 0; padding: .75rem 0; }
+            .main-nav { grid-column: 1 / -1; grid-row: 2; }
+        }
+
+        @media (max-width: 400px) {
+            .nav-links { gap: .85rem; }
+            .nav-links a { font-size: .82rem; }
         }
     </style>
 </head>
@@ -419,6 +429,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <ul class="nav-links">
                     <li><a href="../landing-page/index.html#features">Features</a></li>
                     <li><a href="../landing-page/index.html#testimonials">Reviews</a></li>
+                    <li><a href="../landing-page/pricing.html">Pricing</a></li>
                     <li><a href="../landing-page/about.html">About</a></li>
                 </ul>
             </nav>
