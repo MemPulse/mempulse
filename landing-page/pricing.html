@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en-PH" class="scroll-smooth">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -33,88 +34,1236 @@
       --shadow-soft: 0 8px 30px rgba(53, 37, 205, .07);
       --shadow-card: 0 20px 50px rgba(53, 37, 205, .10);
     }
-    *, *::before, *::after { box-sizing: border-box; }
-    html { scroll-behavior: smooth; scroll-padding-top: 6rem; }
-    body { margin: 0; background: var(--surface); color: var(--ink); font-family: "Inter", sans-serif; font-size: 1rem; line-height: 1.6; -webkit-font-smoothing: antialiased; }
-    a { color: inherit; text-decoration: none; }
-    button { font: inherit; -webkit-tap-highlight-color: transparent; }
-    .material-symbols-outlined { font-family: "Material Symbols Outlined"; font-weight: normal; font-style: normal; font-size: 24px; line-height: 1; letter-spacing: normal; text-transform: none; display: inline-block; white-space: nowrap; direction: ltr; font-feature-settings: "liga"; -webkit-font-smoothing: antialiased; }
-    .app-header { position: sticky; top: 0; z-index: 20; background: rgba(250,248,255,.88); border-bottom: 1px solid rgba(199,196,216,.38); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
-    .header-container { width: min(100% - 3rem, 80rem); min-height: 5rem; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
-    .logo-link { display: inline-flex; align-items: center; gap: .7rem; font-family: "Plus Jakarta Sans", sans-serif; font-weight: 800; font-size: 1.2rem; letter-spacing: -.04em; white-space: nowrap; }
-    .logo-icon { display: grid; width: 2.6rem; height: 2.6rem; place-items: center; border-radius: .85rem; background: var(--surface-container); box-shadow: 0 3px 12px rgba(53,37,205,.10); font-size: 1.35rem; color: var(--primary); }
-    .header-links { display: flex; align-items: center; gap: 1.75rem; margin-left: auto; }
-    .header-links a { color: var(--muted); font-size: .88rem; font-weight: 600; }
-    .header-links a:hover { color: var(--primary); }
-    .btn { min-height: 2.75rem; display: inline-flex; align-items: center; justify-content: center; gap: .5rem; border: 1px solid transparent; border-radius: 999px; padding: .75rem 1.25rem; font: 700 .88rem/1.2 "Plus Jakarta Sans", sans-serif; transition: transform .2s ease, background .2s ease, box-shadow .2s ease, border-color .2s ease; cursor: pointer; }
-    .btn:hover { transform: translateY(-2px); }
-    .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 8px 22px rgba(53,37,205,.22); }
-    .btn-primary:hover { background: var(--secondary); box-shadow: 0 12px 26px rgba(75,65,225,.28); }
-    .btn-outlined { color: var(--ink); background: rgba(255,255,255,.82); border-color: #d9d9ed; box-shadow: 0 3px 12px rgba(19,27,46,.04); }
-    .btn-outlined:hover { background: var(--surface-low); border-color: #c7c4d8; }
-    main { overflow: hidden; }
-    .pricing-hero { position: relative; isolation: isolate; padding: clamp(3.5rem, 7vw, 5.5rem) 1.5rem 4.5rem; text-align: center; }
-    .pricing-hero::before { content: ""; position: absolute; z-index: -1; pointer-events: none; width: min(76vw,850px); height: 430px; top: -230px; left: 50%; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(ellipse, rgba(218,226,253,.92) 0%, rgba(226,223,255,.45) 45%, transparent 72%); }
-    .hero-container { width: min(100%, 72rem); margin: 0 auto; }
-    .eyebrow { display: inline-flex; align-items: center; gap: .5rem; margin-bottom: 1.2rem; padding: .55rem 1rem; border-radius: 999px; background: var(--surface-high); color: var(--ink); font: 700 .7rem/1.4 "Plus Jakarta Sans", sans-serif; letter-spacing: .075em; box-shadow: 0 3px 12px rgba(19,27,46,.04); }
-    .eyebrow .material-symbols-outlined { font-size: 1rem; }
-    h1, h2, h3, p { margin-top: 0; }
-    h1 { max-width: 900px; margin: 0 auto 1.1rem; font: 800 clamp(2.55rem, 6vw, 4.5rem)/1.08 "Plus Jakarta Sans", sans-serif; letter-spacing: -.065em; text-wrap: balance; }
-    .hero-copy { max-width: 650px; margin: 0 auto; color: var(--muted); font-size: clamp(1rem, 2vw, 1.1rem); line-height: 1.8; }
-    .pricing-section { padding: 0 1.5rem clamp(4rem, 7vw, 6rem); }
-    .pricing-grid { width: min(100%, 76rem); margin: 0 auto; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 1.25rem; align-items: stretch; }
-    .plan-card { position: relative; min-width: 0; display: flex; flex-direction: column; padding: 2rem; border: 1px solid rgba(199,196,216,.58); border-radius: var(--radius-xl); background: var(--surface-card); box-shadow: 0 5px 22px rgba(19,27,46,.035); }
-    .plan-card.featured { border: 2px solid var(--primary); box-shadow: var(--shadow-card); transform: translateY(-.5rem); }
-    .popular-badge { align-self: center; position: absolute; top: -.9rem; left: 50%; transform: translateX(-50%); padding: .35rem .85rem; border-radius: 999px; background: var(--primary); color: white; font: 700 .7rem/1.3 "Plus Jakarta Sans", sans-serif; white-space: nowrap; letter-spacing: .02em; }
-    .plan-label { margin-bottom: .45rem; color: var(--primary); font-size: .77rem; letter-spacing: .08em; text-transform: uppercase; font-weight: 800; }
-    .plan-card h2 { margin-bottom: .5rem; font: 700 1.5rem/1.3 "Plus Jakarta Sans", sans-serif; letter-spacing: -.035em; }
-    .plan-description { min-height: 3.2rem; margin-bottom: 1.35rem; color: var(--muted); font-size: .9rem; }
-    .price-row { display: flex; align-items: baseline; gap: .45rem; margin-bottom: .25rem; }
-    .price { font: 800 clamp(2.4rem, 4vw, 3rem)/1.1 "Plus Jakarta Sans", sans-serif; letter-spacing: -.065em; }
-    .period { color: var(--muted-soft); font-size: .9rem; }
-    .billing-note { min-height: 1.4rem; margin-bottom: 1.35rem; color: var(--muted-soft); font-size: .78rem; }
-    .savings { display: inline-flex; align-items: center; align-self: flex-start; margin: -.2rem 0 .8rem; padding: .3rem .55rem; border-radius: .5rem; background: var(--mint-pale); color: #005236; font-size: .72rem; font-weight: 800; }
-    .plan-cta { width: 100%; min-height: 3.15rem; margin-bottom: 1.45rem; }
-    .plan-card .btn-outlined { background: #fff; }
-    .features-title { padding-top: 1.15rem; margin-bottom: .8rem; border-top: 1px solid #eeedf7; color: var(--muted); font-size: .74rem; font-weight: 800; letter-spacing: .065em; text-transform: uppercase; }
-    .feature-list { display: grid; gap: .72rem; margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: .87rem; }
-    .feature-list li { display: flex; align-items: flex-start; gap: .6rem; }
-    .feature-list .material-symbols-outlined { flex: 0 0 auto; margin-top: .1rem; font-size: 1.05rem; color: #16835f; }
-    .feature-list .planned .material-symbols-outlined { color: var(--primary); }
-    .feature-list .muted { color: var(--muted-soft); }
-    .value-section { padding: 0 1.5rem 4.5rem; }
-    .value-panel { width: min(100%, 76rem); margin: 0 auto; padding: clamp(1.5rem, 4vw, 2.5rem); border: 1px solid rgba(199,196,216,.4); border-radius: var(--radius-xl); background: rgba(242,243,255,.78); }
-    .value-heading { max-width: 680px; margin: 0 auto 1.8rem; text-align: center; }
-    .value-heading h2 { margin-bottom: .5rem; font: 700 clamp(1.5rem,3vw,2rem)/1.25 "Plus Jakarta Sans",sans-serif; letter-spacing: -.04em; }
-    .value-heading p { margin: 0; color: var(--muted); font-size: .92rem; }
-    .value-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 1rem; }
-    .value-item { display: flex; align-items: flex-start; gap: .8rem; padding: 1rem; border-radius: .9rem; background: rgba(255,255,255,.82); }
-    .value-icon { flex: 0 0 auto; display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: .75rem; background: var(--mint-pale); color: #005236; }
-    .value-item:nth-child(2) .value-icon { background: var(--secondary-fixed); color: var(--primary); }
-    .value-item:nth-child(3) .value-icon { background: var(--surface-high); color: var(--primary); }
-    .value-item h3 { margin: .05rem 0 .25rem; font: 700 .95rem/1.4 "Plus Jakarta Sans",sans-serif; }
-    .value-item p { margin: 0; color: var(--muted); font-size: .82rem; line-height: 1.65; }
-    .pricing-note { max-width: 900px; margin: 1.4rem auto 0; text-align: center; color: var(--muted-soft); font-size: .78rem; line-height: 1.7; }
-    .faq-section { padding: 0 1.5rem 5rem; }
-    .faq-inner { width: min(100%, 52rem); margin: 0 auto; }
-    .faq-inner h2 { margin-bottom: 1.4rem; text-align: center; font: 700 clamp(1.5rem,3vw,2rem)/1.25 "Plus Jakarta Sans",sans-serif; letter-spacing: -.04em; }
-    details { padding: 1.15rem 0; border-bottom: 1px solid rgba(199,196,216,.65); }
-    summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-weight: 700; font-size: .93rem; }
-    summary::-webkit-details-marker { display:none; }
-    summary::after { content: "add"; font-family: "Material Symbols Outlined"; font-size: 1.3rem; color: var(--primary); }
-    details[open] summary::after { content: "remove"; }
-    details p { margin: .75rem 2rem 0 0; color: var(--muted); font-size: .9rem; line-height: 1.8; }
-    .app-footer { padding: 2.2rem 1.5rem; background: #171d32; color: #e8eaff; }
-    .footer-container { width: min(100%,80rem); margin: 0 auto; text-align: center; }
-    .footer-container p { margin: 0; color: #c2c7df; font-size: .85rem; line-height: 1.9; }
-    .toast { position: fixed; z-index: 50; right: 1.25rem; bottom: 1.25rem; width: min(27rem,calc(100% - 2.5rem)); padding: 1rem 1.1rem; border: 1px solid rgba(255,255,255,.15); border-radius: 1rem; background: #171d32; color: #fff; box-shadow: 0 15px 40px rgba(19,27,46,.24); font-size: .88rem; opacity: 0; transform: translateY(1rem); pointer-events: none; transition: opacity .2s ease,transform .2s ease; }
-    .toast.show { opacity: 1; transform: translateY(0); }
-    :focus-visible { outline: 3px solid rgba(75,65,225,.55); outline-offset: 3px; }
-    @media(max-width: 900px) { .header-container { width: min(100% - 2rem,80rem); } .pricing-grid { grid-template-columns: repeat(2,minmax(0,1fr)); max-width: 50rem; row-gap: 1.5rem; } .plan-card.featured { transform: none; } .plan-card:last-child { grid-column: 1 / -1; width: calc(50% - .625rem); justify-self: center; } .value-grid { grid-template-columns: 1fr; } }
-    @media(max-width: 640px) { .header-container { min-height: 4.5rem; gap: .8rem; } .logo-link { font-size: 1.05rem; } .header-links { display: none; } .header-actions { margin-left: auto; } .btn { padding: .65rem 1rem; font-size: .8rem; } .pricing-hero { padding: 3.4rem 1.1rem 3rem; } .eyebrow { max-width: 100%; font-size: .6rem; letter-spacing: .045em; } h1 { font-size: clamp(2.5rem,12vw,3.6rem); } .hero-copy { font-size: .96rem; } .pricing-section { padding: 0 1rem 3.5rem; } .pricing-grid { grid-template-columns: 1fr; max-width: 27rem; gap: 1.2rem; } .plan-card { padding: 1.55rem; } .plan-card:last-child { grid-column: auto; width: auto; } .plan-description { min-height: 0; } .value-section { padding: 0 1rem 3.5rem; } .value-panel { padding: 1.25rem; } .faq-section { padding: 0 1.2rem 3.5rem; } }
-    @media(prefers-reduced-motion: reduce) { *,*::before,*::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: 6rem;
+    }
+
+    body {
+      margin: 0;
+      background: var(--surface);
+      color: var(--ink);
+      font-family: "Inter", sans-serif;
+      font-size: 1rem;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button {
+      font: inherit;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .material-symbols-outlined {
+      font-family: "Material Symbols Outlined";
+      font-weight: normal;
+      font-style: normal;
+      font-size: 24px;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      direction: ltr;
+      font-feature-settings: "liga";
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app-header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(250, 248, 255, .88);
+      border-bottom: 1px solid rgba(199, 196, 216, .38);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    .header-container {
+      width: min(100% - 3rem, 80rem);
+      min-height: 5rem;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .logo-link {
+      display: inline-flex;
+      align-items: center;
+      gap: .7rem;
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-weight: 800;
+      font-size: 1.2rem;
+      letter-spacing: -.04em;
+      white-space: nowrap;
+    }
+
+    .logo-icon {
+      display: grid;
+      width: 2.6rem;
+      height: 2.6rem;
+      place-items: center;
+      border-radius: .85rem;
+      background: var(--surface-container);
+      box-shadow: 0 3px 12px rgba(53, 37, 205, .10);
+      font-size: 1.35rem;
+      color: var(--primary);
+    }
+
+    .logo-link {
+      justify-self: start;
+    }
+
+    .main-nav {
+      justify-self: center;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--muted);
+      font-size: .88rem;
+      font-weight: 600;
+      transition: color .2s ease;
+    }
+
+    .nav-links a:hover,
+    .nav-links a:focus-visible,
+    .nav-links a[aria-current="page"] {
+      color: var(--primary);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      justify-self: end;
+      gap: .8rem;
+    }
+
+    .btn {
+      min-height: 2.75rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .5rem;
+      border: 1px solid transparent;
+      border-radius: 999px;
+      padding: .75rem 1.25rem;
+      font: 700 .88rem/1.2 "Plus Jakarta Sans", sans-serif;
+      transition: transform .2s ease, background .2s ease, box-shadow .2s ease, border-color .2s ease;
+      cursor: pointer;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 8px 22px rgba(53, 37, 205, .22);
+    }
+
+    .btn-primary:hover {
+      background: var(--secondary);
+      box-shadow: 0 12px 26px rgba(75, 65, 225, .28);
+    }
+
+    .btn-outlined {
+      color: var(--ink);
+      background: rgba(255, 255, 255, .82);
+      border-color: #d9d9ed;
+      box-shadow: 0 3px 12px rgba(19, 27, 46, .04);
+    }
+
+    .btn-outlined:hover {
+      background: var(--surface-low);
+      border-color: #c7c4d8;
+    }
+
+    .pricing-hero {
+      position: relative;
+      isolation: isolate;
+      padding: clamp(3.5rem, 7vw, 5.5rem) 1.5rem 4.5rem;
+      text-align: center;
+    }
+
+    .pricing-hero::before {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      pointer-events: none;
+      width: min(76vw, 850px);
+      height: 430px;
+      top: -230px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-radius: 50%;
+      background: radial-gradient(ellipse, rgba(218, 226, 253, .92) 0%, rgba(226, 223, 255, .45) 45%, transparent 72%);
+    }
+
+    .hero-container {
+      width: min(100%, 72rem);
+      margin: 0 auto;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      margin-bottom: 1.2rem;
+      padding: .55rem 1rem;
+      border-radius: 999px;
+      background: var(--surface-high);
+      color: var(--ink);
+      font: 700 .7rem/1.4 "Plus Jakarta Sans", sans-serif;
+      letter-spacing: .075em;
+      box-shadow: 0 3px 12px rgba(19, 27, 46, .04);
+    }
+
+    .eyebrow .material-symbols-outlined {
+      font-size: 1rem;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      max-width: 900px;
+      margin: 0 auto 1.1rem;
+      font: 800 clamp(2.55rem, 6vw, 4.5rem)/1.08 "Plus Jakarta Sans", sans-serif;
+      letter-spacing: -.065em;
+      text-wrap: balance;
+    }
+
+    .hero-copy {
+      max-width: 650px;
+      margin: 0 auto;
+      color: var(--muted);
+      font-size: clamp(1rem, 2vw, 1.1rem);
+      line-height: 1.8;
+    }
+
+    .pricing-grid {
+      width: min(100%, 76rem);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.25rem;
+      align-items: stretch;
+    }
+
+    .plan-card {
+      position: relative;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 2rem;
+      border: 1px solid rgba(199, 196, 216, .58);
+      border-radius: var(--radius-xl);
+      background: var(--surface-card);
+      box-shadow: 0 5px 22px rgba(19, 27, 46, .035);
+    }
+
+    .plan-card.featured {
+      border: 2px solid var(--primary);
+      box-shadow: var(--shadow-card);
+      transform: translateY(-.5rem);
+    }
+
+    .popular-badge {
+      align-self: center;
+      position: absolute;
+      top: -.9rem;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: .35rem .85rem;
+      border-radius: 999px;
+      background: var(--primary);
+      color: white;
+      font: 700 .7rem/1.3 "Plus Jakarta Sans", sans-serif;
+      white-space: nowrap;
+      letter-spacing: .02em;
+    }
+
+    .plan-label {
+      margin-bottom: .45rem;
+      color: var(--primary);
+      font-size: .77rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      font-weight: 800;
+    }
+
+    .plan-card h2 {
+      margin-bottom: .5rem;
+      font: 700 1.5rem/1.3 "Plus Jakarta Sans", sans-serif;
+      letter-spacing: -.035em;
+    }
+
+    .plan-description {
+      min-height: 3.2rem;
+      margin-bottom: 1.35rem;
+      color: var(--muted);
+      font-size: .9rem;
+    }
+
+    .price-row {
+      display: flex;
+      align-items: baseline;
+      gap: .45rem;
+      margin-bottom: .25rem;
+    }
+
+    .price {
+      font: 800 clamp(2.4rem, 4vw, 3rem)/1.1 "Plus Jakarta Sans", sans-serif;
+      letter-spacing: -.065em;
+    }
+
+    .period {
+      color: var(--muted-soft);
+      font-size: .9rem;
+    }
+
+    .billing-note {
+      min-height: 1.4rem;
+      margin-bottom: 1.35rem;
+      color: var(--muted-soft);
+      font-size: .78rem;
+    }
+
+    .savings {
+      display: inline-flex;
+      align-items: center;
+      align-self: flex-start;
+      margin: -.2rem 0 .8rem;
+      padding: .3rem .55rem;
+      border-radius: .5rem;
+      background: var(--mint-pale);
+      color: #005236;
+      font-size: .72rem;
+      font-weight: 800;
+    }
+
+    .plan-cta {
+      width: 100%;
+      min-height: 3.15rem;
+      margin-bottom: 1.45rem;
+    }
+
+    .plan-card .btn-outlined {
+      background: #fff;
+    }
+
+    .features-title {
+      padding-top: 1.15rem;
+      margin-bottom: .8rem;
+      border-top: 1px solid #eeedf7;
+      color: var(--muted);
+      font-size: .74rem;
+      font-weight: 800;
+      letter-spacing: .065em;
+      text-transform: uppercase;
+    }
+
+    .feature-list {
+      display: grid;
+      gap: .72rem;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      color: var(--muted);
+      font-size: .87rem;
+    }
+
+    .feature-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: .6rem;
+    }
+
+    .feature-list .material-symbols-outlined {
+      flex: 0 0 auto;
+      margin-top: .1rem;
+      font-size: 1.05rem;
+      color: #16835f;
+    }
+
+    .feature-list .planned .material-symbols-outlined {
+      color: var(--primary);
+    }
+
+    .feature-list .muted {
+      color: var(--muted-soft);
+    }
+
+
+    .value-panel {
+      width: min(100%, 76rem);
+      margin: 0 auto;
+      padding: clamp(1.5rem, 4vw, 2.5rem);
+      border: 1px solid rgba(199, 196, 216, .4);
+      border-radius: var(--radius-xl);
+      background: rgba(242, 243, 255, .78);
+    }
+
+    .value-heading {
+      max-width: 680px;
+      margin: 0 auto 1.8rem;
+      text-align: center;
+    }
+
+    .value-heading h2 {
+      margin-bottom: .5rem;
+      font: 700 clamp(1.5rem, 3vw, 2rem)/1.25 "Plus Jakarta Sans", sans-serif;
+      letter-spacing: -.04em;
+    }
+
+    .value-heading p {
+      margin: 0;
+      color: var(--muted);
+      font-size: .92rem;
+    }
+
+    .value-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .value-item {
+      display: flex;
+      align-items: flex-start;
+      gap: .8rem;
+      padding: 1rem;
+      border-radius: .9rem;
+      background: rgba(255, 255, 255, .82);
+    }
+
+    .value-icon {
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: .75rem;
+      background: var(--mint-pale);
+      color: #005236;
+    }
+
+    .value-item:nth-child(2) .value-icon {
+      background: var(--secondary-fixed);
+      color: var(--primary);
+    }
+
+    .value-item:nth-child(3) .value-icon {
+      background: var(--surface-high);
+      color: var(--primary);
+    }
+
+    .value-item h3 {
+      margin: .05rem 0 .25rem;
+      font: 700 .95rem/1.4 "Plus Jakarta Sans", sans-serif;
+    }
+
+    .value-item p {
+      margin: 0;
+      color: var(--muted);
+      font-size: .82rem;
+      line-height: 1.65;
+    }
+
+    .pricing-note {
+      max-width: 900px;
+      margin: 1.4rem auto 0;
+      text-align: center;
+      color: var(--muted-soft);
+      font-size: .78rem;
+      line-height: 1.7;
+    }
+
+    .pricing-section {
+      padding: 0 0 clamp(4rem, 7vw, 6rem);
+    }
+
+    .value-section {
+      padding: 0 0 4.5rem;
+    }
+
+    .faq-section {
+      padding: 0 0 5rem;
+    }
+
+    .faq-inner {
+      width: min(100%, 52rem);
+      margin: 0 auto;
+    }
+
+    .faq-inner h2 {
+      margin-bottom: 1.4rem;
+      text-align: center;
+      font: 700 clamp(1.5rem, 3vw, 2rem)/1.25 "Plus Jakarta Sans", sans-serif;
+      letter-spacing: -.04em;
+    }
+
+    details {
+      padding: 1.15rem 0;
+      border-bottom: 1px solid rgba(199, 196, 216, .65);
+    }
+
+    summary {
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      font-weight: 700;
+      font-size: .93rem;
+    }
+
+    summary::-webkit-details-marker {
+      display: none;
+    }
+
+    summary::after {
+      content: "add";
+      font-family: "Material Symbols Outlined";
+      font-size: 1.3rem;
+      color: var(--primary);
+    }
+
+    details[open] summary::after {
+      content: "remove";
+    }
+
+    details p {
+      margin: .75rem 2rem 0 0;
+      color: var(--muted);
+      font-size: .9rem;
+      line-height: 1.8;
+    }
+
+    .app-footer {
+      padding: 2.2rem 1.5rem;
+      background: #171d32;
+      color: #e8eaff;
+    }
+
+    .footer-container {
+      width: min(100%, 80rem);
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .footer-container p {
+      margin: 0;
+      color: #c2c7df;
+      font-size: .85rem;
+      line-height: 1.9;
+    }
+
+    .toast {
+      position: fixed;
+      z-index: 50;
+      right: 1.25rem;
+      bottom: 1.25rem;
+      width: min(27rem, calc(100% - 2.5rem));
+      padding: 1rem 1.1rem;
+      border: 1px solid rgba(255, 255, 255, .15);
+      border-radius: 1rem;
+      background: #171d32;
+      color: #fff;
+      box-shadow: 0 15px 40px rgba(19, 27, 46, .24);
+      font-size: .88rem;
+      opacity: 0;
+      transform: translateY(1rem);
+      pointer-events: none;
+      transition: opacity .2s ease, transform .2s ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ---------- utilities ---------- */
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* overflow lives on the hero (not <main>) so position: sticky works for the contents rail */
+    .pricing-hero {
+      overflow: hidden;
+    }
+
+    /* ---------- page layout + "On this page" rail ---------- */
+    .page-layout {
+      width: min(100% - 3rem, 80rem);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .page-content {
+      min-width: 0;
+    }
+
+    .toc {
+      margin-bottom: 1.75rem;
+    }
+
+    .toc-title {
+      display: none;
+    }
+
+    .toc ul {
+      display: flex;
+      gap: .5rem;
+      margin: 0;
+      padding: 0 0 .25rem;
+      list-style: none;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .toc ul::-webkit-scrollbar {
+      display: none;
+    }
+
+    .toc li {
+      flex: 0 0 auto;
+    }
+
+    .toc a {
+      display: block;
+      padding: .45rem .95rem;
+      border: 1px solid #d9d9ed;
+      border-radius: 999px;
+      background: #fff;
+      color: var(--muted);
+      font-size: .82rem;
+      font-weight: 600;
+      white-space: nowrap;
+      transition: color .2s ease, background .2s ease, border-color .2s ease;
+    }
+
+    .toc a:hover {
+      color: var(--ink);
+      border-color: #c7c4d8;
+    }
+
+    .toc a[aria-current="true"] {
+      border-color: transparent;
+      background: var(--secondary-fixed);
+      color: var(--primary);
+    }
+
+    @media (min-width: 1200px) {
+      .page-layout {
+        grid-template-columns: minmax(0, 1fr) 13rem;
+        column-gap: 2.5rem;
+      }
+
+      .page-content {
+        grid-column: 1;
+        grid-row: 1;
+      }
+
+      .toc {
+        grid-column: 2;
+        grid-row: 1;
+        position: sticky;
+        top: 6.5rem;
+        align-self: start;
+        margin: .25rem 0 0;
+      }
+
+      .toc-title {
+        display: block;
+        margin: 0 0 .7rem;
+        color: var(--muted-soft);
+        font: 700 .72rem/1.4 "Plus Jakarta Sans", sans-serif;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+      }
+
+      .toc ul {
+        display: block;
+        padding: 0;
+        overflow: visible;
+        border-left: 2px solid rgba(199, 196, 216, .55);
+      }
+
+      .toc a {
+        margin-left: -2px;
+        padding: .4rem .9rem;
+        border: 0;
+        border-left: 2px solid transparent;
+        border-radius: 0;
+        background: transparent;
+        color: var(--muted-soft);
+        font-size: .84rem;
+        line-height: 1.4;
+        white-space: normal;
+      }
+
+      .toc a:hover {
+        border-color: transparent;
+        background: transparent;
+        color: var(--ink);
+      }
+
+      .toc a[aria-current="true"] {
+        border-left-color: var(--primary);
+        background: transparent;
+        color: var(--primary);
+      }
+
+      .plan-card {
+        padding: 1.6rem;
+      }
+    }
+
+    /* ---------- billing toggle + plan selection ---------- */
+    .billing-toggle {
+      display: flex;
+      width: fit-content;
+      margin: 0 auto 2.25rem;
+      padding: .3rem;
+      border-radius: 999px;
+      background: var(--surface-container);
+    }
+
+    .toggle-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      min-height: 2.5rem;
+      padding: .5rem 1.15rem;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      font: 700 .86rem/1.2 "Plus Jakarta Sans", sans-serif;
+      cursor: pointer;
+      transition: background .2s ease, color .2s ease, box-shadow .2s ease;
+    }
+
+    .toggle-btn[aria-pressed="true"] {
+      background: #fff;
+      color: var(--ink);
+      box-shadow: 0 3px 12px rgba(19, 27, 46, .10);
+    }
+
+    .toggle-save {
+      padding: .15rem .5rem;
+      border-radius: 999px;
+      background: var(--mint-pale);
+      color: #005236;
+      font-size: .68rem;
+      font-weight: 800;
+    }
+
+    .plan-card {
+      transition: opacity .25s ease, box-shadow .25s ease, border-color .25s ease;
+    }
+
+    .plan-card.is-selected {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(75, 65, 225, .18), var(--shadow-card);
+    }
+
+    .pricing-grid.has-selection .plan-card:not(.is-selected) {
+      opacity: .7;
+    }
+
+    .pricing-grid.has-selection .plan-card:not(.is-selected):hover,
+    .pricing-grid.has-selection .plan-card:not(.is-selected):focus-within {
+      opacity: 1;
+    }
+
+    .savings.is-off {
+      visibility: hidden;
+    }
+
+    .plan-card .plan-cta[aria-pressed="true"] {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+      box-shadow: 0 8px 22px rgba(53, 37, 205, .22);
+    }
+
+    .features-toggle {
+      display: none;
+      align-self: flex-start;
+      margin-top: .9rem;
+      padding: 0;
+      border: 0;
+      background: none;
+      color: var(--primary);
+      font: 700 .82rem/1.4 "Plus Jakarta Sans", sans-serif;
+      cursor: pointer;
+    }
+
+    /* ---------- compare table ---------- */
+    .compare-section {
+      padding: 0 0 4.5rem;
+    }
+
+    .compare-heading {
+      max-width: 680px;
+      margin: 0 auto 1.5rem;
+      text-align: center;
+    }
+
+    .compare-heading h2 {
+      margin-bottom: .5rem;
+      font: 700 clamp(1.5rem, 3vw, 2rem)/1.25 "Plus Jakarta Sans", sans-serif;
+      letter-spacing: -.04em;
+    }
+
+    .compare-heading p {
+      margin: 0;
+      color: var(--muted);
+      font-size: .92rem;
+    }
+
+    .compare-scroll {
+      position: relative;
+      overflow-x: auto;
+      border: 1px solid rgba(199, 196, 216, .5);
+      border-radius: var(--radius-xl);
+      background: #fff;
+      box-shadow: 0 5px 22px rgba(19, 27, 46, .035);
+    }
+
+    .compare-table {
+      width: 100%;
+      min-width: 40rem;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: .86rem;
+    }
+
+    .compare-table th,
+    .compare-table td {
+      padding: .8rem 1rem;
+      border-bottom: 1px solid #eeedf7;
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    .compare-table thead th {
+      background: var(--surface-low);
+      font: 800 .9rem/1.3 "Plus Jakarta Sans", sans-serif;
+    }
+
+    .compare-table thead th:first-child,
+    .compare-table th[scope="row"] {
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      min-width: 14rem;
+      text-align: left;
+    }
+
+    .compare-table thead th:first-child {
+      z-index: 2;
+    }
+
+    .compare-table th[scope="row"] {
+      background: #fff;
+      color: var(--ink);
+      font-weight: 600;
+    }
+
+    .compare-table th[scope="colgroup"] {
+      background: var(--surface-low);
+      color: var(--primary);
+      font: 800 .72rem/1.4 "Plus Jakarta Sans", sans-serif;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      text-align: left;
+    }
+
+    .compare-table tbody tr:last-child th,
+    .compare-table tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .compare-table .material-symbols-outlined {
+      font-size: 1.15rem;
+      vertical-align: middle;
+    }
+
+    .cell-yes {
+      color: #16835f;
+    }
+
+    .cell-no {
+      color: #b4b2c6;
+    }
+
+    .cell-text {
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .cell-planned {
+      display: inline-flex;
+      align-items: center;
+      gap: .3rem;
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    .cell-planned small {
+      color: var(--muted-soft);
+      font-size: .72rem;
+      font-weight: 500;
+    }
+
+    /* ---------- selected-plan bar ---------- */
+    .selection-bar {
+      position: fixed;
+      z-index: 40;
+      left: 50%;
+      bottom: 1.25rem;
+      width: min(44rem, calc(100% - 2.5rem));
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: .9rem 1rem .9rem 1.4rem;
+      border: 1px solid rgba(255, 255, 255, .15);
+      border-radius: 1.1rem;
+      background: #171d32;
+      color: #fff;
+      box-shadow: 0 15px 40px rgba(19, 27, 46, .35);
+      opacity: 0;
+      visibility: hidden;
+      transform: translate(-50%, 1.5rem);
+      transition: opacity .25s ease, transform .25s ease, visibility .25s;
+    }
+
+    .selection-bar.show {
+      opacity: 1;
+      visibility: visible;
+      transform: translate(-50%, 0);
+    }
+
+    .selection-plan {
+      font: 800 .95rem/1.3 "Plus Jakarta Sans", sans-serif;
+    }
+
+    .selection-price {
+      color: #c2c7df;
+      font-size: .82rem;
+    }
+
+    .selection-price strong {
+      color: #fff;
+      font-size: 1rem;
+    }
+
+    .selection-actions {
+      display: flex;
+      flex: 0 0 auto;
+      gap: .6rem;
+    }
+
+    .selection-bar .btn {
+      min-height: 2.5rem;
+    }
+
+    .selection-bar .btn-outlined {
+      background: transparent;
+      border-color: rgba(255, 255, 255, .3);
+      color: #fff;
+      box-shadow: none;
+    }
+
+    .selection-bar .btn-outlined:hover {
+      background: rgba(255, 255, 255, .1);
+    }
+
+    .selection-bar .btn-primary {
+      background: #fff;
+      color: var(--primary-deep);
+      box-shadow: none;
+    }
+
+    .selection-bar .btn-primary:hover {
+      background: var(--secondary-fixed);
+    }
+
+    body.has-selection .toast {
+      bottom: 6.75rem;
+    }
+
+    body.has-selection .app-footer {
+      padding-bottom: 6.5rem;
+    }
+
+
+
+    @media (max-width: 768px) {
+      html {
+        scroll-padding-top: 8rem;
+      }
+
+      .header-container {
+        grid-template-columns: 1fr auto;
+        row-gap: .5rem;
+        min-height: 0;
+        padding: .75rem 0;
+      }
+
+      .main-nav {
+        grid-column: 1 / -1;
+        grid-row: 2;
+      }
+    }
+
+    @media (max-width: 400px) {
+      .nav-links {
+        gap: .85rem;
+      }
+
+      .nav-links a {
+        font-size: .82rem;
+      }
+    }
+
+    :focus-visible {
+      outline: 3px solid rgba(75, 65, 225, .55);
+      outline-offset: 3px;
+    }
+
+    @media(max-width: 899px) {
+
+      .header-container,
+      .page-layout {
+        width: min(100% - 2rem, 80rem);
+      }
+
+      .pricing-grid {
+        grid-template-columns: 1fr;
+        max-width: 30rem;
+        row-gap: 1.5rem;
+      }
+
+      .plan-card.featured {
+        transform: none;
+      }
+
+      .plan-description {
+        min-height: 0;
+      }
+
+      .value-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media(max-width: 640px) {
+      .logo-link {
+        font-size: 1.05rem;
+      }
+
+      .btn {
+        padding: .65rem 1rem;
+        font-size: .8rem;
+      }
+
+      .pricing-hero {
+        padding: 3.4rem 1.1rem 3rem;
+      }
+
+      .eyebrow {
+        max-width: 100%;
+        font-size: .6rem;
+        letter-spacing: .045em;
+      }
+
+      h1 {
+        font-size: clamp(2.5rem, 12vw, 3.6rem);
+      }
+
+      .hero-copy {
+        font-size: .96rem;
+      }
+
+      .pricing-grid {
+        gap: 1.2rem;
+      }
+
+      .plan-card {
+        padding: 1.55rem;
+      }
+
+      .value-panel {
+        padding: 1.25rem;
+      }
+
+      .toggle-btn {
+        padding: .5rem .9rem;
+      }
+
+      .features-toggle {
+        display: inline-flex;
+      }
+
+      .plan-card:not(.is-expanded) .feature-list li:nth-child(n+5) {
+        display: none;
+      }
+
+      .selection-bar {
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        flex-wrap: wrap;
+        padding: .9rem 1rem calc(.9rem + env(safe-area-inset-bottom, 0px));
+        border-radius: 1.1rem 1.1rem 0 0;
+        transform: translateY(100%);
+      }
+
+      .selection-bar.show {
+        transform: translateY(0);
+      }
+
+      .selection-info,
+      .selection-actions {
+        flex: 1 1 100%;
+      }
+
+      .selection-actions .btn {
+        flex: 1;
+      }
+
+      body.has-selection .toast {
+        bottom: 9rem;
+      }
+
+      body.has-selection .app-footer {
+        padding-bottom: 9rem;
+      }
+    }
+
+    @media(max-width: 640px) {
+      .header-container {
+        min-height: 4.5rem;
+        gap: .8rem;
+      }
+
+      .logo-link {
+        font-size: 1.05rem;
+      }
+
+      .header-links {
+        display: none;
+      }
+
+      .header-actions {
+        margin-left: auto;
+      }
+
+      .btn {
+        padding: .65rem 1rem;
+        font-size: .8rem;
+      }
+
+      .pricing-hero {
+        padding: 3.4rem 1.1rem 3rem;
+      }
+
+      .eyebrow {
+        max-width: 100%;
+        font-size: .6rem;
+        letter-spacing: .045em;
+      }
+
+      h1 {
+        font-size: clamp(2.5rem, 12vw, 3.6rem);
+      }
+
+      .hero-copy {
+        font-size: .96rem;
+      }
+
+      .pricing-grid {
+        grid-template-columns: 1fr;
+        max-width: 27rem;
+        gap: 1.2rem;
+      }
+
+      .plan-card {
+        padding: 1.55rem;
+      }
+
+      .plan-card:last-child {
+        grid-column: auto;
+        width: auto;
+      }
+
+      .plan-description {
+        min-height: 0;
+      }
+
+      .value-panel {
+        padding: 1.25rem;
+      }
+
+    }
+
+    @media(prefers-reduced-motion: reduce) {
+
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        transition-duration: .01ms !important;
+        animation-duration: .01ms !important;
+      }
+    }
   </style>
 </head>
+
 <body>
   <header class="app-header">
     <div class="header-container">
@@ -122,10 +1271,13 @@
         <span class="material-symbols-outlined logo-icon" aria-hidden="true">neurology</span>
         <span>MemPulse</span>
       </a>
-      <nav class="header-links" aria-label="Pricing navigation">
-        <a href="#plans">Plans</a>
-        <a href="#included">What's included</a>
-        <a href="#faq">FAQ</a>
+      <nav class="main-nav" aria-label="Main navigation">
+        <ul class="nav-links">
+          <li><a href="index.html#features">Features</a></li>
+          <li><a href="index.html#testimonials">Reviews</a></li>
+          <li><a href="pricing.html" aria-current="page">Pricing</a></li>
+          <li><a href="about.html">About</a></li>
+        </ul>
       </nav>
       <div class="header-actions">
         <a href="../authentication/login.php" class="btn btn-primary">Login</a>
@@ -205,9 +1357,27 @@
           <p>Every plan is built around the MemPulse essentials that help you show up and keep learning.</p>
         </div>
         <div class="value-grid">
-          <article class="value-item"><div class="value-icon"><span class="material-symbols-outlined" aria-hidden="true">schedule</span></div><div><h3>Know what is due</h3><p>Use the daily review queue to focus on cards that need attention.</p></div></article>
-          <article class="value-item"><div class="value-icon"><span class="material-symbols-outlined" aria-hidden="true">psychology</span></div><div><h3>Recall, don't reread</h3><p>Practice retrieving answers and strengthen long-term retention.</p></div></article>
-          <article class="value-item"><div class="value-icon"><span class="material-symbols-outlined" aria-hidden="true">monitoring</span></div><div><h3>See your progress</h3><p>Track your review habits and use your study history to stay consistent.</p></div></article>
+          <article class="value-item">
+            <div class="value-icon"><span class="material-symbols-outlined" aria-hidden="true">schedule</span></div>
+            <div>
+              <h3>Know what is due</h3>
+              <p>Use the daily review queue to focus on cards that need attention.</p>
+            </div>
+          </article>
+          <article class="value-item">
+            <div class="value-icon"><span class="material-symbols-outlined" aria-hidden="true">psychology</span></div>
+            <div>
+              <h3>Recall, don't reread</h3>
+              <p>Practice retrieving answers and strengthen long-term retention.</p>
+            </div>
+          </article>
+          <article class="value-item">
+            <div class="value-icon"><span class="material-symbols-outlined" aria-hidden="true">monitoring</span></div>
+            <div>
+              <h3>See your progress</h3>
+              <p>Track your review habits and use your study history to stay consistent.</p>
+            </div>
+          </article>
         </div>
       </div>
     </section>
@@ -215,16 +1385,30 @@
     <section class="faq-section" id="faq">
       <div class="faq-inner">
         <h2>Questions, answered</h2>
-        <details><summary>Can I use MemPulse for free?</summary><p>Yes. The Free plan includes deck and flashcard creation, spaced repetition, daily review sessions, and basic progress tracking. You do not need a paid plan to build a study routine.</p></details>
-        <details><summary>What is the difference between monthly and annual Plus?</summary><p>The proposed Plus features are the same on both plans. Monthly is ₱79 per month, while annual is ₱599 for a year—about ₱50 per month and around 37% less than twelve monthly payments.</p></details>
-        <details><summary>Are all Plus features available today?</summary><p>No. This page is a pricing concept. Advanced features marked as planned need to be developed and tested before they are advertised as available in a live paid plan.</p></details>
-        <details><summary>Can I pay on this page now?</summary><p>Not yet. The paid-plan buttons demonstrate the selection flow only. A payment provider, secure server-side payment verification, and subscription management must be connected before checkout can go live.</p></details>
+        <details>
+          <summary>Can I use MemPulse for free?</summary>
+          <p>Yes. The Free plan includes deck and flashcard creation, spaced repetition, daily review sessions, and basic progress tracking. You do not need a paid plan to build a study routine.</p>
+        </details>
+        <details>
+          <summary>What is the difference between monthly and annual Plus?</summary>
+          <p>The proposed Plus features are the same on both plans. Monthly is ₱79 per month, while annual is ₱599 for a year—about ₱50 per month and around 37% less than twelve monthly payments.</p>
+        </details>
+        <details>
+          <summary>Are all Plus features available today?</summary>
+          <p>No. This page is a pricing concept. Advanced features marked as planned need to be developed and tested before they are advertised as available in a live paid plan.</p>
+        </details>
+        <details>
+          <summary>Can I pay on this page now?</summary>
+          <p>Not yet. The paid-plan buttons demonstrate the selection flow only. A payment provider, secure server-side payment verification, and subscription management must be connected before checkout can go live.</p>
+        </details>
       </div>
     </section>
   </main>
 
   <footer class="app-footer">
-    <div class="footer-container"><p>&copy; 2026 MemPulse. All rights reserved.<br>Helping you practice, retain, and grow at your own pace.</p></div>
+    <div class="footer-container">
+      <p>&copy; 2026 MemPulse. All rights reserved.<br>Helping you practice, retain, and grow at your own pace.</p>
+    </div>
   </footer>
 
   <div id="plan-toast" class="toast" role="status" aria-live="polite"></div>
@@ -244,4 +1428,5 @@
     });
   </script>
 </body>
+
 </html>
