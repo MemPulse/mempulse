@@ -27,3 +27,63 @@ function setAuthModeFromHash() {
 
 window.addEventListener("hashchange", setAuthModeFromHash);
 setAuthModeFromHash();
+
+// Show/hide password controls (registration and login).
+document.querySelectorAll("[data-toggle-password]").forEach((toggle) => {
+    toggle.addEventListener("change", () => {
+        const ids = toggle.dataset.togglePassword.split(",");
+        ids.forEach((id) => {
+            const field = document.getElementById(id.trim());
+            if (field) field.type = toggle.checked ? "text" : "password";
+        });
+    });
+});
+
+// Client-side password confirmation. The PHP handler repeats this validation.
+const registerPassword = document.getElementById("register-password");
+const confirmPassword = document.getElementById("confirm-password");
+const signupMessage = document.getElementById("signup-message");
+
+if (signupForm && registerPassword && confirmPassword) {
+    const validatePasswordMatch = () => {
+        if (confirmPassword.value && registerPassword.value !== confirmPassword.value) {
+            confirmPassword.setCustomValidity("Passwords do not match.");
+            if (signupMessage) signupMessage.textContent = "Passwords do not match.";
+        } else {
+            confirmPassword.setCustomValidity("");
+            if (signupMessage) signupMessage.textContent = "";
+        }
+    };
+    registerPassword.addEventListener("input", validatePasswordMatch);
+    confirmPassword.addEventListener("input", validatePasswordMatch);
+    signupForm.addEventListener("submit", (event) => {
+        validatePasswordMatch();
+        if (!signupForm.checkValidity()) {
+            event.preventDefault();
+            signupForm.reportValidity();
+        }
+    });
+}
+
+// Keep server-provided login errors visible when the login view is active.
+if (window.location.search.includes("error=") && window.location.hash === "#login") {
+    setAuthMode("login");
+}
+
+
+// Show/hide passwords on registration and login.
+document.addEventListener("change", function (event) {
+    const toggle = event.target.closest("[data-toggle-password]");
+    if (!toggle) return;
+
+    const show = toggle.checked;
+    const ids = toggle.dataset.togglePassword.split(",");
+
+    ids.forEach(function (id) {
+        const passwordInput = document.getElementById(id.trim());
+
+        if (passwordInput) {
+            passwordInput.type = show ? "text" : "password";
+        }
+    });
+});

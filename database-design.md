@@ -19,6 +19,7 @@ CREATE TABLE users (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at DATETIME NULL,
+    account_status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'approved';
     INDEX idx_users_active (deleted_at)
 ) ENGINE=InnoDB;
 

@@ -667,3 +667,24 @@ a:focus-visible {
         min-height: 14rem;
     }
 }
+
+/* Password visibility controls and authentication feedback */
+.password-toggle {
+    margin-top: -.15rem;
+    cursor: pointer;
+}
+
+.auth-message {
+    color: #68727d;
+    font-size: .78rem;
+    font-weight: 500;
+}
+
+.auth-message:empty {
+    display: none;
+}
+
+.auth-message-error {
+    margin-top: .75rem;
+    color: #b42318;
+}

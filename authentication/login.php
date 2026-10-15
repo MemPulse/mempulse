@@ -12,15 +12,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit;
     }
 
-    $sql  = "SELECT id, first_name, last_name, password_hash FROM users WHERE email = ? AND deleted_at IS NULL";
+    $sql  = "SELECT id, first_name, last_name, password_hash, account_status FROM users WHERE email = ? AND deleted_at IS NULL";
     $stmt = mysqli_prepare($conn, $sql);
     
     mysqli_stmt_bind_param($stmt, "s", $email);
     mysqli_stmt_execute($stmt);
-    mysqli_stmt_bind_result($stmt, $user_id, $first_name, $last_name, $hashed_password);
+    mysqli_stmt_bind_result($stmt, $user_id, $first_name, $last_name, $hashed_password, $account_status);
     
     if (mysqli_stmt_fetch($stmt)) {
         if (password_verify($password, $hashed_password)) {
+            if ($account_status !== 'approved') {
+                mysqli_stmt_close($stmt);
+                mysqli_close($conn);
+                header("Location: login.php?error=pending_approval#login");
+                exit;
+            }
+
             // Prevent Session Fixation
             session_regenerate_id(true);
             
@@ -103,12 +110,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <p class="form-intro">Already have an account? <button class="text-button switch-to-login" type="button">Log in</button></p>
 
                     <form class="auth-form" id="signup-form" method="POST" action="register.php">
+                        <p class="auth-message" id="signup-message" role="status" aria-live="polite"></p>
                         <div class="field-row">
                             <label><span class="field-label">First name <span class="required-indicator" aria-hidden="true">*</span></span><input type="text" name="first-name" autocomplete="given-name" placeholder="Juan" required></label>
                             <label><span class="field-label">Last name <span class="required-indicator" aria-hidden="true">*</span></span><input type="text" name="last-name" autocomplete="family-name" placeholder="Dela Cruz" required></label>
                         </div>
                         <label><span class="field-label">Email address <span class="required-indicator" aria-hidden="true">*</span></span><input type="email" name="email" autocomplete="email" placeholder="juandelacruz@example.com" required></label>
-                        <label><span class="field-label">Password <span class="required-indicator" aria-hidden="true">*</span></span><input type="password" name="password" autocomplete="new-password" placeholder="At least 8 characters" minlength="8" required></label>
+                        <label>
+                            <span class="field-label">Password <span class="required-indicator" aria-hidden="true">*</span></span>
+                            <input type="password" id="register-password" name="password" autocomplete="new-password" placeholder="At least 8 characters" minlength="8" required>
+                        </label>
+                        <label>
+                            <span class="field-label">Confirm password <span class="required-indicator" aria-hidden="true">*</span></span>
+                            <input type="password" id="confirm-password" name="confirm-password" autocomplete="new-password" placeholder="Re-enter your password" minlength="8" required>
+                        </label>
+                        <label class="check-label password-toggle"><input type="checkbox" data-toggle-password="register-password,confirm-password"><span>Show passwords</span></label>
                         <label class="check-label"><input type="checkbox" name="terms" required><span>I agree to the <a href="terms.html">Terms &amp; Conditions</a> <span class="required-indicator" aria-hidden="true">*</span></span></label>
                         <button class="primary-button" type="submit">Create account <span aria-hidden="true">→</span></button>
                     </form>
@@ -119,6 +135,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <p class="eyebrow">Good to see you again!</p>
                     <h2>Log in</h2>
                     <p class="form-intro">New to MemPulse? <button class="text-button switch-to-signup" type="button">Create an account</button></p>
+                    <?php if (isset($_GET['error']) && $_GET['error'] === 'pending_approval'): ?>
+                        <p class="auth-message auth-message-error" role="alert">Your account is waiting for approval. Please try again after it has been approved.</p>
+                    <?php elseif (isset($_GET['error']) && $_GET['error'] === 'invalid_credentials'): ?>
+                        <p class="auth-message auth-message-error" role="alert">Invalid email or password.</p>
+                    <?php elseif (isset($_GET['error']) && $_GET['error'] === 'empty_fields'): ?>
+                        <p class="auth-message auth-message-error" role="alert">Please enter your email and password.</p>
+                    <?php endif; ?>
+                    <?php if (isset($_GET['registered']) && $_GET['registered'] === 'approved'): ?>
+                        <p class="auth-message" role="status">Demo approval confirmed. You can now log in.</p>
+                    <?php endif; ?>
 
                     <!-- Added action and method attributes below -->
                     <form class="auth-form" id="login-form" action="login.php" method="POST">
@@ -128,12 +154,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         </label>
                         <label>
                             <span class="field-label">Password <span class="required-indicator" aria-hidden="true">*</span></span>
-                            <input type="password" name="login-password" autocomplete="current-password" placeholder="Your password" required>
+                            <input type="password" id="login-password" name="login-password" autocomplete="current-password" placeholder="Your password" required>
                         </label>
+                        <label class="check-label password-toggle"><input type="checkbox" data-toggle-password="login-password"><span>Show password</span></label>
+                        <p class="auth-message" id="auth-message" role="status" aria-live="polite"></p>
                         <div class="form-options">
-                            <!-- <label class="check-label">
+                            <label class="check-label">
                                 <input type="checkbox" name="remember"><span>Remember me</span>
-                            </label> -->
+                            </label>
                             <a href="#forgot-password" id="forgot-password-link">Forgot password?</a>
                         </div>
                         <button class="primary-button" type="submit">Log in <span aria-hidden="true">→</span></button>

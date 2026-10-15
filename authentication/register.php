@@ -11,15 +11,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $first_name = trim($_POST['first-name']); 
     $last_name  = trim($_POST['last-name']);  
     $email      = trim($_POST['email']);
-    $password   = $_POST['password'];
+    $password   = $_POST['password'] ?? '';
+    $confirm_password = $_POST['confirm-password'] ?? '';
 
     // 3. Validation
-    if (empty($first_name) || empty($last_name) || empty($email) || empty($password)) {
+    if (empty($first_name) || empty($last_name) || empty($email) || empty($password) || empty($confirm_password)) {
         die("All required fields must be filled out.");
     }
 
     if (strlen($password) < 8) {
         die("Password must be at least 8 characters long.");
+    }
+
+    if (!hash_equals($password, $confirm_password)) {
+        die("The passwords do not match. Please go back and try again.");
     }
 
     // 4. Check for existing email (Prepare -> Bind -> Execute)
@@ -46,10 +51,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     mysqli_stmt_bind_param($insert_stmt, "ssss", $first_name, $last_name, $email, $hashed_password);
     
     if (mysqli_stmt_execute($insert_stmt)) {
-    mysqli_stmt_close($insert_stmt);
-    mysqli_close($conn);
-      // 7. Redirect smoothly to index.php upon success
-        header("Location: ../app/views/index.php");
+        $new_user_id = mysqli_insert_id($conn);
+        mysqli_stmt_close($insert_stmt);
+        mysqli_close($conn);
+
+        // Demo-only confirmation: the next page offers a temporary button to simulate approval.
+        session_start();
+        $_SESSION['demo_pending_user_id'] = $new_user_id;
+        $_SESSION['demo_approval_token'] = bin2hex(random_bytes(32));
+        header("Location: registration-pending.php");
         exit;
     } else {
         die("System error occurred during registration.");
