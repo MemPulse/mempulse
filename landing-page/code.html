@@ -1,0 +1,476 @@
+<!DOCTYPE html><html class="scroll-smooth" lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_standard" name="shell-type"><title>MemPulse - Spaced Repetition Mastery</title><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"tertiary-fixed":"#6ffbbe","surface-container-highest":"#dae2fd","tertiary-container":"#005337","surface-container-low":"#f2f3ff","on-surface":"#131b2e","on-tertiary-fixed":"#002113","on-primary-container":"#b1afff","surface-tint":"#4d44e3","primary":"#1e00a9","surface-container-lowest":"#ffffff","on-secondary":"#ffffff","tertiary":"#003a25","surface-container":"#eaedff","secondary":"#4b41e1","inverse-primary":"#c3c0ff","on-secondary-container":"#fffbff","secondary-container":"#645efb","error":"#ba1a1a","on-tertiary":"#ffffff","background":"#faf8ff","on-background":"#131b2e","on-primary-fixed":"#0f0069","inverse-surface":"#283044","surface":"#faf8ff","on-secondary-fixed":"#0f0069","secondary-fixed-dim":"#c3c0ff","on-secondary-fixed-variant":"#3323cc","surface-container-high":"#e2e7ff","on-error-container":"#93000a","on-surface-variant":"#464555","secondary-fixed":"#e2dfff","outline-variant":"#c7c4d8","inverse-on-surface":"#eef0ff","on-tertiary-container":"#39ce94","surface-bright":"#faf8ff","primary-container":"#3525cd","on-primary":"#ffffff","outline":"#777587","on-error":"#ffffff","tertiary-fixed-dim":"#4edea3","primary-fixed-dim":"#c3c0ff","surface-variant":"#dae2fd","on-primary-fixed-variant":"#3323cc","surface-dim":"#d2d9f4","on-tertiary-fixed-variant":"#005236","primary-fixed":"#e2dfff","error-container":"#ffdad6"},borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},spacing:{"space-xs":"0.25rem","space-lg":"1.5rem","margin":"2rem","gutter":"1.5rem","space-md":"1rem","gutter-sm":"1rem","space-sm":"0.5rem","space-xl":"2.5rem","margin-sm":"1rem"},fontFamily:{"label-sm":["Plus Jakarta Sans"],"display-lg-mobile":["Plus Jakarta Sans"],"headline-md":["Plus Jakarta Sans"],"headline-sm":["Plus Jakarta Sans"],"display-lg":["Plus Jakarta Sans"],"headline-lg-mobile":["Plus Jakarta Sans"],"body-md":["Inter"],"headline-lg":["Plus Jakarta Sans"],"body-sm":["Inter"],"body-lg":["Inter"],"label-md":["Plus Jakarta Sans"],"label-lg":["Plus Jakarta Sans"]},fontSize:{"label-sm":["0.6875rem",{"lineHeight":"0.875rem","letterSpacing":"0.05em","fontWeight":"700"}],"display-lg-mobile":["2.25rem",{"lineHeight":"2.75rem","letterSpacing":"-0.02em","fontWeight":"800"}],"headline-md":["1.5rem",{"lineHeight":"2rem","letterSpacing":"-0.015em","fontWeight":"600"}],"headline-sm":["1.25rem",{"lineHeight":"1.75rem","letterSpacing":"-0.01em","fontWeight":"600"}],"display-lg":["3.5rem",{"lineHeight":"4rem","letterSpacing":"-0.025em","fontWeight":"800"}],"headline-lg-mobile":["1.5rem",{"lineHeight":"2rem","letterSpacing":"-0.015em","fontWeight":"700"}],"body-md":["1rem",{"lineHeight":"1.5rem","fontWeight":"400"}],"headline-lg":["2rem",{"lineHeight":"2.5rem","letterSpacing":"-0.02em","fontWeight":"700"}],"body-sm":["0.875rem",{"lineHeight":"1.25rem","fontWeight":"400"}],"body-lg":["1.125rem",{"lineHeight":"1.75rem","fontWeight":"400"}],"label-md":["0.75rem",{"lineHeight":"1rem","letterSpacing":"0.02em","fontWeight":"600"}],"label-lg":["0.875rem",{"lineHeight":"1.25rem","letterSpacing":"0.01em","fontWeight":"600"}]}}}};</script></head><body class="bg-surface font-body-md text-body-md text-on-surface antialiased selection:bg-surface-container-highest selection:text-primary"><header class="fixed top-0 left-0 right-0 z-50 bg-surface/80 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="h-20 max-w-7xl mx-auto px-6 lg:px-12 flex items-center justify-between"><a class="flex items-center gap-space-sm group" data-path="landing" href="#"><div class="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center text-headline-sm transition-transform group-hover:scale-105 shadow-[0_2px_8px_rgba(53,37,205,0.08)]"><span class="material-symbols-outlined text-[24px]" style="color: rgb(53, 37, 205);">neurology</span></div><div class="flex flex-col"><span class="font-headline-sm text-headline-sm tracking-tight text-on-surface">MemPulse</span></div></a><nav class="hidden md:flex items-center gap-space-lg" data-active-classes="text-primary font-bold"><a class="font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface transition-colors" data-path="features" href="#features">Features</a><a class="font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface transition-colors" data-path="reviews" href="#reviews">Reviews</a><a class="font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface transition-colors" data-path="algorithm-science" href="#algorithm-science">Algorithm &amp; Science</a><a class="font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface transition-colors" data-path="about" href="#about">About</a></nav><div class="flex items-center gap-space-md"><a class="hidden sm:inline-flex items-center justify-center px-space-md py-space-sm rounded-full font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-all" data-path="login" href="#login">Login</a><a class="inline-flex items-center justify-center px-space-lg py-space-sm rounded-full bg-primary-container text-on-primary font-label-lg text-label-lg hover:bg-secondary transition-all shadow-[0_4px_20px_-2px_rgba(53,37,205,0.2)]" data-path="get-started" href="#get-started">Start Studying</a><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="w-full pt-20 bg-surface"><div class="flex flex-col w-full selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- HERO SECTION -->
+<section class="relative w-full overflow-hidden pt-12 pb-24 lg:pt-16 lg:pb-32">
+<!-- Ambient Blur Spotlights -->
+<div class="absolute -top-32 left-1/2 -translate-x-1/2 w-[850px] h-[450px] bg-gradient-to-tr from-surface-container-highest via-secondary-fixed/40 to-transparent rounded-full blur-3xl pointer-events-none -z-10 opacity-70"></div>
+<div class="absolute top-80 right-[-10%] w-[480px] h-[360px] bg-tertiary-fixed-dim/20 rounded-full blur-3xl pointer-events-none -z-10"></div>
+<div class="max-w-7xl mx-auto px-6 lg:px-12 flex flex-col items-center text-center">
+<!-- Academic Scientific Badge -->
+<div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-surface-container-high text-on-surface text-label-md font-label-md shadow-sm mb-8 transition-transform hover:scale-105 cursor-default">
+<span class="inline-flex items-center justify-center w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+<span class="tracking-wide">EVIDENCE-BASED ACTIVE RECALL &amp; SPACED REPETITION</span>
+</div>
+<!-- Main Editorial Headline -->
+<h1 class="font-display-lg text-display-lg max-w-4xl text-on-surface tracking-tight leading-[1.08] mb-6">
+        Remember more,<br>
+<span class="text-primary italic font-serif relative inline-block">
+          forget less
+          <svg class="absolute -bottom-2 left-0 w-full h-3 text-secondary-container/40 -z-10" fill="none" preserveAspectRatio="none" viewBox="0 0 240 12">
+<path d="M3 9C60 3 180 3 237 9" stroke="currentColor" stroke-linecap="round" stroke-width="4"></path>
+</svg>
+</span>
+</h1>
+<!-- Hook Subtitle -->
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl mx-auto mb-10 leading-relaxed">
+        The easy way to organize your learning, retain what matters, and master tough concepts with spaced repetition. Engineered for university students conquering dense syllabi.
+      </p>
+<!-- Action Suite -->
+<div class="flex flex-col sm:flex-row items-center gap-4 mb-16">
+<a class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full bg-primary-container text-on-primary font-label-lg text-label-lg shadow-[0_12px_28px_-6px_rgba(53,37,205,0.38)] hover:bg-secondary hover:shadow-[0_16px_32px_-6px_rgba(75,65,225,0.45)] hover:-translate-y-0.5 active:translate-y-0 transition-all" href="#get-started">
+<span class="">Start Studying for Free</span>
+<span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+</a>
+<a class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-4 rounded-full bg-surface-container-lowest text-on-surface font-label-lg text-label-lg shadow-sm hover:bg-surface-container transition-all" href="#algorithm-science">
+<span class="material-symbols-outlined text-secondary text-[20px]">psychology</span>
+<span class="">Explore 2.0x Engine</span>
+</a>
+</div>
+<!-- INTERACTIVE FLASHCARD PREVIEW SHOWCASE -->
+<div class="relative w-full max-w-3xl mx-auto">
+<!-- Floating Pill: Breadcrumb -->
+<div class="hidden md:flex absolute -top-5 left-4 z-20 items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-container-lowest text-on-surface text-label-sm font-label-sm shadow-md">
+<span class="text-base">📚</span>
+<span class="font-semibold text-secondary">Neuroscience 301</span>
+<span class="text-on-surface-variant">• Chapter 4</span>
+</div>
+<!-- Floating Pill: Ebbinghaus -->
+<div class="hidden md:flex absolute -bottom-4 left-6 z-20 items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface-container-lowest text-on-surface text-label-sm font-label-sm shadow-md">
+<span class="w-2 h-2 rounded-full bg-tertiary-fixed-dim"></span>
+<span class="">Ebbinghaus Decay Protection Active</span>
+</div>
+<!-- Floating Pill: Due Queue -->
+<div class="hidden md:flex absolute -top-4 -right-4 z-20 items-center gap-2 px-4 py-1.5 rounded-full bg-surface-container-lowest text-on-surface text-label-sm font-label-sm shadow-md">
+<span class="">⏱️</span>
+<span class="font-semibold text-primary">Due Today:</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-highest text-primary font-bold">18 cards</span>
+</div>
+<!-- Main Flashcard Stage (Interactive UI Mock) -->
+<div class="relative w-full bg-surface-container-lowest rounded-2xl p-8 sm:p-10 shadow-[0_24px_50px_-12px_rgba(53,37,205,0.12)] text-left transition-all" id="hero-flashcard">
+<!-- Top metadata row inside card -->
+<div class="flex items-center justify-between pb-6 mb-6 bg-surface-container-low/40 rounded-xl px-4 py-2.5">
+<div class="flex items-center gap-2">
+<span class="inline-block w-2.5 h-2.5 rounded-full bg-secondary animate-ping"></span>
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-secondary">Active Drill Mode</span>
+</div>
+<div class="flex items-center gap-3 font-label-sm text-label-sm text-on-surface-variant">
+<span class="">Card 14 of 32</span>
+<div class="w-24 h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="w-2/3 h-full bg-secondary rounded-full"></div>
+</div>
+</div>
+</div>
+<!-- Prompt Question Area -->
+<div class="min-h-[140px] flex flex-col justify-center">
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider mb-2">Question (Front)</p>
+<h3 class="font-headline-md text-headline-md text-on-surface font-semibold leading-snug">
+              What neurotransmitter is primarily responsible for triggering <span class="bg-surface-container-highest px-1.5 py-0.5 rounded text-primary">Long-Term Potentiation (LTP)</span> in hippocampal synapses?
+            </h3>
+</div>
+<!-- Revealable Answer Box -->
+<div class="mt-6 pt-6 bg-surface-container-low/60 rounded-xl p-5 transition-all" id="hero-card-answer">
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-sm text-label-sm font-bold text-tertiary-container uppercase tracking-wider">Concept (Back)</span>
+<span class="text-label-sm font-label-sm px-2 py-0.5 rounded bg-tertiary-fixed text-on-tertiary-fixed">NMDA / AMPA Receptor Cascade</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface leading-relaxed">
+<strong>Glutamate</strong>. Binding to post-synaptic AMPA receptors leads to depolarization, expelling the Mg²⁺ block from NMDA receptors and permitting high-affinity Ca²⁺ influx essential for synaptic strengthening.
+            </p>
+</div>
+<!-- Spacing Evaluation Buttons -->
+<div class="mt-8 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+<div class="flex items-center gap-2 text-on-surface-variant font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[18px]">verified</span>
+<span class="">Rate cognitive retrieval ease:</span>
+</div>
+<div class="grid grid-cols-2 sm:flex sm:items-center gap-2.5 w-full sm:w-auto">
+<button class="flex flex-col items-center px-4 py-2.5 rounded-xl bg-error-container text-on-error-container hover:scale-105 active:scale-95 transition-all cursor-pointer">
+<span class="font-label-sm text-label-sm font-bold">Forgot</span>
+<span class="text-[11px] opacity-80 mt-0.5">Reset: 10 min</span>
+</button>
+<button class="flex flex-col items-center px-4 py-2.5 rounded-xl bg-surface-container text-on-surface-variant hover:scale-105 active:scale-95 transition-all cursor-pointer">
+<span class="font-label-sm text-label-sm font-bold">Hard</span>
+<span class="text-[11px] opacity-80 mt-0.5">Interval: 1.2x (1d)</span>
+</button>
+<button class="flex flex-col items-center px-5 py-2.5 rounded-xl bg-primary-container text-on-primary shadow-sm hover:scale-105 active:scale-95 transition-all cursor-pointer">
+<span class="font-label-sm text-label-sm font-bold">Good</span>
+<span class="text-[11px] opacity-80 mt-0.5">Interval: 2.0x (4d)</span>
+</button>
+<button class="flex flex-col items-center px-4 py-2.5 rounded-xl bg-tertiary-fixed text-on-tertiary-fixed hover:scale-105 active:scale-95 transition-all cursor-pointer">
+<span class="font-label-sm text-label-sm font-bold">Easy</span>
+<span class="text-[11px] opacity-80 mt-0.5">Interval: 2.5x (8d)</span>
+</button>
+</div>
+</div>
+<!-- Live Streak Indicator Bar -->
+<div class="mt-6 pt-4 flex items-center justify-between font-label-sm text-label-sm text-on-surface-variant">
+<div class="flex items-center gap-2">
+<span class="text-base">🔥</span>
+<span class="font-bold text-on-surface">14-Day Streak</span>
+<span class="">•</span>
+<span class="text-tertiary-container font-semibold">94.2% Estimated Retention</span>
+</div>
+<div class="hidden sm:flex items-center gap-1 text-[11px]">
+<span class="">Keybinds: [1] Forgot • [2] Hard • [3] Good • [4] Easy</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- CORE FEATURE PILLARS SECTION (#features) -->
+<section class="w-full py-24 bg-surface-container-low/50" id="features">
+<div class="max-w-7xl mx-auto px-6 lg:px-12">
+<!-- Section Kicker & Header -->
+<div class="text-center max-w-2xl mx-auto mb-16">
+<span class="inline-block px-3 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed-variant font-label-sm text-label-sm uppercase tracking-wider mb-4">
+          OPTIMIZED COGNITIVE WORKFLOW
+        </span>
+<h2 class="font-headline-lg text-headline-lg text-on-surface mb-4">
+          Everything you need to master heavy course loads
+        </h2>
+<p class="font-body-md text-body-md text-on-surface-variant">
+          Designed around cognitive science, stripped of useless clutter, and optimized for rapid academic mastery.
+        </p>
+</div>
+<!-- 3-Column Feature Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+<!-- Feature 1: Syllabus-Aligned Decks -->
+<div class="flex flex-col bg-surface-container-lowest rounded-2xl p-8 shadow-sm hover:shadow-md transition-shadow">
+<div class="w-12 h-12 rounded-xl bg-tertiary-fixed flex items-center justify-center text-2xl mb-6 shadow-sm">
+<span class="">📁</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold mb-3">
+            Syllabus-Aligned Decks
+          </h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed mb-6 flex-grow">
+            Organize your entire semester into custom academic collections. Create dedicated subject decks for biology, organic chemistry, programming, or languages to keep your learning path completely structured.
+          </p>
+<!-- Mini Deck Preview Graphic -->
+<div class="bg-surface-container-low rounded-xl p-4 flex flex-col gap-3">
+<div class="flex items-center justify-between text-on-surface font-label-sm text-label-sm">
+<span class="flex items-center gap-1.5 font-bold">
+<span class="w-2 h-2 rounded-full bg-secondary"></span> Organic Chemistry II
+              </span>
+<span class="text-on-surface-variant">142 cards</span>
+</div>
+<div class="w-full bg-surface-container-highest rounded-full h-1.5 overflow-hidden">
+<div class="bg-secondary h-full rounded-full" style="width: 78%"></div>
+</div>
+<div class="flex items-center justify-between text-on-surface font-label-sm text-label-sm pt-1">
+<span class="flex items-center gap-1.5 font-bold">
+<span class="w-2 h-2 rounded-full bg-tertiary-container"></span> Neuroanatomy Core
+              </span>
+<span class="text-on-surface-variant">88 cards</span>
+</div>
+<div class="w-full bg-surface-container-highest rounded-full h-1.5 overflow-hidden">
+<div class="bg-tertiary-fixed-dim h-full rounded-full" style="width: 92%"></div>
+</div>
+</div>
+</div>
+<!-- Feature 2: Effortless Card Creation -->
+<div class="flex flex-col bg-surface-container-lowest rounded-2xl p-8 shadow-sm hover:shadow-md transition-shadow">
+<div class="w-12 h-12 rounded-xl bg-surface-container-high flex items-center justify-center text-2xl mb-6 shadow-sm">
+<span class="">📝</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold mb-3">
+            Effortless Card Creation
+          </h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed mb-6 flex-grow">
+            Type a question on the front, flip it, and add the core concept on the back. Strip out confusing settings and build clean, highly focused text cards on the fly without missing a single beat during fast-paced lectures.
+          </p>
+<!-- Mini Card Editor Preview Graphic -->
+<div class="bg-surface-container-low rounded-xl p-4 flex flex-col gap-2.5 font-body-sm text-body-sm">
+<div class="bg-surface-container-lowest rounded-lg p-3 shadow-xs">
+<span class="font-label-sm text-[10px] text-on-surface-variant uppercase tracking-wider block mb-1">Front Prompt</span>
+<span class="text-on-surface text-[13px] font-medium">Krebs Cycle: Net ATP per glucose molecule?</span>
+</div>
+<div class="flex items-center justify-between text-[11px] text-on-surface-variant px-1">
+<span class="">Press <kbd class="px-1.5 py-0.5 rounded bg-surface-container-highest text-on-surface font-mono font-bold">Ctrl + Enter</kbd> to save</span>
+<span class="text-secondary font-semibold">Instant Sync</span>
+</div>
+</div>
+</div>
+<!-- Feature 3: Smart "Due Cards" Queue -->
+<div class="flex flex-col bg-surface-container-lowest rounded-2xl p-8 shadow-sm hover:shadow-md transition-shadow">
+<div class="w-12 h-12 rounded-xl bg-secondary-fixed flex items-center justify-center text-2xl mb-6 shadow-sm">
+<span class="">⏱️</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold mb-3">
+            Smart "Due Cards" Queue
+          </h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed mb-6 flex-grow">
+            Stop wasting precious time reviewing cards you already know. Our scheduler calculates exactly when an item is about to decay in your memory and presents it inside your active study queue right when it is due.
+          </p>
+<!-- Mini Scheduler Badge / Countdown Preview -->
+<div class="bg-surface-container-low rounded-xl p-4 flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm font-semibold text-on-surface">Cognitive Memory Decay</span>
+<span class="font-label-sm text-label-sm text-secondary font-bold">Optimal Point</span>
+</div>
+<!-- Decay Curve Mini SVG -->
+<svg class="w-full h-12 text-secondary" fill="none" viewBox="0 0 200 48">
+<path d="M0 8 Q40 8 70 24 T140 38 L140 48 L0 48 Z" fill="currentColor" fill-opacity="0.08"></path>
+<path d="M0 8 Q40 8 70 24 T140 38" stroke="currentColor" stroke-linecap="round" stroke-width="2.5"></path>
+<circle class="animate-ping" cx="140" cy="38" fill="currentColor" r="4"></circle>
+<circle cx="140" cy="38" fill="currentColor" r="3"></circle>
+</svg>
+<div class="flex items-center justify-between text-[11px] text-on-surface-variant pt-1">
+<span class="">Memory Threshold: 85%</span>
+<span class="text-tertiary-container font-semibold">Scheduled: Today 4:00 PM</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- COGNITIVE SCIENCE & SPACED REPETITION TEASER SECTION -->
+<section class="w-full py-24 bg-surface" id="algorithm-science">
+<div class="max-w-7xl mx-auto px-6 lg:px-12">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+<!-- Left Explanatory Column (5 cols) -->
+<div class="lg:col-span-5 flex flex-col">
+<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-high text-primary font-label-sm text-label-sm uppercase tracking-wider mb-4 w-max">
+<span class="material-symbols-outlined text-[16px]">model_training</span>
+            THE MATHEMATICS OF MEMORY
+          </span>
+<h2 class="font-headline-lg text-headline-lg text-on-surface mb-6">
+            Powered by the 2.0x Leitner Interval Engine
+          </h2>
+<p class="font-body-md text-body-md text-on-surface-variant leading-relaxed mb-8">
+            Hermann Ebbinghaus discovered that human memory decays exponentially within 48 hours without reinforcement. MemPulse counters this natural decay by scheduling reviews at progressively doubling intervals right before critical memory collapse.
+          </p>
+<!-- Engine Metrics Stat Matrix -->
+<div class="grid grid-cols-3 gap-3 mb-8">
+<div class="bg-surface-container-low rounded-xl p-3.5 text-center">
+<div class="font-headline-sm text-headline-sm text-primary font-bold">2.0x</div>
+<div class="text-[11px] font-label-sm text-on-surface-variant mt-1 leading-tight">Interval Multiplier</div>
+</div>
+<div class="bg-surface-container-low rounded-xl p-3.5 text-center">
+<div class="font-headline-sm text-headline-sm text-error font-bold">0 Days</div>
+<div class="text-[11px] font-label-sm text-on-surface-variant mt-1 leading-tight">Immediate Lapse Reset</div>
+</div>
+<div class="bg-surface-container-low rounded-xl p-3.5 text-center">
+<div class="font-headline-sm text-headline-sm text-tertiary-container font-bold">≥ 21d</div>
+<div class="text-[11px] font-label-sm text-on-surface-variant mt-1 leading-tight">Permanent Mastery</div>
+</div>
+</div>
+<a class="inline-flex items-center gap-2 font-label-lg text-label-lg text-primary hover:text-secondary group font-bold" href="#algorithm-science">
+<span class="">Dive deeper into our cognitive algorithm</span>
+<span class="material-symbols-outlined transition-transform group-hover:translate-x-1">arrow_forward</span>
+</a>
+</div>
+<!-- Right Graph Visualizer (7 cols) -->
+<div class="lg:col-span-7 bg-surface-container-lowest rounded-2xl p-8 sm:p-10 shadow-md">
+<div class="flex items-center justify-between pb-6 mb-6">
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold">Retention Curve Comparison</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Cramming vs. MemPulse Precision Intervals</p>
+</div>
+<div class="flex items-center gap-4 text-[12px] font-label-sm">
+<span class="flex items-center gap-1.5"><span class="w-3 h-1 rounded-full bg-error"></span> Single Cram</span>
+<span class="flex items-center gap-1.5"><span class="w-3 h-1 rounded-full bg-primary"></span> MemPulse Repetition</span>
+</div>
+</div>
+<!-- Retention Curve Visual SVG -->
+<div class="w-full relative h-64 bg-surface-container-low/40 rounded-xl p-4 flex items-end">
+<svg class="w-full h-full overflow-visible" fill="none" viewBox="0 0 500 200">
+<!-- Grid lines -->
+<line class="text-surface-container-highest" stroke="currentColor" stroke-dasharray="4 4" x1="0" x2="500" y1="40" y2="40"></line>
+<line class="text-surface-container-highest" stroke="currentColor" stroke-dasharray="4 4" x1="0" x2="500" y1="100" y2="100"></line>
+<line class="text-surface-container-highest" stroke="currentColor" stroke-dasharray="4 4" x1="0" x2="500" y1="160" y2="160"></line>
+<!-- Ebbinghaus Traditional Cram Curve (Red, drops to 20%) -->
+<path d="M 20 40 Q 60 170, 480 185" fill="none" stroke="#ba1a1a" stroke-linecap="round" stroke-width="3"></path>
+<text class="font-label-sm text-[11px]" fill="#ba1a1a" x="360" y="175">80% Forgotten</text>
+<!-- Spaced Repetition Bounces (MemPulse, keeps high) -->
+<!-- Review 1 -->
+<path d="M 20 40 Q 50 110, 80 120" fill="none" stroke="#1e00a9" stroke-width="3.5"></path>
+<line stroke="#4b41e1" stroke-dasharray="2 2" stroke-width="2" x1="80" x2="80" y1="120" y2="40"></line>
+<!-- Review 2 -->
+<path d="M 80 40 Q 130 95, 180 100" fill="none" stroke="#1e00a9" stroke-width="3.5"></path>
+<line stroke="#4b41e1" stroke-dasharray="2 2" stroke-width="2" x1="180" x2="180" y1="100" y2="40"></line>
+<!-- Review 3 -->
+<path d="M 180 40 Q 260 85, 340 88" fill="none" stroke="#1e00a9" stroke-width="3.5"></path>
+<line stroke="#4b41e1" stroke-dasharray="2 2" stroke-width="2" x1="340" x2="340" y1="88" y2="40"></line>
+<!-- Final Consolidated Retention -->
+<path d="M 340 40 Q 420 50, 480 52" fill="none" stroke="#1e00a9" stroke-width="3.5"></path>
+<circle cx="480" cy="52" fill="#005337" r="5"></circle>
+<text class="font-label-sm text-[11px] font-bold" fill="#005337" x="390" y="32">95% Long-Term Retained</text>
+</svg>
+</div>
+<div class="mt-4 flex items-center justify-between text-on-surface-variant font-label-sm text-[11px]">
+<span class="">Day 0 (Initial Learn)</span>
+<span class="">Day 1 (1st Review)</span>
+<span class="">Day 4 (2nd Review)</span>
+<span class="">Day 10 (3rd Review)</span>
+<span class="">Day 25+ (Mastered)</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- TESTIMONIALS & REVIEWS SECTION (#testimonials / #reviews) -->
+<section class="w-full py-24 bg-surface-container-low/30 overflow-hidden" id="reviews">
+<div class="max-w-7xl mx-auto px-6 lg:px-12">
+<!-- Section Kicker & Header -->
+<div class="text-center max-w-2xl mx-auto mb-16">
+<span class="inline-block px-3 py-1 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm uppercase tracking-wider mb-4">
+          STUDENT PROVEN
+        </span>
+<h2 class="font-headline-lg text-headline-lg text-on-surface mb-4">
+          Loved by learners everywhere
+        </h2>
+<p class="font-body-md text-body-md text-on-surface-variant">
+          From computer science to medical candidates, discover why university students rely on MemPulse to master complex concepts.
+        </p>
+</div>
+<!-- Playful Scattered Multi-angle Review Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pt-4">
+<!-- Review 1: Andres B. (Medical Student) -->
+<div class="bg-surface-container-lowest rounded-2xl p-7 shadow-sm transition-all duration-300 hover:rotate-1 hover:shadow-md hover:-translate-y-1 flex flex-col justify-between">
+<p class="font-body-md text-body-md text-on-surface leading-relaxed mb-6">
+            “I love, love your app, I use it every day and <strong class="text-primary font-semibold">it's a joy to use</strong>. I tried other heavy SRS apps for months, but your simple UX is way ahead.”
+          </p>
+<div class="flex items-center gap-3 pt-4 bg-surface-container-low/40 rounded-xl px-3 py-2">
+<div class="w-10 h-10 rounded-full bg-secondary-fixed flex items-center justify-center font-bold text-on-secondary-fixed">
+              AB
+            </div>
+<div>
+<div class="font-headline-sm text-[14px] font-bold text-on-surface">Andres B.</div>
+<div class="font-body-sm text-[12px] text-on-surface-variant">Medical Student • Year 3</div>
+</div>
+</div>
+</div>
+<!-- Review 2: TJ G. (Computer Science) -->
+<div class="bg-surface-container-lowest rounded-2xl p-7 shadow-sm transition-all duration-300 hover:-rotate-1 hover:shadow-md hover:-translate-y-1 flex flex-col justify-between">
+<p class="font-body-md text-body-md text-on-surface leading-relaxed mb-6">
+            “MemPulse is <strong class="text-primary font-semibold">everything I've ever wanted</strong> in a study and learning tool. Being able to just write my cards and jump straight into my due queue without navigating dozens of configuration pages is unmatched.”
+          </p>
+<div class="flex items-center gap-3 pt-4 bg-surface-container-low/40 rounded-xl px-3 py-2">
+<div class="w-10 h-10 rounded-full bg-tertiary-fixed flex items-center justify-center font-bold text-on-tertiary-fixed">
+              TJ
+            </div>
+<div>
+<div class="font-headline-sm text-[14px] font-bold text-on-surface">TJ G.</div>
+<div class="font-body-sm text-[12px] text-on-surface-variant">Computer Science Major</div>
+</div>
+</div>
+</div>
+<!-- Review 3: Nil V. (Engineering) -->
+<div class="bg-surface-container-lowest rounded-2xl p-7 shadow-sm transition-all duration-300 hover:rotate-1 hover:shadow-md hover:-translate-y-1 flex flex-col justify-between">
+<p class="font-body-md text-body-md text-on-surface leading-relaxed mb-6">
+            “The extreme simplicity of the interface completely changed my study routine. It has allowed me to <strong class="text-primary font-semibold">completely switch over from traditional flashcards</strong>. I don't regret it one bit.”
+          </p>
+<div class="flex items-center gap-3 pt-4 bg-surface-container-low/40 rounded-xl px-3 py-2">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center font-bold text-primary">
+              NV
+            </div>
+<div>
+<div class="font-headline-sm text-[14px] font-bold text-on-surface">Nil V.</div>
+<div class="font-body-sm text-[12px] text-on-surface-variant">Engineering Student</div>
+</div>
+</div>
+</div>
+<!-- Review 4: Kim N. (Psychology Major) -->
+<div class="bg-surface-container-lowest rounded-2xl p-7 shadow-sm transition-all duration-300 hover:-rotate-1 hover:shadow-md hover:-translate-y-1 flex flex-col justify-between">
+<p class="font-body-md text-body-md text-on-surface leading-relaxed mb-6">
+            “Finally being able to log into an app and see exactly which cards are due today is <strong class="text-primary font-semibold">mind-blowing</strong>. After adding my notes, I'm instantly motivated to hop over and pass my reviews. It's unreal.”
+          </p>
+<div class="flex items-center gap-3 pt-4 bg-surface-container-low/40 rounded-xl px-3 py-2">
+<div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center font-bold text-on-primary-fixed">
+              KN
+            </div>
+<div>
+<div class="font-headline-sm text-[14px] font-bold text-on-surface">Kim N.</div>
+<div class="font-body-sm text-[12px] text-on-surface-variant">Psychology Major</div>
+</div>
+</div>
+</div>
+<!-- Review 5: Albert H. (Pre-Law) -->
+<div class="bg-surface-container-lowest rounded-2xl p-7 shadow-sm transition-all duration-300 hover:rotate-1 hover:shadow-md hover:-translate-y-1 flex flex-col justify-between">
+<p class="font-body-md text-body-md text-on-surface leading-relaxed mb-6">
+            “I love this app! I love the minimalist interface, the slick keybinds, and the pasteable image support. <strong class="text-primary font-semibold">Very rarely do I find a study tool that I vibe with so strongly</strong>.”
+          </p>
+<div class="flex items-center gap-3 pt-4 bg-surface-container-low/40 rounded-xl px-3 py-2">
+<div class="w-10 h-10 rounded-full bg-secondary-fixed-dim flex items-center justify-center font-bold text-on-secondary-fixed-variant">
+              AH
+            </div>
+<div>
+<div class="font-headline-sm text-[14px] font-bold text-on-surface">Albert H.</div>
+<div class="font-body-sm text-[12px] text-on-surface-variant">Pre-Law Student</div>
+</div>
+</div>
+</div>
+<!-- Review 6: Bea M. (Nursing) -->
+<div class="bg-surface-container-lowest rounded-2xl p-7 shadow-sm transition-all duration-300 hover:-rotate-1 hover:shadow-md hover:-translate-y-1 flex flex-col justify-between">
+<p class="font-body-md text-body-md text-on-surface leading-relaxed mb-6">
+            “MemPulse turned my scattered lecture notes into a study routine I can actually keep. The daily queue makes progress feel <strong class="text-primary font-semibold">simple, focused, and surprisingly satisfying</strong>.”
+          </p>
+<div class="flex items-center gap-3 pt-4 bg-surface-container-low/40 rounded-xl px-3 py-2">
+<div class="w-10 h-10 rounded-full bg-tertiary-fixed-dim flex items-center justify-center font-bold text-on-tertiary-fixed">
+              BM
+            </div>
+<div>
+<div class="font-headline-sm text-[14px] font-bold text-on-surface">Bea M.</div>
+<div class="font-body-sm text-[12px] text-on-surface-variant">Nursing Candidate</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- CALL TO ACTION BANNER (PRE-FOOTER) -->
+<section class="w-full py-20 px-6 lg:px-12 bg-surface">
+<div class="max-w-6xl mx-auto rounded-3xl bg-gradient-to-br from-primary via-primary-container to-secondary p-10 sm:p-16 text-center text-on-primary relative overflow-hidden shadow-[0_20px_50px_-10px_rgba(30,0,169,0.3)]">
+<!-- Subtle Decorative Elements -->
+<div class="absolute -top-24 -left-24 w-80 h-80 rounded-full bg-secondary-container/30 blur-2xl pointer-events-none"></div>
+<div class="absolute -bottom-24 -right-24 w-80 h-80 rounded-full bg-tertiary-fixed/20 blur-2xl pointer-events-none"></div>
+<div class="relative z-10 max-w-3xl mx-auto flex flex-col items-center">
+<span class="inline-block px-3.5 py-1 rounded-full bg-on-primary/10 backdrop-blur-md text-tertiary-fixed font-label-sm text-label-sm uppercase tracking-wider mb-6">
+          ACADEMIC VELOCITY
+        </span>
+<h2 class="font-display-lg text-display-lg font-bold leading-tight mb-6">
+          Ready to retain what matters?
+        </h2>
+<p class="font-body-lg text-body-lg text-on-primary-container max-w-xl mb-10 leading-relaxed">
+          Join thousands of university students crushing their midterms and finals without agonizing last-minute cramming.
+        </p>
+<div class="flex flex-col sm:flex-row items-center gap-4">
+<a class="w-full sm:w-auto inline-flex items-center justify-center px-8 py-4 rounded-full bg-surface-container-lowest text-primary font-label-lg text-label-lg shadow-lg hover:bg-surface-container hover:scale-105 active:scale-95 transition-all" href="#get-started">
+            Get Started Free
+          </a>
+<span class="text-on-primary-container font-label-sm text-label-sm">No credit card required • Instant browser sync</span>
+</div>
+</div>
+</div>
+</section>
+</div>
+<script>
+  // Simple micro-interaction for hero card rating responses
+  document.addEventListener('DOMContentLoaded', () => {
+    const buttons = document.querySelectorAll('#hero-flashcard button');
+    const answerBlock = document.getElementById('hero-card-answer');
+    
+    buttons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (!answerBlock) return;
+        answerBlock.classList.add('scale-[0.99]', 'opacity-70');
+        setTimeout(() => {
+          answerBlock.classList.remove('scale-[0.99]', 'opacity-70');
+        }, 180);
+      });
+    });
+  });
+</script></main><footer class="w-full bg-surface-container-low py-space-xl"><div class="max-w-7xl mx-auto px-6 lg:px-12"><div class="grid grid-cols-1 md:grid-cols-5 gap-space-xl pb-space-xl"><div class="md:col-span-2 flex flex-col gap-space-md"><div class="flex items-center gap-space-sm"><div class="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center text-body-md"><span class="">🧠</span></div><span class="font-headline-sm text-headline-sm text-on-surface">MemPulse</span></div><p class="font-body-sm text-body-sm text-on-surface-variant max-w-sm">Helping university students, researchers, and continuous learners practice, retain, and grow at their own cognitive pace.</p><div class="font-label-sm text-label-sm text-on-surface-variant">© 2026 MemPulse Inc. All rights reserved.</div></div><div class="flex flex-col gap-space-sm"><span class="font-label-lg text-label-lg text-on-surface uppercase tracking-wider">Product</span><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="features" href="#">Smart Flashcards</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="spaced-repetition" href="#">Adaptive Drills</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="pricing" href="#">Student Pricing</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="reviews" href="#">Wall of Mastery</a></div><div class="flex flex-col gap-space-sm"><span class="font-label-lg text-label-lg text-on-surface uppercase tracking-wider">Science</span><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="algorithm-science" href="#">FSRS &amp; SM-2 Engines</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="forgetting-curve" href="#">Ebbinghaus Curves</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="research" href="#">Cognitive Whitepapers</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="retention-benchmarks" href="#">Memory Benchmarks</a></div><div class="flex flex-col gap-space-sm"><span class="font-label-lg text-label-lg text-on-surface uppercase tracking-wider">Legal &amp; Trust</span><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="privacy-policy" href="#">Privacy Policy</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="terms-of-service" href="#">Terms of Service</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="student-data-pledge" href="#">Academic Pledge</a><a class="font-body-sm text-body-sm text-on-surface-variant hover:text-on-surface transition-colors" data-path="security" href="#">Security Standards</a></div></div><div class="pt-space-lg flex flex-col sm:flex-row items-center justify-between gap-space-md text-on-surface-variant"><p class="font-body-sm text-body-sm">Designed for deep retention and cognitive acceleration.</p><div class="flex items-center gap-space-lg"><a class="font-body-sm text-body-sm hover:text-on-surface transition-colors" data-path="status" href="#">Platform Status</a><a class="font-body-sm text-body-sm hover:text-on-surface transition-colors" data-path="contact" href="#">Support &amp; Campus Leads</a></div></div></div></footer>
+
+</body></html>

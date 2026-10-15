@@ -1,0 +1,1233 @@
+review.php
+```
+<?php
+session_start();
+
+if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || !isset($_SESSION['user_id'])) {
+    header("Location: ../authentication/login.php");
+    exit;
+}
+
+require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../api/ReviewHubService.php';
+require_once __DIR__ . '/../api/PracticeService.php';
+
+// Anti-CSRF token, sent along with the batch save in review.js
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+$userId = (int) $_SESSION['user_id'];
+$deckId = isset($_GET['deck_id']) && ctype_digit((string) $_GET['deck_id']) ? (int) $_GET['deck_id'] : null;
+
+$isReviewing = false;
+$dueCards = [];
+$hubDecks = [];
+
+// PRACTICE MODE (read-only): replay chosen cards without touching the schedule.
+//   review.php?deck_id=12&mode=practice&from=deck&cards=5,9,14
+//   review.php?mode=practice&from=sessions&session_id=88
+$isPractice   = (($_GET['mode'] ?? '') === 'practice');
+$practiceSkipped = 0;
+$returnUrl    = 'review.php';
+$practiceSessionId = 0;
+
+if ($isPractice) {
+    $isReviewing = true;
+    $from = (string) ($_GET['from'] ?? '');
+    $practiceSessionId = isset($_GET['session_id']) && ctype_digit((string) $_GET['session_id']) ? (int) $_GET['session_id'] : 0;
+
+    if ($practiceSessionId > 0) {
+        // From session history: all cards of that session, in the order they were reviewed
+        $info = PracticeService::sessionInfo($conn, $userId, $practiceSessionId);
+        if ($info === null) {
+            header("Location: review.php");
+            exit;
+        }
+        $deckId   = $info['deckId'];
+        $deckName = $info['deckTitle'];
+        $dueCards = PracticeService::cardsFromSession($conn, $userId, $practiceSessionId);
+        $practiceSkipped = max(0, $info['requested'] - count($dueCards));
+    } else {
+        // From the deck page: the selected card ids, in grid order
+        $ids = PracticeService::parseIds($_GET['cards'] ?? '');
+        if (!$deckId || !$ids) {
+            header("Location: review.php");
+            exit;
+        }
+        $deckName = null;
+        if ($stmt = mysqli_prepare($conn, "SELECT title FROM decks WHERE id = ? AND user_id = ? AND deleted_at IS NULL")) {
+            mysqli_stmt_bind_param($stmt, "ii", $deckId, $userId);
+            mysqli_stmt_execute($stmt);
+            $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+            $deckName = $row['title'] ?? null;
+            mysqli_stmt_close($stmt);
+        }
+        if ($deckName === null) {
+            header("Location: review.php");
+            exit;
+        }
+        $dueCards = PracticeService::cardsByIds($conn, $userId, $deckId, $ids);
+        $practiceSkipped = max(0, count($ids) - count($dueCards));
+    }
+    $returnUrl = PracticeService::returnUrl($from, $deckId ?? 0, $practiceSessionId);
+
+} elseif ($deckId) {
+    // ACTIVE REVIEW STATE: Fetch due cards for the specific deck
+    $isReviewing = true;
+    // Ownership check: only this user's non-archived decks, non-archived cards
+    $sql = "SELECT f.id, f.front, f.back, f.interval_days, f.next_review_at
+            FROM flashcards f
+            JOIN decks d ON d.id = f.deck_id
+            WHERE f.deck_id = ? AND d.user_id = ? AND d.deleted_at IS NULL
+              AND f.deleted_at IS NULL AND f.next_review_at <= NOW()
+            ORDER BY f.next_review_at ASC";
+    if ($stmt = mysqli_prepare($conn, $sql)) {
+        mysqli_stmt_bind_param($stmt, "ii", $deckId, $userId);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        while ($row = mysqli_fetch_assoc($result)) {
+            $dueCards[] = $row;
+        }
+        mysqli_stmt_close($stmt);
+    }
+    $deckName = null;
+    if ($stmt = mysqli_prepare($conn, "SELECT title FROM decks WHERE id = ? AND user_id = ? AND deleted_at IS NULL")) {
+        mysqli_stmt_bind_param($stmt, "ii", $deckId, $userId);
+        mysqli_stmt_execute($stmt);
+        $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        $deckName = $row['title'] ?? null;
+        mysqli_stmt_close($stmt);
+    }
+    if ($deckName === null) {
+        header("Location: review.php");
+        exit;
+    }
+} else {
+    // HUB STATE: table data + call-to-action data
+    $hubDecks       = ReviewHubService::getHubDecks($conn, $userId);
+    $dueDecks       = ReviewHubService::dueDecks($hubDecks);
+    $upcomingDecks  = ReviewHubService::upcomingDecks($hubDecks);
+    $recentSessions = ReviewHubService::getRecentSessions($conn, $userId, 8);
+
+    $streakInfo     = ReviewHubService::getStreakInfo($conn, $userId);
+    $curStreak      = $streakInfo['currentStreak'];
+    $reviewedToday  = $streakInfo['reviewedToday'];
+
+    $dueTotal       = array_sum(array_column($dueDecks, 'dueCount'));
+    $nextDueSecs    = $dueTotal === 0 ? ReviewHubService::getNextDueSeconds($conn, $userId) : null;
+}
+
+$pageTitle = $isReviewing ? "Active Review" : "Review Hub"; 
+$currentPage = "review";
+?>
+<!DOCTYPE html>
+<html lang="en">
+
+<?php include __DIR__ . '/../includes/head.php'; ?>
+
+<body class="bg-background font-body-md text-on-surface antialiased min-h-screen">
+
+    <?php include __DIR__ . '/../includes/sidebar.php'; ?>
+
+    <main id="main-content" class="pl-0 md:pl-72 pt-16 md:pt-6 transition-all duration-300 ease-in-out">
+        
+        <div class="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6 lg:px-8 py-6">
+                        
+            <?php if (!$isReviewing): ?>
+                <?php include __DIR__ . '/review-hub-view.php'; ?>
+
+            <?php else: ?>
+                <!-- Practice mode banner (JS also shows it when a finished review switches to practice) -->
+                <div id="practice-banner" class="<?= $isPractice ? '' : 'hidden' ?> max-w-[55rem] mx-auto mb-6 sm:px-14">
+                    <div class="rounded-xl bg-surface-container-low border border-outline-variant/30 px-4 py-2.5 text-sm text-on-surface">
+                        <p class="font-bold flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[18px] text-primary">play_arrow</span>
+                            Practice mode: results are not saved
+                        </p>
+                        <?php if ($isPractice && $practiceSkipped > 0): ?>
+                            <p id="practice-skipped" class="mt-1 text-xs text-on-surface-variant">
+                                <?= $practiceSkipped === 1
+                                    ? '1 card was skipped because it was archived or deleted.'
+                                    : (int) $practiceSkipped . ' cards were skipped because they were archived or deleted.' ?>
+                            </p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <?php if ($isPractice && empty($dueCards)): ?>
+                    <!-- Practice with no cards left -->
+                    <div id="practice-empty" class="max-w-2xl mx-auto flex flex-col items-center justify-center text-center pb-12">
+                        <div class="w-20 h-20 bg-surface-container-high text-on-surface-variant rounded-full flex items-center justify-center mb-6">
+                            <span class="material-symbols-outlined text-[40px]">inventory_2</span>
+                        </div>
+                        <h2 class="font-headline-md text-3xl font-extrabold text-on-surface mb-2">No cards to practice</h2>
+                        <p class="text-on-surface-variant mb-8">These cards have been archived or deleted since the session.</p>
+                        <a href="<?= htmlspecialchars($returnUrl, ENT_QUOTES, 'UTF-8') ?>" class="px-6 py-3 rounded-xl bg-primary text-on-primary font-bold shadow-sm hover:bg-primary-container transition-colors">Back</a>
+                    </div>
+                <?php endif; ?>
+
+                <!-- STATE B: ACTIVE REVIEW INTERFACE -->
+                <div id="active-review-container" class="max-w-[55rem] mx-auto flex flex-col h-full <?= empty($dueCards) ? 'hidden' : '' ?>">
+                    
+                    <!-- Session Header -->
+                    <div class="mb-6 sm:px-14">
+                        <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                            <button id="end-session-btn" class="justify-self-start p-1 -ml-1 text-on-surface-variant hover:text-rose-600 transition-colors" title="End session">
+                                <span class="material-symbols-outlined">close</span>
+                            </button>
+
+                            <div class="text-center min-w-0 max-w-[55vw] sm:max-w-sm">
+                                <p class="text-[11px] font-bold uppercase tracking-wider text-primary truncate"><?= htmlspecialchars($deckName, ENT_QUOTES, 'UTF-8') ?></p>
+                                <p id="progress-text" class="text-xs text-on-surface-variant">Card 1 of <?= count($dueCards) ?></p>
+                            </div>
+
+                            <div class="justify-self-end flex items-center gap-2.5 text-sm font-bold bg-surface-container-lowest border border-outline-variant/30 px-3 py-1.5 rounded-xl">
+                                <span class="text-emerald-600 flex items-center gap-1" title="Remembered">
+                                    <span class="material-symbols-outlined text-[16px]">check_circle</span>
+                                    <span id="tally-remembered" class="inline-block tabular-nums">0</span>
+                                </span>
+                                <span class="text-outline-variant">|</span>
+                                <span class="text-rose-600 flex items-center gap-1" title="Forgotten">
+                                    <span class="material-symbols-outlined text-[16px]">cancel</span>
+                                    <span id="tally-forgotten" class="inline-block tabular-nums">0</span>
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="mt-3 w-full bg-surface-container-high rounded-full h-1 overflow-hidden">
+                            <div id="progress-bar" class="bg-primary h-1 rounded-full transition-[width] duration-300 ease-out" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Flashcard Stage -->
+                    <div class="flex-1 flex flex-col items-center justify-center min-h-[350px]">
+                        <div class="flex items-center gap-2 sm:gap-4 w-full">
+
+                            <!-- Prev: left margin -->
+                            <button id="prev-card-btn" type="button" title="Previous card (←)" aria-label="Previous card"
+                                class="shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-surface-container-lowest border border-outline-variant/40 text-on-surface-variant hover:text-primary hover:border-primary/50 hover:bg-surface-container-low transition disabled:opacity-30 disabled:pointer-events-none">
+                                <span class="material-symbols-outlined text-[22px]">chevron_left</span>
+                            </button>
+
+                            <div id="flashcard-stage" class="flex-1 min-w-0 bg-surface-container-lowest border border-outline-variant/30 shadow-md rounded-2xl p-8 sm:p-12 text-center relative overflow-hidden">
+
+                                <!-- Rating Badge (shows briefly when navigating backwards) -->
+                                <div id="historical-rating-badge" class="hidden absolute top-4 right-4 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider"></div>
+
+                                <!-- Front -->
+                                <div id="card-front-content" class="text-xl sm:text-2xl font-medium text-on-surface"></div>
+
+                                <!-- Divider -->
+                                <hr id="card-divider" class="my-8 border-outline-variant/30 hidden">
+
+                                <!-- Back -->
+                                <div id="card-back-content" class="text-lg sm:text-xl text-on-surface-variant hidden"></div>
+                            </div>
+
+                            <!-- Next: right margin -->
+                            <button id="next-card-btn" type="button" title="Next card (→)" aria-label="Next card"
+                                class="shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-surface-container-lowest border border-outline-variant/40 text-on-surface-variant hover:text-primary hover:border-primary/50 hover:bg-surface-container-low transition disabled:opacity-30 disabled:pointer-events-none">
+                                <span class="material-symbols-outlined text-[22px]">chevron_right</span>
+                            </button>
+
+                        </div>
+                    </div>
+
+                    <!-- Controls -->
+                    <div class="mt-6 flex flex-col items-center gap-3 sm:px-14">
+                        <div class="flex justify-center w-full min-h-[56px]">
+                            <button id="show-answer-btn" class="px-8 py-3 rounded-xl bg-primary text-on-primary font-bold shadow-md hover:bg-primary-container hover:-translate-y-0.5 transition-all w-full max-w-sm">
+                                Show Answer
+                            </button>
+
+                            <div id="rate-actions" class="hidden flex gap-3 w-full max-w-lg">
+                                <button id="rate-again-btn" type="button" class="flex-1 flex flex-col items-center justify-center py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 active:scale-[0.97] transition shadow-sm">
+                                    <span class="font-bold">Again</span>
+                                    <span id="projected-again-date" class="text-[11px] font-medium opacity-80 mt-0.5">this session</span>
+                                </button>
+                                <button id="rate-forgot-btn" class="flex-1 flex flex-col items-center justify-center py-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 active:scale-[0.97] transition shadow-sm">
+                                    <span class="font-bold">Forgot</span>
+                                    <span id="projected-forgot-date" class="text-[11px] font-medium opacity-80 mt-0.5">Again today</span>
+                                </button>
+                                <button id="rate-remember-btn" class="flex-1 flex flex-col items-center justify-center py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 active:scale-[0.97] transition shadow-sm">
+                                    <span class="font-bold">Remember</span>
+                                    <span id="projected-remember-date" class="text-[11px] font-medium opacity-80 mt-0.5">in 2 days</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <p class="hidden md:block text-[11px] text-on-surface-variant/60 select-none">
+                            <span id="hint-reveal"><kbd class="px-1.5 py-0.5 rounded border border-outline-variant/50 bg-surface-container-low font-mono text-[10px]">Space</kbd> reveal</span>
+                            <span id="hint-rate" class="hidden">
+                                <kbd class="px-1.5 py-0.5 rounded border border-outline-variant/50 bg-surface-container-low font-mono text-[10px]">A</kbd> again
+                                <span class="mx-1" aria-hidden="true">·</span>
+                                <kbd class="px-1.5 py-0.5 rounded border border-outline-variant/50 bg-surface-container-low font-mono text-[10px]">F</kbd> forgot
+                                <span class="mx-1" aria-hidden="true">·</span>
+                                <kbd class="px-1.5 py-0.5 rounded border border-outline-variant/50 bg-surface-container-low font-mono text-[10px]">Space</kbd> remember
+                            </span>
+                        </p>
+                    </div>
+
+                </div>
+
+                <!-- STATE C: ZERO CARDS / FINISHED SCREEN -->
+                <div id="review-finished-screen" class="max-w-2xl mx-auto flex-col items-center justify-center text-center h-full pb-12 <?= (empty($dueCards) && !$isPractice) ? 'flex' : 'hidden' ?>">
+                    <div id="finished-icon" class="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-6">
+                        <span class="material-symbols-outlined text-[40px]">task_alt</span>
+                    </div>
+                    <h2 id="finished-headline" class="font-headline-md text-3xl font-extrabold text-on-surface mb-2">Session Complete!</h2>
+                    <p class="text-on-surface-variant mb-8">You've finished <span class="font-semibold text-on-surface"><?= htmlspecialchars($deckName, ENT_QUOTES, 'UTF-8') ?></span>. Great work.</p>
+
+                    <div id="session-summary-stats" class="grid grid-cols-3 gap-3 w-full max-w-md mb-8 hidden">
+                        <div data-stat-tile class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-sm">
+                            <span class="block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Accuracy</span>
+                            <span id="summary-accuracy" class="block text-4xl font-extrabold text-on-surface mt-1 tabular-nums">0%</span>
+                            <div class="mt-3 h-1 rounded-full bg-surface-container-high overflow-hidden">
+                                <div id="summary-accuracy-bar" class="h-1 rounded-full bg-primary" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div data-stat-tile class="bg-emerald-50 border border-emerald-200/80 rounded-2xl p-4 shadow-sm">
+                            <span class="block text-[11px] font-bold uppercase tracking-wider text-emerald-700">Remembered</span>
+                            <span id="summary-remembered" class="block text-4xl font-extrabold text-emerald-600 mt-1 tabular-nums">0</span>
+                        </div>
+                        <div data-stat-tile class="bg-rose-50 border border-rose-200/80 rounded-2xl p-4 shadow-sm">
+                            <span class="block text-[11px] font-bold uppercase tracking-wider text-rose-700">Forgotten</span>
+                            <span id="summary-forgotten" class="block text-4xl font-extrabold text-rose-600 mt-1 tabular-nums">0</span>
+                        </div>
+                    </div>
+
+                    <div id="finished-actions" class="flex flex-col sm:flex-row items-center justify-center gap-3">
+                        <button id="review-missed-btn" type="button" disabled class="hidden px-6 py-3 rounded-xl bg-primary text-on-primary font-bold shadow-sm hover:bg-primary-container transition-colors disabled:opacity-60 disabled:cursor-wait">
+                            Saving…
+                        </button>
+                        <button id="practice-again-btn" type="button" disabled class="hidden px-6 py-3 rounded-xl font-bold border border-outline-variant text-on-surface hover:bg-surface-container-low transition-colors disabled:opacity-60 disabled:cursor-wait">
+                            Practice again
+                        </button>
+                        <a id="return-hub-link" href="review.php" class="px-6 py-3 rounded-xl bg-primary text-on-primary font-bold shadow-sm hover:bg-primary-container transition-colors">
+                            Return to Review Hub
+                        </a>
+                    </div>
+                </div>
+
+            <?php endif; ?>
+        </div>
+    </main>
+
+    <!-- Data Injection -->
+    <script>
+        window.MemPulseReviewData = {
+            deckId: <?= json_encode($deckId) ?>,
+            dueCards: <?= json_encode($dueCards ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+            csrfToken: <?= json_encode($_SESSION['csrf_token'] ?? '') ?>,
+            mode: <?= json_encode($isPractice ? 'practice' : null) ?>,
+            skipped: <?= (int) $practiceSkipped ?>,
+            returnUrl: <?= json_encode($returnUrl) ?>
+        };
+    </script>
+    <script src="../assets/js/review.js" defer></script>
+</body>
+</html>
+```
+
+review.js
+```
+document.addEventListener("DOMContentLoaded", () => {
+    const data = window.MemPulseReviewData;
+    if (!data.deckId || !data.dueCards || data.dueCards.length === 0) return;
+
+    // PRACTICE MODE: replay cards without saving anything. No saveSession(), no
+    // unsaved-changes warning, no endpoint calls. `practice` can also be switched on
+    // client-side from a normal review's finished screen ("Practice again").
+    let practice = data.mode === 'practice';
+    const cleanCard = c => ({ id: c.id, front: c.front, back: c.back, interval_days: c.interval_days, next_review_at: c.next_review_at });
+    let lastSet = data.dueCards.map(cleanCard);   // what "Practice again" replays
+    let finishToken = 0;                          // cancels a running stats animation on restart
+
+    let queue = data.dueCards;
+    let currentIndex = 0;
+
+    // State storage: track how the user rated each card ID
+    // Format: { cardId: 'remembered' | 'forgotten' }
+    let ratings = {};
+    let isAnswerShown = false;
+    let sessionEnded = false;
+
+    const csrfToken = data.csrfToken || '';
+    let sessionStartedAt = Date.now();
+    let sessionDuration = 0;
+    let unsavedRatings = false;
+
+    // "Again" puts the card back into this session's queue a few cards later.
+    // It never writes to `ratings`, so nothing extra is saved for it.
+    const AGAIN_OFFSET = 3;
+    let uniqueTotal = queue.length;   // cards in this session, ignoring repeats
+
+    // Scheduling rules, same as save-session.php. These defaults are replaced
+    // by the user's saved settings as soon as they load (see loadSrsSettings).
+    let srs = {
+        remember_multiplier: 2,
+        forgot_multiplier: 0.5,
+        initial_interval_days: 1,
+        maximum_interval_days: 365
+    };
+
+    function nextInterval(prevDays, status) {
+        const multiplier = status === 'remembered' ? srs.remember_multiplier : srs.forgot_multiplier;
+        const days = Math.round(prevDays * multiplier);
+        return Math.max(srs.initial_interval_days, Math.min(srs.maximum_interval_days, days));
+    }
+
+    const formatDays = (d) => `in ${d} ${d === 1 ? 'day' : 'days'}`;
+
+    function updateProjections() {
+        if (practice) return;   // Forgot / Remember day labels are hidden in practice
+        const card = queue[currentIndex];
+        if (!card) return;
+        const interval = parseInt(card.interval_days, 10) || 0;
+        projForgot.textContent = formatDays(nextInterval(interval, 'forgotten'));
+        projRemember.textContent = formatDays(nextInterval(interval, 'remembered'));
+    }
+
+    async function loadSrsSettings() {
+        try {
+            const res = await fetch('../api/settings-actions.php', { credentials: 'same-origin' });
+            const body = await res.json();
+            if (res.ok && body.success && body.settings) {
+                srs = { ...srs, ...body.settings };
+                updateProjections();
+            }
+        } catch (_) { /* keep the defaults */ }
+    }
+
+    // DOM Elements
+    const elFront = document.getElementById('card-front-content');
+    const elBack = document.getElementById('card-back-content');
+    const elDivider = document.getElementById('card-divider');
+    const btnShow = document.getElementById('show-answer-btn');
+    const boxRates = document.getElementById('rate-actions');
+    const btnForgot = document.getElementById('rate-forgot-btn');
+    const btnRemember = document.getElementById('rate-remember-btn');
+    const btnAgain = document.getElementById('rate-again-btn');
+    const projForgot = document.getElementById('projected-forgot-date');
+    const projRemember = document.getElementById('projected-remember-date');
+
+    const txtProgress = document.getElementById('progress-text');
+    const barProgress = document.getElementById('progress-bar');
+    const txtRem = document.getElementById('tally-remembered');
+    const txtFor = document.getElementById('tally-forgotten');
+    const badgeHist = document.getElementById('historical-rating-badge');
+
+    const viewActive = document.getElementById('active-review-container');
+    const viewFinished = document.getElementById('review-finished-screen');
+
+    const stage = document.getElementById('flashcard-stage');
+    const hintReveal = document.getElementById('hint-reveal');
+    const hintRate = document.getElementById('hint-rate');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let isAnimating = false;
+
+    const btnMissed = document.getElementById('review-missed-btn');
+    const returnLink = document.getElementById('return-hub-link');
+    const btnPracticeAgain = document.getElementById('practice-again-btn');
+    const practiceBanner = document.getElementById('practice-banner');
+    const sumAccuracy = document.getElementById('summary-accuracy');
+    const sumRem = document.getElementById('summary-remembered');
+    const sumFor = document.getElementById('summary-forgotten');
+    let missedCount = 0;
+    let statsDone = Promise.resolve();
+
+    const btnPrev = document.getElementById('prev-card-btn');
+    const btnNext = document.getElementById('next-card-btn');
+
+    // 1. Core Navigation & Display Logic
+    function renderCard() {
+        if (currentIndex >= queue.length) {
+            endSession();
+            return;
+        }
+
+        const card = queue[currentIndex];
+        elFront.innerHTML = escapeHtml(card.front).replace(/\n/g, '<br>');
+        elBack.innerHTML = escapeHtml(card.back).replace(/\n/g, '<br>');
+
+        txtProgress.textContent = `Card ${currentIndex + 1} of ${queue.length}`;
+        barProgress.style.width = `${(Object.keys(ratings).length / uniqueTotal) * 100}%`;
+
+        // Badge: the earlier rating (via Back), or a note on Again / repeated cards
+        const prevRating = ratings[card.id];
+        badgeHist.classList.remove('hidden', 'bg-emerald-100', 'text-emerald-700',
+            'bg-rose-100', 'text-rose-700', 'bg-amber-100', 'text-amber-700');
+        if (prevRating === 'remembered') {
+            badgeHist.textContent = 'Rated: Remembered';
+            badgeHist.classList.add('bg-emerald-100', 'text-emerald-700');
+        } else if (prevRating) {
+            badgeHist.textContent = 'Rated: Forgotten';
+            badgeHist.classList.add('bg-rose-100', 'text-rose-700');
+        } else if (card._again) {
+            badgeHist.textContent = 'Again: comes back later';
+            badgeHist.classList.add('bg-amber-100', 'text-amber-700');
+        } else if (card._repeat) {
+            badgeHist.textContent = 'Repeat';
+            badgeHist.classList.add('bg-amber-100', 'text-amber-700');
+        } else {
+            badgeHist.classList.add('hidden');
+        }
+
+        // Show when this card will come back for each rating
+        updateProjections();
+
+        hideAnswer();
+        updateNavButtons();
+    }
+
+    function showAnswer() {
+        if (sessionEnded || isAnimating || isAnswerShown) return;
+        isAnswerShown = true;
+        elBack.classList.remove('hidden');
+        elDivider.classList.remove('hidden');
+        btnShow.classList.add('hidden');
+        boxRates.classList.remove('hidden');
+        hintReveal.classList.add('hidden');
+        hintRate.classList.remove('hidden');
+        if (!reduceMotion) {
+            elBack.animate(
+                [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'translateY(0)' }],
+                { duration: 200, easing: 'ease-out' });
+        }
+    }
+
+    function hideAnswer() {
+        isAnswerShown = false;
+        elBack.classList.add('hidden');
+        elDivider.classList.add('hidden');
+        btnShow.classList.remove('hidden');
+        boxRates.classList.add('hidden');
+        hintReveal.classList.remove('hidden');
+        hintRate.classList.add('hidden');
+    }
+
+    // 2. Rating & Tally Logic
+    async function rateCard(status) {
+        if (sessionEnded || isAnimating) return;
+        const card = queue[currentIndex];
+        ratings[card.id] = status;
+        unsavedRatings = !practice;
+        updateTally(status);
+
+        const dir = status === 'remembered' ? 1 : -1;
+        const glow = status === 'remembered' ? 'rgba(16,185,129,0.35)' : 'rgba(244,63,94,0.35)';
+        return advanceCard(dir, glow);
+    }
+
+    // Plays the exit animation for the current card, then deals the next one.
+    async function advanceCard(dir, glow) {
+        if (reduceMotion) {
+            currentIndex++;
+            renderCard();
+            return;
+        }
+
+        isAnimating = true;
+        const out = stage.animate([
+            { opacity: 1, transform: 'translateX(0) rotate(0deg)', boxShadow: `0 0 0 0 ${glow}` },
+            { opacity: 0, transform: `translateX(${dir * 64}px) rotate(${dir * 2}deg)`, boxShadow: `0 0 0 6px ${glow}` }
+        ], { duration: 220, easing: 'ease-in', fill: 'forwards' });
+        await out.finished;
+
+        currentIndex++;
+        renderCard();
+        out.cancel();
+
+        if (!sessionEnded) {
+            stage.animate([
+                { opacity: 0, transform: 'translateY(14px) scale(0.98)' },
+                { opacity: 1, transform: 'translateY(0) scale(1)' }
+            ], { duration: 240, easing: 'ease-out' });
+        }
+        isAnimating = false;
+    }
+
+    // Again: no rating is saved; a copy of the card comes back a few cards later.
+    async function againCard() {
+        if (sessionEnded || isAnimating) return;
+        const card = queue[currentIndex];
+
+        if (ratings[card.id]) {              // reached with Back: un-rate it
+            delete ratings[card.id];
+            updateTally();
+            unsavedRatings = !practice && Object.keys(ratings).length > 0;
+        }
+
+        card._again = true;                  // this slot can be skipped with Next
+
+        // Remove any copy already waiting ahead, then insert a fresh one
+        queue = queue.filter((c, i) => i <= currentIndex || c.id !== card.id);
+        const insertAt = Math.min(currentIndex + 1 + AGAIN_OFFSET, queue.length);
+        queue.splice(insertAt, 0, { ...card, _again: false, _repeat: true });
+
+        return advanceCard(0, 'rgba(245, 158, 11, 0.35)');
+    }
+
+    function updateTally(bumpStatus) {
+        let rem = 0, forg = 0;
+        Object.values(ratings).forEach(r => r === 'remembered' ? rem++ : forg++);
+        txtRem.textContent = rem;
+        txtFor.textContent = forg;
+        if (bumpStatus && !reduceMotion) {
+            (bumpStatus === 'remembered' ? txtRem : txtFor).animate(
+                [{ transform: 'scale(1)' }, { transform: 'scale(1.4)' }, { transform: 'scale(1)' }],
+                { duration: 280, easing: 'ease-out' });
+        }
+    }
+
+    // 3. Backward/Forward Queue Navigation
+    function prevCard() {
+        if (sessionEnded || isAnimating || currentIndex === 0) return; {
+            currentIndex--;
+            renderCard();
+            slideIn(-1);
+        }
+    }
+
+    // Back is available after the first card; Next only once the current card has a rating (or was sent to Again)
+    function updateNavButtons() {
+        btnPrev.disabled = currentIndex === 0;
+        const card = queue[currentIndex];
+        btnNext.disabled = !(card && (ratings[card.id] || card._again));
+    }
+
+    function slideIn(dir) {
+        if (reduceMotion) return;
+        stage.animate([
+            { opacity: 0, transform: `translateX(${dir * 28}px)` },
+            { opacity: 1, transform: 'translateX(0)' }
+        ], { duration: 200, easing: 'ease-out' });
+    }
+
+    function skipToNext() {
+        if (sessionEnded || isAnimating) return;
+        const card = queue[currentIndex];
+        if (!card || !(ratings[card.id] || card._again)) return;   // only skip cards already rated or sent to Again
+        currentIndex++;
+        renderCard();
+        if (!sessionEnded) slideIn(1);
+    }
+
+    // 4. Batch Save & Session End
+    async function saveSession() {
+        const res = await fetch('../api/save-session.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                deck_id: data.deckId,
+                results: ratings,
+                csrf_token: csrfToken,
+                duration_seconds: sessionDuration
+            })
+        });
+        let body = {};
+        try { body = await res.json(); } catch (_) { }
+        if (!res.ok || !body.ok) {
+            throw new Error(body.error || `Save failed (HTTP ${res.status}).`);
+        }
+        unsavedRatings = false;
+        return body;
+    }
+
+    function showSaveError(message) {
+        let box = document.getElementById('save-status');
+        if (!box) {
+            box = document.createElement('div');
+            box.id = 'save-status';
+            box.className = 'w-full max-w-sm mb-6 p-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-sm flex flex-col gap-3';
+            viewFinished.insertBefore(box, document.getElementById('finished-actions'));
+        }
+        box.textContent = '';
+
+        const p = document.createElement('p');
+        p.textContent = `Your session wasn't saved: ${message}`;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold';
+        btn.textContent = 'Retry save';
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            try {
+                await saveSession(); box.remove(); armMissedButton();
+            } catch (err) { showSaveError(err.message); }
+        });
+
+        box.append(p, btn);
+    }
+
+    async function endSession() {
+        if (sessionEnded) return;
+        sessionEnded = true;
+        sessionDuration = Math.round((Date.now() - sessionStartedAt) / 1000);
+        viewActive.classList.add('hidden');
+        viewFinished.classList.remove('hidden');
+        viewFinished.classList.add('flex');   // fixes the off-center completion screen
+
+        if (!reduceMotion) {
+            document.getElementById('finished-icon').animate(
+                [{ transform: 'scale(0.6)', opacity: 0 }, { transform: 'scale(1.08)', opacity: 1 }, { transform: 'scale(1)' }],
+                { duration: 450, easing: 'ease-out' });
+        }
+
+        const ratedIds = Object.keys(ratings);
+        if (ratedIds.length === 0) {
+            if (practice) {   // ended early with nothing rated: still allow another go
+                document.getElementById('finished-headline').textContent = 'Practice complete';
+                showPracticeAgain(false);
+                styleFinishedButtons(false);
+            }
+            return;
+        }
+
+        const total = ratedIds.length;
+        const remCount = Object.values(ratings).filter(r => r === 'remembered').length;
+        const forgCount = total - remCount;
+        const accuracy = Math.round((remCount / total) * 100);
+
+        // document.getElementById('finished-headline').textContent = headlineFor(accuracy);
+        document.getElementById('session-summary-stats').classList.remove('hidden');
+
+        if (forgCount > 0) {
+            missedCount = forgCount;
+            btnMissed.classList.remove('hidden');
+            if (practice) {
+                setMissedLabel();            // nothing to wait for: enabled right away
+                btnMissed.disabled = false;
+            } else {
+                btnMissed.disabled = true;
+                btnMissed.textContent = 'Saving…';
+            }
+        }
+        // Practice again: in a real review it unlocks once the save has succeeded
+        showPracticeAgain(!practice);
+        styleFinishedButtons(forgCount > 0);
+
+        // Confetti pop + stats showcase run alongside the save
+        // confettiBurst({ x: 0.5, y: 0.35, count: accuracy >= 80 ? 170 : 120, power: 17 });
+        statsDone = showStats(remCount, forgCount, accuracy);
+
+        if (practice) {
+            armMissedButton();               // practice never saves anything
+            return;
+        }
+
+        try {
+            await saveSession();
+            armMissedButton();
+        } catch (error) {
+            console.error("Failed to save session batch:", error);
+            showSaveError(error.message);
+        }
+    }
+
+    // 5. Event Listeners
+    btnShow.addEventListener('click', showAnswer);
+    btnForgot.addEventListener('click', () => rateCard('forgotten'));
+    btnRemember.addEventListener('click', () => rateCard('remembered'));
+    btnAgain.addEventListener('click', againCard);
+    document.getElementById('end-session-btn').addEventListener('click', endSession);
+    btnPrev.addEventListener('click', e => { prevCard(); e.currentTarget.blur(); });
+    btnNext.addEventListener('click', e => { skipToNext(); e.currentTarget.blur(); });
+
+    document.addEventListener('keydown', (e) => {
+        if (sessionEnded || isAnimating) return;
+
+        switch (e.key) {
+            case ' ':
+                e.preventDefault();
+                if (!isAnswerShown) showAnswer();
+                else rateCard('remembered'); // Second spacebar defaults to remember & advance
+                break;
+            case 'a':
+            case 'A':
+                if (isAnswerShown) againCard();
+                break;
+            case 'f':
+            case 'F':
+                if (isAnswerShown) rateCard('forgotten');
+                break;
+            case 'ArrowLeft':
+                prevCard();
+                break;
+            case 'ArrowRight':
+                skipToNext();
+                break;
+        }
+    });
+
+    window.addEventListener('beforeunload', (e) => {
+        if (unsavedRatings) { e.preventDefault(); e.returnValue = ''; }
+    });
+
+    // -----------------------------------------------------------------------
+    // Finished screen: headline, missed-cards button, stats showcase
+    // -----------------------------------------------------------------------
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    function headlineFor(accuracy) {
+        if (practice) return 'Practice complete';
+        if (accuracy >= 80) return 'Solid session';
+        if (accuracy >= 50) return 'Good progress';
+        return 'Those will come back soon';
+    }
+
+    // Real review: enabled only after the save succeeded, so forgotten cards are due again on reload.
+    // Practice: nothing is saved, so everything is enabled right away.
+    async function armMissedButton() {
+        if (!practice) await statsDone;   // don't let the user jump away mid-stamp
+        btnPracticeAgain.disabled = false;
+        if (missedCount < 1) return;
+        setMissedLabel();
+        btnMissed.disabled = false;
+    }
+
+    function setMissedLabel() {
+        const noun = missedCount === 1 ? 'card' : 'cards';
+        btnMissed.textContent = practice
+            ? `Practice ${missedCount} missed ${noun}`
+            : `Review ${missedCount} missed ${noun}`;
+    }
+
+    const PRIMARY_BTN = ['bg-primary', 'text-on-primary', 'shadow-sm', 'hover:bg-primary-container'];
+    const SECONDARY_BTN = ['border', 'border-outline-variant', 'text-on-surface', 'hover:bg-surface-container-low'];
+    function setPrimary(el, primary) {
+        el.classList.remove(...PRIMARY_BTN, ...SECONDARY_BTN);
+        el.classList.add(...(primary ? PRIMARY_BTN : SECONDARY_BTN));
+    }
+
+    // Missed button is always the main action when shown; otherwise Practice again leads in
+    // practice mode and the Back / Return link leads in a real review.
+    function styleFinishedButtons(hasMissed) {
+        setPrimary(btnPracticeAgain, practice && !hasMissed);
+        setPrimary(returnLink, !practice && !hasMissed);
+    }
+
+    function showPracticeAgain(disabled) {
+        btnPracticeAgain.disabled = disabled;
+        btnPracticeAgain.classList.remove('hidden');
+    }
+
+    function setPracticeMode(on) {
+        practice = on;
+        practiceBanner?.classList.toggle('hidden', !on);
+        projForgot.classList.toggle('hidden', on);
+        projRemember.classList.toggle('hidden', on);
+        if (on) {
+            returnLink.href = data.returnUrl || 'review.php';
+            returnLink.textContent = 'Back';
+        }
+    }
+
+    // Deals a fresh set of cards. Shared by "missed" and "practice" restarts.
+    function resetSession(cards) {
+        queue = cards;
+        uniqueTotal = cards.length;
+        currentIndex = 0;
+        ratings = {};
+        isAnswerShown = false;
+        sessionEnded = false;
+        unsavedRatings = false;
+        sessionStartedAt = Date.now();
+        sessionDuration = 0;
+        missedCount = 0;
+        finishToken++;
+
+        // Reset header tally and finished screen
+        txtRem.textContent = '0';
+        txtFor.textContent = '0';
+        sumAccuracy.textContent = '0%';
+        sumRem.textContent = '0';
+        sumFor.textContent = '0';
+        document.getElementById('summary-accuracy-bar').style.width = '0%';
+        document.getElementById('session-summary-stats').classList.add('hidden');
+        document.getElementById('finished-headline').textContent = practice ? 'Practice complete' : 'Session Complete!';
+        document.getElementById('save-status')?.remove();
+        document.getElementById('practice-skipped')?.classList.add('hidden');   // only about the first set
+        btnMissed.classList.add('hidden');
+        btnPracticeAgain.classList.add('hidden');
+        styleFinishedButtons(false);
+
+        // Swap views and deal the first card
+        viewFinished.classList.add('hidden');
+        viewFinished.classList.remove('flex');
+        viewActive.classList.remove('hidden');
+        renderCard();
+    }
+
+    function startMissedSession() {
+        // A card can sit in the queue twice (Again), so keep one entry per card
+        const seen = new Set();
+        const missed = queue
+            .filter(c => ratings[c.id] === 'forgotten' && !seen.has(c.id) && seen.add(c.id))
+            .map(c => ({ ...c, _again: false, _repeat: false }));
+        if (missed.length === 0) return;
+
+        // Real review: save-session.php just gave these cards their "forgot" interval, so mirror it locally.
+        // Practice: the server never changed anything, so leave the intervals alone.
+        if (!practice) {
+            missed.forEach(c => { c.interval_days = nextInterval(parseInt(c.interval_days, 10) || 0, 'forgotten'); });
+        }
+
+        lastSet = missed.map(cleanCard);
+        resetSession(missed);
+    }
+
+    // Replays a set of cards in practice mode (nothing is saved)
+    function startPractice(cards) {
+        if (!cards.length) return;
+        setPracticeMode(true);
+        lastSet = cards.map(cleanCard);
+        resetSession(lastSet.map(c => ({ ...c })));
+    }
+    btnMissed.addEventListener('click', startMissedSession);
+    btnPracticeAgain.addEventListener('click', () => startPractice(lastSet));
+
+    // function countUp(el, to, { duration = 900, suffix = '' } = {}) {
+    //     if (reduceMotion || to === 0) {
+    //         el.textContent = to + suffix;
+    //         return Promise.resolve();
+    //     }
+    //     return new Promise(resolve => {
+    //         const t0 = performance.now();
+    //         const tick = now => {
+    //             const p = Math.min(1, (now - t0) / duration);
+    //             el.textContent = Math.round(to * (1 - Math.pow(1 - p, 3))) + suffix;
+    //             p < 1 ? requestAnimationFrame(tick) : resolve();
+    //         };
+    //         requestAnimationFrame(tick);
+    //     });
+    // }
+
+    async function showStats(rem, forg, accuracy) {
+        const token = finishToken;
+        const headline = document.getElementById('finished-headline');
+        const bar = document.getElementById('summary-accuracy-bar');
+        const tiles = document.querySelectorAll('#session-summary-stats [data-stat-tile]');
+        const [tileAcc, tileRem, tileFor] = tiles;   // DOM order: Accuracy, Remembered, Forgotten
+
+        sumAccuracy.textContent = accuracy + '%';
+        sumRem.textContent = rem;
+        sumFor.textContent = forg;
+
+        if (reduceMotion) {
+            bar.style.width = accuracy + '%';
+            headline.textContent = headlineFor(accuracy);
+            return;
+        }
+
+        // Empty frames fade in first; each number stays hidden until its stamp lands
+        [sumAccuracy, sumRem, sumFor].forEach(el => { el.style.opacity = '0'; });
+        bar.style.width = '0%';
+        tiles.forEach(tile => tile.animate(
+            [{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'translateY(0)' }],
+            { duration: 350, easing: 'ease-out', fill: 'backwards' }));
+
+        await sleep(500);
+        if (token !== finishToken) return;
+        await stampStat(sumRem, tileRem, 'border-emerald-400', { scale: 3, duration: 520, shakePx: 4 });
+        if (token !== finishToken) return;
+        await sleep(300);
+        if (token !== finishToken) return;
+        await stampStat(sumFor, tileFor, 'border-rose-400', { scale: 3, duration: 520, shakePx: 4 });
+        if (token !== finishToken) return;
+        await sleep(650);   // beat of suspense before the hero number
+        if (token !== finishToken) return;
+        await stampStat(sumAccuracy, tileAcc, 'border-primary', { scale: 4.5, duration: 720, shakePx: 10, hero: true });
+        if (token !== finishToken) return;
+
+        // Climax: bar fills, headline appears, confetti explodes
+        bar.animate([{ width: '0%' }, { width: accuracy + '%' }],
+            { duration: 900, easing: 'cubic-bezier(.2,.8,.2,1)' });
+        bar.style.width = accuracy + '%';
+
+        headline.textContent = headlineFor(accuracy);
+        headline.animate(
+            [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'translateY(0)' }],
+            { duration: 350, easing: 'ease-out' });
+
+        confettiBurst({ x: 0.5, y: 0.3, count: accuracy >= 80 ? 170 : 120, power: 17 });
+        const n = accuracy >= 80 ? 90 : 60;
+        confettiBurst({ x: 0, y: 0.75, count: n, angle: -Math.PI / 3, spread: Math.PI / 3, power: 22 });
+        confettiBurst({ x: 1, y: 0.75, count: n, angle: -2 * Math.PI / 3, spread: Math.PI / 3, power: 22 });
+    }
+
+    // A number slams in from huge and blurry, squashes on impact, then settles.
+    // Resolves at the moment of impact so the caller can chain the next beat.
+    function stampStat(el, tile, ringClass, { scale = 3, duration = 520, shakePx = 5, hero = false } = {}) {
+        return new Promise(resolve => {
+            el.style.opacity = '1';
+            el.animate([
+                { opacity: 0, transform: `scale(${scale}) rotate(-14deg)`, filter: 'blur(6px)', offset: 0, easing: 'cubic-bezier(.5,0,1,.6)' },
+                { opacity: 1, transform: 'scale(0.9) rotate(2deg)', filter: 'blur(0px)', offset: 0.55 },
+                { transform: 'scale(1.06) rotate(-1deg)', offset: 0.75 },
+                { transform: 'scale(1) rotate(0deg)', offset: 1 }
+            ], { duration, easing: 'linear' });
+
+            setTimeout(() => {
+                impactRing(tile, ringClass);
+                if (hero) setTimeout(() => impactRing(tile, ringClass), 130);
+                tile.animate(
+                    [{ transform: 'scale(1)' }, { transform: 'scale(0.96)' }, { transform: 'scale(1)' }],
+                    { duration: 260, easing: 'ease-out' });
+                shake(viewFinished, shakePx);
+                resolve();
+            }, duration * 0.55);
+        });
+    }
+
+    function impactRing(tile, colorClass) {
+        tile.classList.add('relative');
+        const ring = document.createElement('div');
+        ring.className = `absolute inset-0 rounded-2xl border-2 pointer-events-none ${colorClass}`;
+        tile.appendChild(ring);
+        ring.animate(
+            [{ opacity: 0.9, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(1.35)' }],
+            { duration: 520, easing: 'ease-out' }
+        ).finished.then(() => ring.remove());
+    }
+
+    function shake(el, px = 6, duration = 380) {
+        el.animate([
+            { transform: 'translate(0, 0)' },
+            { transform: `translate(${-px}px, ${px * 0.5}px)` },
+            { transform: `translate(${px}px, ${-px * 0.5}px)` },
+            { transform: `translate(${-px * 0.6}px, 0)` },
+            { transform: `translate(${px * 0.4}px, 0)` },
+            { transform: 'translate(0, 0)' }
+        ], { duration, easing: 'ease-out' });
+    }
+
+    // -----------------------------------------------------------------------
+    // Confetti (tiny canvas engine, no dependencies)
+    // -----------------------------------------------------------------------
+    const CONFETTI_COLORS = ['#10b981', '#34d399', '#6366f1', '#f59e0b', '#f43f5e', '#38bdf8'];
+    let confettiCanvas = null, confettiCtx = null, confettiParts = [], confettiRaf = null;
+
+    function confettiBurst({ x = 0.5, y = 0.4, count = 120, angle = -Math.PI / 2, spread = Math.PI * 2, power = 15 } = {}) {
+        if (reduceMotion) return;
+
+        const dpr = window.devicePixelRatio || 1;
+        if (!confettiCanvas) {
+            confettiCanvas = document.createElement('canvas');
+            confettiCanvas.className = 'fixed inset-0 w-full h-full pointer-events-none z-[60]';
+            document.body.appendChild(confettiCanvas);
+            confettiCtx = confettiCanvas.getContext('2d');
+        }
+        if (confettiCanvas.width !== Math.round(innerWidth * dpr)) {
+            confettiCanvas.width = Math.round(innerWidth * dpr);
+            confettiCanvas.height = Math.round(innerHeight * dpr);
+        }
+
+        for (let i = 0; i < count; i++) {
+            const a = angle + (Math.random() - 0.5) * spread;
+            const v = power * (0.5 + Math.random() * 0.7);
+            confettiParts.push({
+                x: x * innerWidth, y: y * innerHeight,
+                vx: Math.cos(a) * v, vy: Math.sin(a) * v,
+                w: 6 + Math.random() * 6, h: 4 + Math.random() * 5,
+                rot: Math.random() * Math.PI * 2, vr: (Math.random() - 0.5) * 0.35,
+                wobble: Math.random() * Math.PI * 2,
+                color: CONFETTI_COLORS[(Math.random() * CONFETTI_COLORS.length) | 0],
+                life: 0, ttl: 110 + Math.random() * 60
+            });
+        }
+        if (!confettiRaf) confettiRaf = requestAnimationFrame(stepConfetti);
+    }
+
+    function stepConfetti() {
+        const dpr = window.devicePixelRatio || 1;
+        confettiCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        confettiCtx.clearRect(0, 0, innerWidth, innerHeight);
+
+        confettiParts = confettiParts.filter(p => p.life < p.ttl && p.y < innerHeight + 40);
+        for (const p of confettiParts) {
+            p.life++;
+            p.vx *= 0.985;
+            p.vy = p.vy * 0.985 + 0.38;                 // drag + gravity
+            p.wobble += 0.12;
+            p.x += p.vx + Math.sin(p.wobble) * 0.6;
+            p.y += p.vy;
+            p.rot += p.vr;
+
+            confettiCtx.save();
+            confettiCtx.globalAlpha = Math.min(1, (p.ttl - p.life) / 30);
+            confettiCtx.translate(p.x, p.y);
+            confettiCtx.rotate(p.rot);
+            confettiCtx.scale(1, Math.abs(Math.cos(p.wobble)));   // flutter
+            confettiCtx.fillStyle = p.color;
+            confettiCtx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+            confettiCtx.restore();
+        }
+
+        if (confettiParts.length) {
+            confettiRaf = requestAnimationFrame(stepConfetti);
+        } else {
+            confettiRaf = null;
+            confettiCanvas.remove();
+            confettiCanvas = null;
+        }
+    }
+
+    // Utilities
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Init
+    if (practice) setPracticeMode(true);
+    else loadSrsSettings();   // practice never needs the interval settings
+    renderCard();
+});
+```
+
+SessionService.php
+```
+<?php
+class SessionService
+{
+    /**
+     * Get metadata for a specific session.
+     */
+    public static function getSessionDetails(mysqli $conn, int $sessionId, int $userId): ?array
+    {
+        $sql = "SELECT rs.*, d.title AS deck_title,
+                       TIMESTAMPDIFF(SESerCOND, rs.started_at, rs.ended_at) AS duration_seconds
+                FROM review_sessions rs
+                JOIN decks d ON rs.deck_id = d.id
+                WHERE rs.id = ? AND rs.user_id = ?";
+
+        $session = null;
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "ii", $sessionId, $userId);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            if ($row = mysqli_fetch_assoc($result)) {
+                $session = [
+                    'id'               => (int) $row['id'],
+                    'deckId'           => (int) $row['deck_id'],
+                    'deckTitle'        => (string) $row['deck_title'],
+                    'startedAt'        => $row['started_at'],
+                    'totalReviewed'    => (int) $row['total_reviewed'],
+                    'rememberedCount'  => (int) $row['remembered_count'],
+                    // int, because ReviewHubService::accuracyBadgeClass() expects an int
+                    'accuracy'         => (int) round((float) $row['accuracy_percentage']),
+                    'durationSeconds'  => $row['duration_seconds'] === null ? null : (int) $row['duration_seconds'],
+                ];
+            }
+            mysqli_stmt_close($stmt);
+        }
+        return $session;
+    }
+
+    /**
+     * Get the individual card logs for a session.
+     */
+    public static function getSessionLogs(mysqli $conn, int $sessionId): array
+    {
+        $sql = "SELECT rl.rating, rl.previous_interval, rl.new_interval, rl.reviewed_at,
+                       f.front, f.back, f.next_review_at, f.deleted_at,
+                       TIMESTAMPDIFF(SECOND, NOW(), f.next_review_at) AS next_due_seconds
+                FROM review_logs rl
+                LEFT JOIN flashcards f ON rl.card_id = f.id
+                WHERE rl.session_id = ?
+                ORDER BY rl.reviewed_at ASC";
+
+        $logs = [];
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "i", $sessionId);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            while ($row = mysqli_fetch_assoc($result)) {
+                $logs[] = [
+                    'front'             => (string) $row['front'],
+                    'back'              => (string) $row['back'],
+                    'rating'            => (string) $row['rating'],
+                    'previousInterval'  => (int) $row['previous_interval'],
+                    'newInterval'       => (int) $row['new_interval'],
+                    'nextDueSeconds'    => $row['next_due_seconds'] !== null ? (int) $row['next_due_seconds'] : null,
+                    'isDeleted'         => $row['deleted_at'] !== null
+                ];
+            }
+            mysqli_stmt_close($stmt);
+        }
+        return $logs;
+    }
+
+    // -----------------------------------------------------------------------
+    // NEW: Session History (list page)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Number of completed sessions for a user (used for pagination).
+     * Uses the same "completed" rule as the Review Hub (ended_at IS NOT NULL).
+     */
+    public static function countCompletedSessions(mysqli $conn, int $userId): int
+    {
+        $sql = "SELECT COUNT(*) FROM review_sessions WHERE user_id = ? AND ended_at IS NOT NULL";
+
+        $total = 0;
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "i", $userId);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_bind_result($stmt, $total);
+            mysqli_stmt_fetch($stmt);
+            mysqli_stmt_close($stmt);
+        }
+        return (int) $total;
+    }
+
+    /**
+     * One page of completed sessions, newest first.
+     *
+     * @return array<int, array{
+     *   id:int, deckId:int, deckTitle:string, startedAt:string,
+     *   totalReviewed:int, rememberedCount:int, accuracy:int, durationSeconds:?int
+     * }>
+     */
+    public static function getSessionHistory(mysqli $conn, int $userId, int $limit = 15, int $offset = 0): array
+    {
+        $limit  = max(1, min($limit, 100));
+        $offset = max(0, $offset);
+
+        $sql = "SELECT rs.id, rs.deck_id, d.title AS deck_title, rs.started_at,
+                       rs.total_reviewed, rs.remembered_count, rs.accuracy_percentage,
+                       TIMESTAMPDIFF(SECOND, rs.started_at, rs.ended_at) AS duration_seconds
+                FROM review_sessions rs
+                JOIN decks d ON d.id = rs.deck_id
+                WHERE rs.user_id = ? AND rs.ended_at IS NOT NULL
+                ORDER BY rs.ended_at DESC, rs.id DESC
+                LIMIT ? OFFSET ?";
+
+        $sessions = [];
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "iii", $userId, $limit, $offset);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            while ($row = mysqli_fetch_assoc($result)) {
+                $sessions[] = [
+                    'id'              => (int) $row['id'],
+                    'deckId'          => (int) $row['deck_id'],
+                    'deckTitle'       => (string) $row['deck_title'],
+                    'startedAt'       => (string) $row['started_at'],
+                    'totalReviewed'   => (int) $row['total_reviewed'],
+                    'rememberedCount' => (int) $row['remembered_count'],
+                    'accuracy'        => (int) round((float) $row['accuracy_percentage']),
+                    'durationSeconds' => $row['duration_seconds'] === null ? null : (int) $row['duration_seconds'],
+                ];
+            }
+            mysqli_stmt_close($stmt);
+        }
+        return $sessions;
+    }
+}
+```
+
