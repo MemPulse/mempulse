@@ -42,9 +42,9 @@ $nextDueLabel = ($nextDueSecs !== null && $nextDueSecs > 0)
                     <!-- A: Cards Due Ready State -->
                     <div class="flex items-center gap-3.5 min-w-0">
                         <!-- Simple Compact Icon -->
-                        <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                        <!-- <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
                             <span class="material-symbols-outlined text-[22px] sm:text-[24px]">alarm</span>
-                        </div>
+                        </div> -->
 
                         <!-- Clean Text & Action Overview -->
                         <div class="flex flex-col min-w-0">
@@ -432,7 +432,7 @@ document.addEventListener('DOMContentLoaded', function () {
                   if (!r.practiceUrl) return '';
                   return '<a href="' + esc(r.practiceUrl) + '" title="Practice these cards again without affecting spaced repetition history" ' +
                          'class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-outline-variant text-on-surface text-xs font-bold hover:bg-surface-container-low transition-colors whitespace-nowrap">' +
-                         '<span class="material-symbols-outlined text-[15px]">play_arrow</span><span>Practice again</span></a>';
+                         '<span class="material-symbols-outlined text-[15px]">play_arrow</span><span>Again</span></a>';
               } },
             { title: 'Action', field: 'detailsUrl', minWidth: 110, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
               formatter: function (c) {
