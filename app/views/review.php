@@ -125,7 +125,15 @@ $currentPage = "review";
 <?php include __DIR__ . '/../includes/head.php'; ?>
 
 <body class="bg-background font-body-md text-on-surface antialiased min-h-screen">
-
+    <?php if ($isReviewing): ?>
+        <script>
+            // Collapse the sidebar for the live session; remember the user's own preference.
+            if (sessionStorage.getItem('sidebarPrev') === null) {
+                sessionStorage.setItem('sidebarPrev', localStorage.getItem('sidebarCollapsed') ?? 'false');
+            }
+            localStorage.setItem('sidebarCollapsed', 'true');
+        </script>
+    <?php endif; ?>
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
     <main id="main-content" class="pl-0 md:pl-72 pt-16 md:pt-6 transition-all duration-300 ease-in-out">
