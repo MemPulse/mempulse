@@ -1,19 +1,39 @@
+PS C:\xampp\htdocs\mempulse> tree /e
+Invalid switch - /e
 PS C:\xampp\htdocs\mempulse> tree /f
 Folder PATH listing
 Volume serial number is 8E4B-9250
 C:.
+│   .gitignore
+│   back-to-landing-page
 │   comebine_files.py
 │   database-design.md
-│   decks-ui layout.txt
 │   generate_mock.py
+│   mempulse-admin-page.txt
 │   MempulseTree.txt
-│   mempulse_mock_data.sql
-│   reports-page.txt
-│   settings-save-session-database.txt
-│   settings.txt
+│   more-files.txt
+│   navigation-centered.txt
+│   review-hub-view.php reports-view.php dashboard.php
+│   review-table-width.txt
+│   science.txt
+│   session-width-decks-deck-width.txt
+│   shell.txt
 │   tailwind.config.js
-│   tailwindcss.exe
 │   
+├───admin
+│   ├───api
+│   ├───assets
+│   │   └───js
+│   │           admin-sidebar.js
+│   │           
+│   ├───includes
+│   │       guard.php
+│   │       head.php
+│   │       sidebar.php
+│   │       
+│   └───views
+│           index.php
+│           
 ├───app
 │   ├───api
 │   │       account-actions.php
@@ -23,6 +43,9 @@ C:.
 │   │       DeckService.php
 │   │       flashcard-actions.php
 │   │       FlashcardService.php
+│   │       PracticeService.php
+│   │       report-export.php
+│   │       ReportsExportService.php
 │   │       ReportsService.php
 │   │       ReviewHubService.php
 │   │       save-session.php
@@ -76,6 +99,7 @@ C:.
 │   ├───includes
 │   │       head.php
 │   │       sidebar.php
+│   │       srs-preview.php
 │   │       
 │   └───views
 │           dashboard.php
@@ -92,16 +116,19 @@ C:.
 │           reports.php
 │           review-hub-view.php
 │           review.php
+│           science-draft.php
 │           science.php
 │           session-details.php
 │           sessions.php
 │           settings.php
 │           
 ├───authentication
+│       confirm-registration.php
 │       login.php
 │       logout.php
 │       privacy-policy.html
 │       register.php
+│       registration-pending.php
 │       script.js
 │       styles.css
 │       terms.html
@@ -112,5 +139,7 @@ C:.
 └───landing-page
         about.html
         index.html
+        landing-page-nav-and-pricing-changes.md
+        pricing.html
         style.css
         
