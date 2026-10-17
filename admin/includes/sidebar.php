@@ -5,7 +5,7 @@ $currentPage = $currentPage ?? '';
 // One place to define navigation. Set 'ready' => true when the page exists.
 $adminNav = [
     ['key' => 'overview', 'label' => 'Overview',  'icon' => 'dashboard',     'href' => 'views/index.php',    'ready' => true],
-    ['key' => 'users',    'label' => 'Users',     'icon' => 'group',         'href' => 'views/users.php',    'ready' => false],
+    ['key' => 'users',    'label' => 'Users',     'icon' => 'group',         'href' => 'views/users.php',    'ready' => true],
     ['key' => 'content',  'label' => 'Content',   'icon' => 'library_books', 'href' => 'views/content.php',  'ready' => false],
     ['key' => 'activity', 'label' => 'Activity',  'icon' => 'monitoring',    'href' => 'views/activity.php', 'ready' => false],
     ['key' => 'audit',    'label' => 'Audit log', 'icon' => 'history',       'href' => 'views/audit.php',    'ready' => false],

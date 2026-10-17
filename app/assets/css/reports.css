@@ -71,17 +71,24 @@ th[aria-sort="descending"] .rp-sort-btn::after {
     html,
     body {
         height: auto !important;
+        min-height: 0 !important;
         overflow: visible !important;
         background: #ffffff !important;
         color: #0b1c30 !important;
     }
 
-    /* App chrome: sidebar, mobile header, menus */
+    /* App chrome: everything the sidebar include adds next to <main>
+       (sidebar, floating mobile menu button, overlay, tooltip, dialogs) */
+    body> :not(main),
+    #sidebar,
+    #floating-mobile-toggle,
+    #mobile-sidebar-overlay,
+    #sidebar-floating-tooltip,
     aside,
     nav,
     header,
-    [id*="sidebar"],
-    [class*="sidebar"],
+    body [id*="sidebar"],
+    body [class*="sidebar"],
     .rp-no-print {
         display: none !important;
     }
@@ -92,6 +99,13 @@ th[aria-sort="descending"] .rp-sort-btn::after {
         margin: 0 !important;
         min-height: 0 !important;
         overflow: visible !important;
+    }
+
+    /* app.css adds 80px of left padding when the sidebar is collapsed */
+    html.rp-printing #main-content,
+    html.rp-printing.sidebar-collapsed #main-content,
+    html.rp-printing main.collapsed {
+        padding: 0 !important;
     }
 
     #reports-root {

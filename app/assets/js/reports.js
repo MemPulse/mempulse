@@ -162,15 +162,13 @@
 
 
     /* ---------------- Print ---------------- */
-    var printBtn = document.getElementById('rp-print-btn');
-    if (printBtn) printBtn.addEventListener('click', function () { window.print(); });
-
     // Print shows every panel. Canvases drawn at screen size (or inside hidden tabs)
     // print badly, so for printing we: reveal all panels, draw every tab's charts
-    // without animation, and swap each canvas for a scalable <img> snapshot.
+    // without animation, swap each canvas for a scalable <img> snapshot, and force
+    // the light theme so cards and text print dark-on-white.
     var printState = null;
 
-    window.addEventListener('beforeprint', function () {
+    function preparePrint() {
         if (printState) return;
 
         var prevAnimation = window.Chart ? Chart.defaults.animation : undefined;
@@ -184,14 +182,15 @@
             }
         });
 
+        // Build charts for tabs that were never opened on screen.
         TAB_ORDER.forEach(function (t) { RP.init(t); });
 
         var imgs = [];
         charts.forEach(function (c) {
             try {
                 c.stop();
-                c.resize();
-                c.update('none');
+                c.resize();          // re-measure now that every panel is visible
+                c.update('none');    // draw immediately, no animation
                 var img = document.createElement('img');
                 img.className = 'rp-chart-img';
                 img.alt = c.canvas.getAttribute('aria-label') || 'Chart';
@@ -201,18 +200,40 @@
             } catch (e) { /* skip this chart */ }
         });
 
-        document.documentElement.classList.add('rp-printing');
-        printState = { revealed: revealed, imgs: imgs, prevAnimation: prevAnimation };
-    });
+        // Dark theme would print dark cards; print in the light theme instead.
+        var root = document.documentElement;
+        var wasDark = root.classList.contains('dark');
+        root.classList.remove('dark');
+        root.classList.add('rp-printing');
 
-    window.addEventListener('afterprint', function () {
+        printState = { revealed: revealed, imgs: imgs, prevAnimation: prevAnimation, wasDark: wasDark };
+    }
+
+    function restorePrint() {
         if (!printState) return;
 
+        var root = document.documentElement;
         printState.imgs.forEach(function (img) { img.remove(); });
         printState.revealed.forEach(function (key) { panels[key].classList.add('hidden'); });
-        document.documentElement.classList.remove('rp-printing');
+        root.classList.remove('rp-printing');
+        if (printState.wasDark) root.classList.add('dark');
         if (window.Chart) Chart.defaults.animation = printState.prevAnimation;
         printState = null;
         RP.resizeAll();
-    });
+    }
+
+    // Covers Ctrl+P / browser menu as well as the button below.
+    window.addEventListener('beforeprint', preparePrint);
+    window.addEventListener('afterprint', restorePrint);
+
+    var printBtn = document.getElementById('rp-print-btn');
+    if (printBtn) {
+        printBtn.addEventListener('click', function () {
+            // Clear any leftover state if a previous afterprint never fired.
+            restorePrint();
+            // Wait for web fonts (icons, text) so they are ready for the print snapshot.
+            var fontsReady = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
+            fontsReady.then(function () { window.print(); });
+        });
+    }
 })();

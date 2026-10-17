@@ -1,0 +1,1137 @@
+reports.js
+```
+/**
+ * reports.js (core)
+ *
+ * - Filter form behaviour (auto-submit, custom date toggle)
+ * - Accessible tabs (click, arrow keys, URL ?tab= sync)
+ * - Chart registry so each tab builds its charts lazily, and ALL tabs
+ *   build/resize their charts before printing.
+ *
+ * Tab scripts call: RP.register('overview', function () { ...build charts... });
+ * and return Chart instances from RP.track(chart).
+ */
+(function () {
+    'use strict';
+
+    var TAB_ORDER = ['overview', 'decks', 'cards', 'sessions'];
+    var initFns = {};      // tab -> init function
+    var initDone = {};     // tab -> true once initialised
+    var charts = [];       // every Chart instance, for resize on print
+
+    var RP = {
+        register: function (tab, fn) {
+            initFns[tab] = fn;
+            // If the tab is already visible when its script loads, init now.
+            var panel = document.getElementById('panel-' + tab);
+            if (panel && !panel.classList.contains('hidden')) {
+                RP.init(tab);
+            }
+        },
+        init: function (tab) {
+            if (initDone[tab] || !initFns[tab]) return;
+            initDone[tab] = true;
+            try { initFns[tab](); } catch (e) { console.error('Reports: init failed for ' + tab, e); }
+        },
+        track: function (chart) {
+            if (chart) charts.push(chart);
+            return chart;
+        },
+        resizeAll: function () {
+            charts.forEach(function (c) { try { c.resize(); } catch (e) { /* ignore */ } });
+        },
+        json: function (id) {
+            var el = document.getElementById(id);
+            if (!el) return null;
+            try { return JSON.parse(el.textContent); } catch (e) { return null; }
+        }
+    };
+    window.RP = RP;
+
+    /* ---------------- Filters ---------------- */
+    var form = document.getElementById('rp-filters');
+    if (form) {
+        var range = document.getElementById('rp-range');
+        var custom = document.getElementById('rp-custom-dates');
+        var from = document.getElementById('rp-from');
+        var to = document.getElementById('rp-to');
+
+        function setCustomVisible(show) {
+            custom.classList.toggle('hidden', !show);
+            from.disabled = !show;
+            to.disabled = !show;
+        }
+
+        range.addEventListener('change', function () {
+            if (range.value === 'custom') {
+                setCustomVisible(true);   // wait for the user to press Apply
+            } else {
+                setCustomVisible(false);
+                form.submit();
+            }
+        });
+
+        ['rp-deck', 'rp-archived'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.addEventListener('change', function () { form.submit(); });
+        });
+    }
+
+    /* ---------------- Tabs ---------------- */
+    var tabs = Array.prototype.slice.call(document.querySelectorAll('[role="tab"][data-tab]'));
+    var panels = {};
+    document.querySelectorAll('.rp-panel').forEach(function (p) { panels[p.dataset.tab] = p; });
+    var tabInput = document.getElementById('rp-filter-tab');
+
+    var ACTIVE = ['border-primary', 'text-primary'];
+    var INACTIVE = ['border-transparent', 'text-on-surface-variant', 'hover:text-on-surface'];
+
+    function showTab(name, opts) {
+        opts = opts || {};
+        if (!panels[name]) return;
+
+        tabs.forEach(function (t) {
+            var on = t.dataset.tab === name;
+            t.setAttribute('aria-selected', on ? 'true' : 'false');
+            t.tabIndex = on ? 0 : -1;
+            ACTIVE.forEach(function (c) { t.classList.toggle(c, on); });
+            INACTIVE.forEach(function (c) { t.classList.toggle(c, !on); });
+        });
+
+        Object.keys(panels).forEach(function (key) {
+            panels[key].classList.toggle('hidden', key !== name);
+        });
+
+        if (tabInput) tabInput.value = name;
+
+        // Keep the URL shareable / refresh-safe without a reload.
+        var url = new URL(window.location.href);
+        url.searchParams.set('tab', name);
+        window.history.replaceState(null, '', url.toString());
+
+        // Build charts the first time a tab is shown; resize otherwise
+        // (charts drawn in a hidden panel measure 0px wide).
+        RP.init(name);
+        RP.resizeAll();
+
+        if (opts.focus) {
+            var t = tabs.filter(function (x) { return x.dataset.tab === name; })[0];
+            if (t) t.focus();
+        }
+    }
+
+    tabs.forEach(function (t, i) {
+        t.addEventListener('click', function (e) {
+            e.preventDefault();
+            showTab(t.dataset.tab);
+        });
+        t.addEventListener('keydown', function (e) {
+            var idx = null;
+            if (e.key === 'ArrowRight') idx = (i + 1) % tabs.length;
+            else if (e.key === 'ArrowLeft') idx = (i - 1 + tabs.length) % tabs.length;
+            else if (e.key === 'Home') idx = 0;
+            else if (e.key === 'End') idx = tabs.length - 1;
+            if (idx !== null) {
+                e.preventDefault();
+                showTab(tabs[idx].dataset.tab, { focus: true });
+            }
+        });
+    });
+
+    /* ---------------- CSV export menu ---------------- */
+    var exportMenu = document.getElementById('rp-export-menu');
+    if (exportMenu) {
+        var metaBox = document.getElementById('rp-export-meta');
+
+        exportMenu.querySelectorAll('a[data-export]').forEach(function (a) {
+            a.addEventListener('click', function () {
+                // Add or remove the optional metadata header before the download starts.
+                var url = new URL(a.getAttribute('href'), window.location.href);
+                if (metaBox && metaBox.checked) url.searchParams.set('meta', '1');
+                else url.searchParams.delete('meta');
+                a.href = url.toString();
+                exportMenu.removeAttribute('open');
+            });
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!exportMenu.contains(e.target)) exportMenu.removeAttribute('open');
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') exportMenu.removeAttribute('open');
+        });
+    }
+
+
+    /* ---------------- Print ---------------- */
+    var printBtn = document.getElementById('rp-print-btn');
+    if (printBtn) printBtn.addEventListener('click', function () { window.print(); });
+
+    // Print shows every panel. Canvases drawn at screen size (or inside hidden tabs)
+    // print badly, so for printing we: reveal all panels, draw every tab's charts
+    // without animation, and swap each canvas for a scalable <img> snapshot.
+    var printState = null;
+
+    window.addEventListener('beforeprint', function () {
+        if (printState) return;
+
+        var prevAnimation = window.Chart ? Chart.defaults.animation : undefined;
+        if (window.Chart) Chart.defaults.animation = false;
+
+        var revealed = [];
+        Object.keys(panels).forEach(function (key) {
+            if (panels[key].classList.contains('hidden')) {
+                panels[key].classList.remove('hidden');
+                revealed.push(key);
+            }
+        });
+
+        TAB_ORDER.forEach(function (t) { RP.init(t); });
+
+        var imgs = [];
+        charts.forEach(function (c) {
+            try {
+                c.stop();
+                c.resize();
+                c.update('none');
+                var img = document.createElement('img');
+                img.className = 'rp-chart-img';
+                img.alt = c.canvas.getAttribute('aria-label') || 'Chart';
+                img.src = c.toBase64Image();
+                c.canvas.parentNode.appendChild(img);
+                imgs.push(img);
+            } catch (e) { /* skip this chart */ }
+        });
+
+        document.documentElement.classList.add('rp-printing');
+        printState = { revealed: revealed, imgs: imgs, prevAnimation: prevAnimation };
+    });
+
+    window.addEventListener('afterprint', function () {
+        if (!printState) return;
+
+        printState.imgs.forEach(function (img) { img.remove(); });
+        printState.revealed.forEach(function (key) { panels[key].classList.add('hidden'); });
+        document.documentElement.classList.remove('rp-printing');
+        if (window.Chart) Chart.defaults.animation = printState.prevAnimation;
+        printState = null;
+        RP.resizeAll();
+    });
+})();
+
+(function () {
+    const root = () => document.getElementById('reports-root');
+
+    function prepareForPrint() {
+        root().classList.add('rp-printing');
+        if (!window.Chart) return;
+        Object.values(Chart.instances).forEach(c => {
+            c.options.animation = false;
+            c.resize();        // re-measure now that panels are visible
+            c.update('none');  // draw immediately, no animation
+        });
+    }
+
+    function restoreAfterPrint() {
+        root().classList.remove('rp-printing');
+        if (window.Chart) Object.values(Chart.instances).forEach(c => c.resize());
+    }
+
+    window.addEventListener('beforeprint', prepareForPrint);
+    window.addEventListener('afterprint', restoreAfterPrint);
+
+    document.getElementById('rp-print-btn')?.addEventListener('click', () => {
+        prepareForPrint();
+        requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+    });
+})();
+```
+
+reports-overview.js
+```
+/**
+ * reports-overview.js
+ * Builds the Overview tab charts. Requires Chart.js and reports.js (core) to load first.
+ */
+(function () {
+    'use strict';
+    if (!window.RP) return;
+
+    var COLORS = {
+        primary: '#3525cd',
+        primarySoft: 'rgba(53, 37, 205, 0.75)',
+        teal: '#0d9488',
+        grid: 'rgba(148, 163, 184, 0.25)',
+        text: '#464555',
+        due: '#ba1a1a'
+    };
+
+    function baseOptions() {
+        return {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, color: COLORS.text } }
+            }
+        };
+    }
+
+    function buildTimeline(data) {
+        var canvas = document.getElementById('rp-chart-timeline');
+        if (!canvas || !data) return;
+
+        var opts = baseOptions();
+        opts.scales = {
+            x: { grid: { display: false }, ticks: { color: COLORS.text, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 } },
+            y: {
+                beginAtZero: true,
+                grid: { color: COLORS.grid },
+                ticks: { color: COLORS.text, precision: 0 },
+                title: { display: true, text: 'Cards reviewed', color: COLORS.text }
+            },
+            y1: {
+                position: 'right',
+                min: 0,
+                max: 100,
+                grid: { drawOnChartArea: false },
+                ticks: { color: COLORS.text, callback: function (v) { return v + '%'; } },
+                title: { display: true, text: 'Accuracy', color: COLORS.text }
+            }
+        };
+        opts.plugins.tooltip = {
+            callbacks: {
+                label: function (ctx) {
+                    if (ctx.parsed.y === null) return null;
+                    return ctx.dataset.label + ': ' + ctx.parsed.y + (ctx.dataset.yAxisID === 'y1' ? '%' : '');
+                }
+            }
+        };
+
+        RP.track(new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: data.labels,
+                datasets: [
+                    {
+                        type: 'bar',
+                        label: 'Reviewed',
+                        data: data.reviewed,
+                        backgroundColor: COLORS.primarySoft,
+                        borderRadius: 4,
+                        maxBarThickness: 28,
+                        yAxisID: 'y',
+                        order: 2
+                    },
+                    {
+                        type: 'line',
+                        label: 'Accuracy',
+                        data: data.accuracy,          // null = no reviews that bucket (gap in the line)
+                        borderColor: COLORS.teal,
+                        backgroundColor: COLORS.teal,
+                        borderWidth: 2,
+                        pointRadius: 3,
+                        tension: 0.25,
+                        spanGaps: true,
+                        yAxisID: 'y1',
+                        order: 1
+                    }
+                ]
+            },
+            options: opts
+        }));
+    }
+
+    function buildForecast(data) {
+        var canvas = document.getElementById('rp-chart-forecast');
+        if (!canvas || !data) return;
+
+        var opts = baseOptions();
+        opts.plugins.legend = { display: false };
+        opts.scales = {
+            x: { grid: { display: false }, ticks: { color: COLORS.text, maxRotation: 0, autoSkip: false, font: { size: 10 } } },
+            y: { beginAtZero: true, grid: { color: COLORS.grid }, ticks: { color: COLORS.text, precision: 0 } }
+        };
+
+        // First bar ("Due now") is highlighted.
+        var bg = data.values.map(function (_, i) { return i === 0 ? COLORS.due : COLORS.primarySoft; });
+
+        RP.track(new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: data.labels,
+                datasets: [{ label: 'Cards due', data: data.values, backgroundColor: bg, borderRadius: 4, maxBarThickness: 36 }]
+            },
+            options: opts
+        }));
+    }
+
+    RP.register('overview', function () {
+        if (!window.Chart) {
+            console.error('Reports: Chart.js did not load.');
+            return;
+        }
+        var payload = RP.json('rp-overview-data') || {};
+        buildTimeline(payload.timeline);
+        buildForecast(payload.forecast);
+    });
+})();
+```
+
+reports-decks.js
+```
+/**
+ * reports-decks.js
+ * Decks tab: sortable deck table + two horizontal bar charts.
+ * Requires Chart.js and reports.js (core) to load first.
+ */
+(function () {
+    'use strict';
+    if (!window.RP) return;
+
+    var COLORS = {
+        primarySoft: 'rgba(53, 37, 205, 0.75)',
+        teal: '#14b8a6',
+        rest: 'rgba(148, 163, 184, 0.55)',
+        grid: 'rgba(148, 163, 184, 0.25)',
+        text: '#464555'
+    };
+
+    /* ---------------- Sortable table ---------------- */
+    (function initSort() {
+        var table = document.getElementById('rp-decks-table');
+        if (!table || !table.tBodies.length) return;
+
+        var tbody = table.tBodies[0];
+        var headers = Array.prototype.slice.call(table.querySelectorAll('thead th[data-sort]'));
+
+        function cellValue(row, idx, type) {
+            var cell = row.cells[idx];
+            var v = cell ? cell.getAttribute('data-value') : '';
+            if (type === 'num') {
+                var n = parseFloat(v);
+                return isNaN(n) ? -Infinity : n;
+            }
+            return (v || '').toString();
+        }
+
+        headers.forEach(function (th) {
+            var btn = th.querySelector('button');
+            if (!btn) return;
+
+            btn.addEventListener('click', function () {
+                var idx = th.cellIndex;
+                var type = th.getAttribute('data-sort');
+                // Text columns start ascending, numeric columns start descending.
+                var current = th.getAttribute('aria-sort');
+                var asc;
+                if (current === 'none') asc = (type === 'text');
+                else asc = (current === 'descending');
+
+                headers.forEach(function (h) { h.setAttribute('aria-sort', 'none'); });
+                th.setAttribute('aria-sort', asc ? 'ascending' : 'descending');
+
+                var rows = Array.prototype.slice.call(tbody.rows);
+                rows.sort(function (a, b) {
+                    var va = cellValue(a, idx, type);
+                    var vb = cellValue(b, idx, type);
+                    var cmp = (type === 'num') ? (va - vb) : va.localeCompare(vb);
+                    if (cmp === 0 || isNaN(cmp)) {
+                        cmp = (a.cells[0].getAttribute('data-value') || '').localeCompare(b.cells[0].getAttribute('data-value') || '');
+                    }
+                    return asc ? cmp : -cmp;
+                });
+                rows.forEach(function (r) { tbody.appendChild(r); });
+            });
+        });
+    })();
+
+    /* ---------------- Row click -> drill-down ---------------- */
+    (function initRowLinks() {
+        var table = document.getElementById('rp-decks-table');
+        if (!table || !table.tBodies.length) return;
+
+        table.tBodies[0].addEventListener('click', function (e) {
+            if (e.target.closest('a, button')) return;   // let real links work normally
+            var row = e.target.closest('tr[data-href]');
+            if (row) window.location.href = row.getAttribute('data-href');
+        });
+    })();
+
+    /* ---------------- Charts ---------------- */
+    function truncate(label, max) {
+        label = String(label);
+        return label.length > max ? label.slice(0, max - 1) + '…' : label;
+    }
+
+    function baseOptions() {
+        return {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } }
+        };
+    }
+
+    function yAxis() {
+        return {
+            grid: { display: false },
+            ticks: { color: COLORS.text, autoSkip: false, callback: function (v) { return truncate(this.getLabelForValue(v), 22); } }
+        };
+    }
+
+    function buildReviews(data) {
+        var canvas = document.getElementById('rp-chart-deck-reviews');
+        if (!canvas || !data) return;
+
+        var opts = baseOptions();
+        opts.scales = {
+            x: { beginAtZero: true, grid: { color: COLORS.grid }, ticks: { color: COLORS.text, precision: 0 } },
+            y: yAxis()
+        };
+        opts.plugins.tooltip = {
+            callbacks: {
+                title: function (items) { return data.labels[items[0].dataIndex]; },
+                afterLabel: function (ctx) {
+                    var acc = data.accuracy[ctx.dataIndex];
+                    return acc === null || acc === undefined ? 'Accuracy: n/a' : 'Accuracy: ' + acc + '%';
+                }
+            }
+        };
+
+        RP.track(new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: data.labels,
+                datasets: [{ label: 'Reviewed', data: data.reviews, backgroundColor: COLORS.primarySoft, borderRadius: 4, maxBarThickness: 22 }]
+            },
+            options: opts
+        }));
+    }
+
+    function buildMastery(data) {
+        var canvas = document.getElementById('rp-chart-deck-mastery');
+        if (!canvas || !data) return;
+
+        var opts = baseOptions();
+        opts.plugins.legend = { display: true, position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, color: COLORS.text } };
+        opts.scales = {
+            x: { stacked: true, beginAtZero: true, grid: { color: COLORS.grid }, ticks: { color: COLORS.text, precision: 0 } },
+            y: Object.assign(yAxis(), { stacked: true })
+        };
+        opts.plugins.tooltip = {
+            callbacks: { title: function (items) { return data.labels[items[0].dataIndex]; } }
+        };
+
+        RP.track(new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: data.labels,
+                datasets: [
+                    { label: 'Mastered', data: data.mastered, backgroundColor: COLORS.teal, maxBarThickness: 22 },
+                    { label: 'Not yet mastered', data: data.rest, backgroundColor: COLORS.rest, maxBarThickness: 22 }
+                ]
+            },
+            options: opts
+        }));
+    }
+
+    function buildTrend(data) {
+        var canvas = document.getElementById('rp-chart-deck-trend');
+        if (!canvas || !data) return;
+
+        RP.track(new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: data.labels,
+                datasets: [
+                    {
+                        type: 'bar', label: 'Reviewed', data: data.reviewed, backgroundColor: COLORS.primarySoft,
+                        borderRadius: 4, maxBarThickness: 28, yAxisID: 'y', order: 2
+                    },
+                    {
+                        type: 'line', label: 'Accuracy', data: data.accuracy, borderColor: COLORS.teal,
+                        backgroundColor: COLORS.teal, borderWidth: 2, pointRadius: 3, tension: 0.25,
+                        spanGaps: true, yAxisID: 'y1', order: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, color: COLORS.text } },
+                    tooltip: {
+                        callbacks: {
+                            label: function (ctx) {
+                                if (ctx.parsed.y === null) return null;
+                                return ctx.dataset.label + ': ' + ctx.parsed.y + (ctx.dataset.yAxisID === 'y1' ? '%' : '');
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: COLORS.text, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 } },
+                    y: { beginAtZero: true, grid: { color: COLORS.grid }, ticks: { color: COLORS.text, precision: 0 } },
+                    y1: {
+                        position: 'right', min: 0, max: 100, grid: { drawOnChartArea: false },
+                        ticks: { color: COLORS.text, callback: function (v) { return v + '%'; } }
+                    }
+                }
+            }
+        }));
+    }
+
+    RP.register('decks', function () {
+        if (!window.Chart) {
+            console.error('Reports: Chart.js did not load.');
+            return;
+        }
+        var payload = RP.json('rp-decks-data') || {};
+        buildReviews(payload.reviews);
+        buildMastery(payload.mastery);
+        buildTrend(payload.trend);
+    });
+})();
+```
+
+reports-cards.js
+```
+/**
+ * reports-cards.js
+ * Cards tab charts: maturity doughnut + interval growth lines.
+ * Requires Chart.js and reports.js (core) to load first.
+ */
+(function () {
+    'use strict';
+    if (!window.RP) return;
+
+    var COLORS = {
+        prev: '#94a3b8',
+        next: '#3525cd',
+        grid: 'rgba(148, 163, 184, 0.25)',
+        text: '#464555'
+    };
+
+    function buildMaturity(data) {
+        var canvas = document.getElementById('rp-chart-maturity');
+        if (!canvas || !data) return;
+
+        var total = data.values.reduce(function (a, b) { return a + b; }, 0);
+
+        RP.track(new Chart(canvas, {
+            type: 'doughnut',
+            data: {
+                labels: data.labels,
+                datasets: [{ data: data.values, backgroundColor: data.colors, borderWidth: 2, borderColor: '#ffffff' }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '62%',
+                plugins: {
+                    legend: { display: false },   // the HTML legend beside the chart is used instead
+                    tooltip: {
+                        callbacks: {
+                            label: function (ctx) {
+                                var pct = total > 0 ? Math.round((ctx.parsed / total) * 100) : 0;
+                                return ctx.label + ': ' + ctx.parsed + ' (' + pct + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        }));
+    }
+
+    function buildInterval(data) {
+        var canvas = document.getElementById('rp-chart-interval');
+        if (!canvas || !data) return;
+
+        RP.track(new Chart(canvas, {
+            type: 'line',
+            data: {
+                labels: data.labels,
+                datasets: [
+                    {
+                        label: 'Interval before review', data: data.prev, borderColor: COLORS.prev, backgroundColor: COLORS.prev,
+                        borderWidth: 2, pointRadius: 3, tension: 0.25, spanGaps: true
+                    },
+                    {
+                        label: 'Interval after review', data: data.new, borderColor: COLORS.next, backgroundColor: COLORS.next,
+                        borderWidth: 2, pointRadius: 3, tension: 0.25, spanGaps: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, color: COLORS.text } },
+                    tooltip: {
+                        callbacks: {
+                            title: function (items) { return 'Week of ' + items[0].label; },
+                            label: function (ctx) {
+                                return ctx.parsed.y === null ? null : ctx.dataset.label + ': ' + ctx.parsed.y + ' days';
+                            },
+                            afterBody: function (items) {
+                                var n = data.counts[items[0].dataIndex];
+                                return n ? n + ' reviews' : '';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: COLORS.text, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 } },
+                    y: {
+                        beginAtZero: true, grid: { color: COLORS.grid }, ticks: { color: COLORS.text, precision: 0 },
+                        title: { display: true, text: 'Days', color: COLORS.text }
+                    }
+                }
+            }
+        }));
+    }
+
+    RP.register('cards', function () {
+        if (!window.Chart) {
+            console.error('Reports: Chart.js did not load.');
+            return;
+        }
+        var payload = RP.json('rp-cards-data') || {};
+        buildMaturity(payload.maturity);
+        buildInterval(payload.interval);
+    });
+})();
+```
+
+reports-sessions.js
+```
+/**
+ * reports-sessions.js
+ * Sessions tab charts: completion doughnut + reviews/accuracy by hour and weekday.
+ * Requires Chart.js and reports.js (core) to load first.
+ */
+(function () {
+    'use strict';
+    if (!window.RP) return;
+
+    var COLORS = {
+        primarySoft: 'rgba(53, 37, 205, 0.75)',
+        teal: '#0d9488',
+        grid: 'rgba(148, 163, 184, 0.25)',
+        text: '#464555'
+    };
+
+    function buildCompletion(data) {
+        var canvas = document.getElementById('rp-chart-completion');
+        if (!canvas || !data) return;
+
+        var total = data.values.reduce(function (a, b) { return a + b; }, 0);
+
+        RP.track(new Chart(canvas, {
+            type: 'doughnut',
+            data: {
+                labels: data.labels,
+                datasets: [{ data: data.values, backgroundColor: data.colors, borderWidth: 2, borderColor: '#ffffff' }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '62%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function (ctx) {
+                                var pct = total > 0 ? Math.round((ctx.parsed / total) * 100) : 0;
+                                return ctx.label + ': ' + ctx.parsed + ' (' + pct + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        }));
+    }
+
+    // Shared by the hour and weekday charts: bars = reviews, line = accuracy.
+    function buildActivity(canvasId, data, tickLimit) {
+        var canvas = document.getElementById(canvasId);
+        if (!canvas || !data) return;
+
+        RP.track(new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels: data.labels,
+                datasets: [
+                    {
+                        type: 'bar', label: 'Reviewed', data: data.reviews, backgroundColor: COLORS.primarySoft,
+                        borderRadius: 4, maxBarThickness: 24, yAxisID: 'y', order: 2
+                    },
+                    {
+                        type: 'line', label: 'Accuracy', data: data.accuracy, borderColor: COLORS.teal,
+                        backgroundColor: COLORS.teal, borderWidth: 2, pointRadius: 3, tension: 0.25,
+                        spanGaps: true, yAxisID: 'y1', order: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, color: COLORS.text } },
+                    tooltip: {
+                        callbacks: {
+                            label: function (ctx) {
+                                if (ctx.parsed.y === null) return null;
+                                return ctx.dataset.label + ': ' + ctx.parsed.y + (ctx.dataset.yAxisID === 'y1' ? '%' : '');
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: COLORS.text, maxRotation: 0, autoSkip: true, maxTicksLimit: tickLimit } },
+                    y: { beginAtZero: true, grid: { color: COLORS.grid }, ticks: { color: COLORS.text, precision: 0 } },
+                    y1: {
+                        position: 'right', min: 0, max: 100, grid: { drawOnChartArea: false },
+                        ticks: { color: COLORS.text, callback: function (v) { return v + '%'; } }
+                    }
+                }
+            }
+        }));
+    }
+
+    RP.register('sessions', function () {
+        if (!window.Chart) {
+            console.error('Reports: Chart.js did not load.');
+            return;
+        }
+        var payload = RP.json('rp-sessions-data') || {};
+        buildCompletion(payload.completion);
+        buildActivity('rp-chart-hour', payload.hours, 12);
+        buildActivity('rp-chart-weekday', payload.days, 7);
+    });
+})();
+```
+
+reports.css
+```
+/* ==========================================================================
+   Reports page
+   ========================================================================== */
+
+/* Screen: print-only elements and chart snapshots stay hidden */
+.rp-print-only {
+    display: none;
+}
+
+.rp-chart-img {
+    display: none;
+}
+
+/* Never split a card or chart across two printed pages */
+.rp-avoid-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+/* Sortable table headers */
+.rp-sort-btn {
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+}
+
+.rp-sort-btn:hover {
+    color: #3525cd;
+}
+
+th[aria-sort="ascending"] .rp-sort-btn::after {
+    content: " \25B2";
+    font-size: 0.7em;
+}
+
+th[aria-sort="descending"] .rp-sort-btn::after {
+    content: " \25BC";
+    font-size: 0.7em;
+}
+
+/* Export menu: hide the default <details> marker */
+#rp-export-menu>summary {
+    list-style: none;
+}
+
+#rp-export-menu>summary::-webkit-details-marker {
+    display: none;
+}
+
+/* ==========================================================================
+   PRINT / SAVE AS PDF
+   ========================================================================== */
+@page {
+    size: A4;
+    margin: 12mm;
+}
+
+@media print {
+
+    /* Keep colours (chart bars, badges) in the PDF */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    html,
+    body {
+        height: auto !important;
+        overflow: visible !important;
+        background: #ffffff !important;
+        color: #0b1c30 !important;
+    }
+
+    /* App chrome: sidebar, mobile header, menus */
+    aside,
+    nav,
+    header,
+    [id*="sidebar"],
+    [class*="sidebar"],
+    .rp-no-print {
+        display: none !important;
+    }
+
+    /* The page sits beside the sidebar on screen; use the full page when printing */
+    main {
+        padding: 0 !important;
+        margin: 0 !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+    }
+
+    #reports-root {
+        padding: 0 !important;
+    }
+
+    /* Show every tab, stacked, whichever one was open on screen */
+    .rp-panel,
+    .rp-panel.hidden {
+        display: block !important;
+    }
+
+    .rp-panel+.rp-panel {
+        margin-top: 8mm;
+    }
+
+    .rp-print-only {
+        display: block !important;
+    }
+
+    /* Print header */
+    .rp-print-header {
+        border-bottom: 2px solid #3525cd;
+        padding-bottom: 4mm;
+        margin-bottom: 4mm;
+    }
+
+    .rp-print-header h1 {
+        font-size: 20pt;
+        font-weight: 700;
+        margin: 0 0 3mm;
+    }
+
+    .rp-print-header table {
+        border-collapse: collapse;
+        font-size: 10pt;
+    }
+
+    .rp-print-header th {
+        text-align: left;
+        padding: 0.5mm 6mm 0.5mm 0;
+        color: #464555;
+        font-weight: 600;
+    }
+
+    .rp-print-header td {
+        padding: 0.5mm 0;
+    }
+
+    .rp-print-section {
+        font-size: 14pt;
+        font-weight: 700;
+        margin: 0 0 3mm;
+        padding-bottom: 1mm;
+        border-bottom: 1px solid #c7c4d8;
+        break-after: avoid;
+    }
+
+    /* Cards: flat, bordered, no shadows */
+    .rp-avoid-break,
+    .rp-kpi-grid>div {
+        box-shadow: none !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    /* KPI cards: 3 per row on paper */
+    .rp-kpi-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 3mm !important;
+    }
+
+    /* Charts: swap the live canvas for the snapshot <img> made in reports.js */
+    .rp-chart-box {
+        height: auto !important;
+    }
+
+    .rp-printing .rp-chart-box canvas {
+        display: none !important;
+    }
+
+    .rp-printing .rp-chart-img {
+        display: block !important;
+        width: 100% !important;
+        height: auto !important;
+    }
+
+    /* Tables: repeat header row on each page, don't split rows */
+    thead {
+        display: table-header-group;
+    }
+
+    tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    /* Report tables on paper */
+    .rp-table-wrap {
+        overflow: visible !important;
+    }
+
+    .rp-table {
+        font-size: 8.5pt;
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .rp-table th,
+    .rp-table td {
+        padding: 1.5mm 2mm !important;
+        border-bottom: 1px solid #c7c4d8;
+    }
+
+    .rp-table thead th {
+        background: #eff4ff !important;
+        color: #0b1c30 !important;
+    }
+
+    .rp-table tfoot td {
+        border-top: 1.5px solid #464555;
+        background: #eff4ff !important;
+    }
+
+    .rp-sort-btn::after {
+        content: none !important;
+    }
+
+    /* Remove link underlines/URLs */
+    a {
+        color: inherit !important;
+        text-decoration: none !important;
+    }
+
+    /* Session history: only the first 25 rows go on paper */
+    .rp-print-extra {
+        display: none !important;
+    }
+
+    .rp-panel.hidden,
+    .rp-printing .rp-panel.hidden {
+        display: block !important;
+    }
+
+    .rp-chart-box canvas {
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    .rp-chart-box,
+    .rp-avoid-break {
+        break-inside: avoid;
+    }
+
+    * {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}
+```
+
+head.php
+```
+<?php
+if (!defined('BASE_URL')) {
+    define('BASE_URL', '/mempulse/app/');
+}
+?>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+
+    <script>
+        (function () {
+            var root = document.documentElement;
+
+            // Apply the theme before rendering.
+            var pref = 'system';
+
+            try {
+                pref = localStorage.getItem('mempulseTheme') || 'system';
+            } catch (e) {}
+
+            var dark = pref === 'dark' ||
+                (pref === 'system' &&
+                window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+            root.classList.toggle('dark', dark);
+            root.style.colorScheme = dark ? 'dark' : 'light';
+
+            // Apply sidebar preference before the first paint.
+            try {
+                var collapsed =
+                    window.innerWidth >= 768 &&
+                    localStorage.getItem('sidebarCollapsed') === 'true';
+
+                root.classList.toggle('sidebar-collapsed', collapsed);
+            } catch (e) {
+                root.classList.remove('sidebar-collapsed');
+            }
+        })();
+    </script>
+
+    <title><?php echo $pageTitle ?? 'MemPulse'; ?></title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet" />
+    
+    <!-- Sortable for deck and card positioning -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+    
+    <!-- Use BASE_URL for css assets -->
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/app.css">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/tailwind.css?v=<?php echo @filemtime(__DIR__ . '/../assets/css/tailwind.css') ?: time(); ?>">
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/theme.css?v=<?php echo @filemtime(__DIR__ . '/../assets/css/theme.css') ?: time(); ?>">
+    
+</head>
+```
+

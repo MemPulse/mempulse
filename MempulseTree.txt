@@ -1,30 +1,40 @@
-PS C:\xampp\htdocs\mempulse> tree /e
-Invalid switch - /e
 PS C:\xampp\htdocs\mempulse> tree /f
 Folder PATH listing
 Volume serial number is 8E4B-9250
 C:.
 │   .gitignore
+│   admin-overview.php
+│   admin-pages.txt
 │   back-to-landing-page
 │   comebine_files.py
+│   css
 │   database-design.md
 │   generate_mock.py
 │   mempulse-admin-page.txt
 │   MempulseTree.txt
 │   more-files.txt
 │   navigation-centered.txt
+│   output.txt
+│   overview.txt
+│   python-manager-26.4.msix
 │   review-hub-view.php reports-view.php dashboard.php
 │   review-table-width.txt
 │   science.txt
 │   session-width-decks-deck-width.txt
 │   shell.txt
 │   tailwind.config.js
+│   test_combine_files.py
 │   
 ├───admin
 │   ├───api
+│   │       AdminOverviewService.php
+│   │       AdminUsersService.php
+│   │       
 │   ├───assets
 │   │   └───js
+│   │           admin-overview.js
 │   │           admin-sidebar.js
+│   │           admin-users.js
 │   │           
 │   ├───includes
 │   │       guard.php
@@ -33,6 +43,9 @@ C:.
 │   │       
 │   └───views
 │           index.php
+│           overview-view.php
+│           users-view.php
+│           users.php
 │           
 ├───app
 │   ├───api
@@ -136,10 +149,12 @@ C:.
 ├───config
 │       db.php
 │       
-└───landing-page
-        about.html
-        index.html
-        landing-page-nav-and-pricing-changes.md
-        pricing.html
-        style.css
-        
+├───landing-page
+│       about.html
+│       index.html
+│       landing-page-nav-and-pricing-changes.md
+│       pricing.html
+│       style.css
+│       
+└───__pycache__
+        comebine_files.cpython-314.pyc

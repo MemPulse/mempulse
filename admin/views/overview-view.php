@@ -8,20 +8,22 @@ $initial = function (string $name): string {
     return function_exists('mb_strtoupper') ? mb_strtoupper($c) : strtoupper($c);
 };
 
-// Full class strings (not built dynamically) so the Tailwind scan finds them.
+// Unified monochromatic accents replacing the multi-color array
 $accents = [
-    'primary' => ['from' => 'from-primary/10',    'blob' => 'bg-primary/10 group-hover:bg-primary/20',       'label' => 'text-primary',    'badge' => 'bg-primary/10 border-primary/20 text-primary'],
-    'teal'    => ['from' => 'from-teal-500/10',   'blob' => 'bg-teal-500/10 group-hover:bg-teal-500/20',     'label' => 'text-teal-700',   'badge' => 'bg-teal-50 border-teal-200/80 text-teal-600'],
-    'amber'   => ['from' => 'from-amber-500/10',  'blob' => 'bg-amber-500/10 group-hover:bg-amber-500/20',   'label' => 'text-amber-700',  'badge' => 'bg-amber-50 border-amber-200/80 text-amber-600'],
-    'indigo'  => ['from' => 'from-indigo-500/10', 'blob' => 'bg-indigo-500/10 group-hover:bg-indigo-500/20', 'label' => 'text-indigo-700', 'badge' => 'bg-indigo-50 border-indigo-200/80 text-indigo-600'],
-    'violet'  => ['from' => 'from-violet-500/10', 'blob' => 'bg-violet-500/10 group-hover:bg-violet-500/20', 'label' => 'text-violet-700', 'badge' => 'bg-violet-50 border-violet-200/80 text-violet-600'],
-    'cyan'    => ['from' => 'from-cyan-500/10',   'blob' => 'bg-cyan-500/10 group-hover:bg-cyan-500/20',     'label' => 'text-cyan-700',   'badge' => 'bg-cyan-50 border-cyan-200/80 text-cyan-600'],
+    'primary' => ['from' => 'from-slate-500/10', 'blob' => 'bg-slate-100 group-hover:bg-slate-200', 'label' => 'text-slate-900', 'badge' => 'bg-slate-50 border-slate-200 text-slate-700'],
+    'teal'    => ['from' => 'from-slate-500/10', 'blob' => 'bg-slate-100 group-hover:bg-slate-200', 'label' => 'text-slate-900', 'badge' => 'bg-slate-50 border-slate-200 text-slate-700'],
+    'amber'   => ['from' => 'from-amber-500/10', 'blob' => 'bg-amber-100 group-hover:bg-amber-200', 'label' => 'text-amber-900', 'badge' => 'bg-amber-50 border-amber-200 text-amber-700'],
+    'indigo'  => ['from' => 'from-slate-500/10', 'blob' => 'bg-slate-100 group-hover:bg-slate-200', 'label' => 'text-slate-900', 'badge' => 'bg-slate-50 border-slate-200 text-slate-700'],
+    'violet'  => ['from' => 'from-slate-500/10', 'blob' => 'bg-slate-100 group-hover:bg-slate-200', 'label' => 'text-slate-900', 'badge' => 'bg-slate-50 border-slate-200 text-slate-700'],
+    'cyan'    => ['from' => 'from-slate-500/10', 'blob' => 'bg-slate-100 group-hover:bg-slate-200', 'label' => 'text-slate-900', 'badge' => 'bg-slate-50 border-slate-200 text-slate-700'],
 ];
+
 $tones = [
     'up'   => 'bg-teal-50 text-teal-700',
     'down' => 'bg-error-container/40 text-error',
     'flat' => 'bg-surface-container-low text-on-surface-variant',
 ];
+
 $statusBadge = [
     'approved' => 'bg-teal-50 text-teal-700 border-teal-200/80',
     'pending'  => 'bg-amber-50 text-amber-700 border-amber-200/80',
@@ -45,8 +47,9 @@ $cards = [
      'tip' => 'Cards reviewed in completed sessions over the last 7 days.', 'chip' => AdminOverviewService::percentChip($m['reviews7d'], $m['reviewsPrev7d'], 'vs prior 7d')],
 ];
 
-$panel = 'bg-surface-container-lowest border border-outline-variant/60 rounded-2xl p-4 sm:p-5 shadow-sm ring-1 ring-black/5 dark:ring-white/5 min-w-0';
-$row   = 'flex items-center justify-between gap-3 p-3 rounded-xl bg-surface-container-low border border-outline-variant/40';
+// Removed hard borders, applied the new custom shadow utility
+$panel = 'bg-surface-container-lowest rounded-2xl p-4 sm:p-5 shadow-premium-panel min-w-0';
+$row   = 'flex items-center justify-between gap-3 p-3 rounded-xl hover:bg-surface-container-low transition-colors border border-transparent hover:border-outline-variant/30';
 ?>
 <div class="w-full px-2 sm:px-6 lg:px-8 py-4 sm:py-6 md:py-8 overflow-visible">
     <div class="flex flex-col w-full gap-4 sm:gap-6">
@@ -64,35 +67,33 @@ $row   = 'flex items-center justify-between gap-3 p-3 rounded-xl bg-surface-cont
         <?php endif; ?>
 
         <!-- Metric cards -->
-        <section aria-label="Key metrics" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+        <section aria-label="Key metrics" class="grid grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
             <?php foreach ($cards as $c): $a = $accents[$c['accent']]; ?>
-                <div class="bg-gradient-to-br <?= $a['from'] ?> via-surface-container-lowest to-surface-container-lowest border border-outline-variant/60 rounded-2xl p-4 sm:p-5 shadow-sm ring-1 ring-black/5 dark:ring-white/5 flex flex-col justify-between h-32 sm:h-36 relative group hover:border-primary/40 hover:shadow-md transition-all">
-                    <div class="absolute right-0 bottom-0 w-20 h-20 <?= $a['blob'] ?> rounded-br-2xl rounded-tl-full blur-md pointer-events-none transition-all"></div>
-
-                    <div class="flex items-center justify-between w-full relative z-10">
-                        <div class="flex items-center gap-1.5">
-                            <span class="font-label-sm text-[11px] font-bold uppercase tracking-wider <?= $a['label'] ?>"><?= adminEsc($c['label']) ?></span>
-                            <div class="relative group/tooltip flex items-center">
-                                <span class="material-symbols-outlined text-[15px] text-on-surface-variant/60 cursor-help hover:text-on-surface transition-colors" aria-hidden="true">info</span>
-                                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/tooltip:block w-52 p-2.5 bg-slate-900 text-white text-[11px] font-medium rounded-xl shadow-xl z-50 pointer-events-none leading-snug text-center">
+                <div class="bg-surface-container-lowest rounded-2xl p-3 sm:p-5 shadow-premium-panel flex flex-col justify-between min-h-36 sm:min-h-40 min-w-0 hover-lift group">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="flex items-center gap-1.5 min-w-0">
+                            <span class="text-xs sm:text-sm font-semibold text-slate-500 uppercase tracking-wide leading-snug"><?= adminEsc($c['label']) ?></span>
+                            <div class="relative group/tooltip flex items-center flex-shrink-0">
+                                <span class="material-symbols-outlined text-[15px] text-on-surface-variant cursor-help" aria-hidden="true">info</span>
+                                <div role="tooltip" class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/tooltip:block group-focus-within/tooltip:block w-52 p-2.5 bg-slate-900 text-white text-[11px] font-medium rounded-xl shadow-xl z-50 pointer-events-none leading-snug text-center">
                                     <?= adminEsc($c['tip']) ?>
                                     <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-900"></div>
                                 </div>
                             </div>
                         </div>
-                        <div class="w-8 h-8 rounded-xl border <?= $a['badge'] ?> flex items-center justify-center flex-shrink-0 shadow-xs">
-                            <span class="material-symbols-outlined text-[18px]" aria-hidden="true"><?= $c['icon'] ?></span>
+                        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border <?= $a['badge'] ?> flex items-center justify-center flex-shrink-0 transition-colors">
+                            <span class="material-symbols-outlined text-[20px]" aria-hidden="true"><?= $c['icon'] ?></span>
                         </div>
                     </div>
 
-                    <div class="flex items-end justify-between gap-2 mt-2 relative z-10">
-                        <div class="flex flex-col min-w-0">
-                            <span class="font-headline-lg text-2xl sm:text-3xl font-extrabold tracking-tight text-on-surface"><?= adminEsc($c['value']) ?></span>
-                            <span class="text-xs text-on-surface-variant/80 font-medium mt-0.5 truncate"><?= adminEsc($c['caption']) ?></span>
+                    <div class="mt-4 min-w-0">
+                        <div class="flex flex-wrap items-end justify-between gap-2">
+                            <span class="text-3xl sm:text-4xl font-extrabold tracking-tight leading-none text-slate-900 tabular-nums"><?= adminEsc($c['value']) ?></span>
+                            <?php if ($c['chip']): ?>
+                                <span class="text-[10px] sm:text-xs font-semibold px-2 py-1 rounded-md whitespace-nowrap <?= $tones[$c['chip']['tone']] ?>"><?= adminEsc($c['chip']['text']) ?></span>
+                            <?php endif; ?>
                         </div>
-                        <?php if ($c['chip']): ?>
-                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap <?= $tones[$c['chip']['tone']] ?>"><?= adminEsc($c['chip']['text']) ?></span>
-                        <?php endif; ?>
+                        <p class="text-xs sm:text-sm text-slate-400 font-medium mt-2 mb-0 leading-snug"><?= adminEsc($c['caption']) ?></p>
                     </div>
                 </div>
             <?php endforeach; ?>
@@ -118,6 +119,13 @@ $row   = 'flex items-center justify-between gap-3 p-3 rounded-xl bg-surface-cont
                     </div>
                 </div>
 
+                <div class="flex flex-wrap items-center gap-2 mb-3" role="group" aria-label="Toggle chart series">
+                    <span class="text-xs font-semibold text-on-surface-variant mr-1">Show:</span>
+                    <button type="button" data-series="reviews" aria-pressed="true" class="inline-flex items-center gap-1.5 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-xs font-semibold text-sky-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"><span class="w-2 h-2 rounded-sm bg-sky-500" aria-hidden="true"></span>Reviews</button>
+                    <button type="button" data-series="active" aria-pressed="true" class="inline-flex items-center gap-1.5 rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1.5 text-xs font-semibold text-teal-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"><span class="w-2 h-2 rounded-full bg-teal-500" aria-hidden="true"></span>Active learners</button>
+                    <button type="button" data-series="signups" aria-pressed="true" class="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"><span class="w-2 h-2 rounded-full bg-amber-500" aria-hidden="true"></span>New sign-ups</button>
+                </div>
+
                 <div class="relative w-full h-64 sm:h-72 lg:h-80 min-w-0">
                     <div id="overview-chart-loading" class="absolute inset-0 flex items-center justify-center text-sm text-on-surface-variant">Loading chart…</div>
                     <div id="overview-chart-status" class="hidden absolute inset-0 flex-col items-center justify-center text-center text-on-surface-variant gap-1 p-6 z-10">
@@ -129,7 +137,7 @@ $row   = 'flex items-center justify-between gap-3 p-3 rounded-xl bg-surface-cont
                 </div>
             </section>
 
-            <section class="lg:col-span-4 <?= $panel ?> flex flex-col" aria-labelledby="pending-title">
+            <section class="lg:col-span-4 <?= $panel ?> flex flex-col bg-amber-50/30" aria-labelledby="pending-title">
                 <div class="flex items-center justify-between mb-3">
                     <div>
                         <div class="flex items-center gap-2">

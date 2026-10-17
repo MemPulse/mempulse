@@ -20,7 +20,7 @@ $roleBadge = [
 ];
 $tabs = ['' => 'All', 'pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected'];
 
-$panel = 'bg-surface-container-lowest border border-outline-variant/60 rounded-2xl shadow-sm ring-1 ring-black/5 dark:ring-white/5 min-w-0';
+$panel = 'bg-surface-container-lowest rounded-2xl shadow-premium-panel min-w-0';
 $input = 'w-full rounded-xl border border-outline-variant/60 bg-surface-container-lowest px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40';
 
 $sortLink = function (string $key, string $label, string $cls = '') use ($f): string {
@@ -115,25 +115,25 @@ $sortLink = function (string $key, string $label, string $cls = '') use ($f): st
                         </thead>
                         <tbody>
                             <?php foreach ($list['rows'] as $u): $self = $u['id'] === $adminUser['id']; ?>
-                                <tr class="border-t border-outline-variant/30 hover:bg-surface-container-low/60 transition-colors">
-                                    <td class="px-4 py-3">
+                                <tr class="border-t border-outline-variant/20 hover:bg-slate-50/60 transition-colors group">
+                                    <td class="px-4 py-2">
                                         <div class="flex items-center gap-3 min-w-0">
-                                            <div class="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 text-xs font-bold"><?= adminEsc($initial($u['name'])) ?></div>
+                                            <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center flex-shrink-0 text-xs font-bold"><?= adminEsc($initial($u['name'])) ?></div>
                                             <div class="flex flex-col min-w-0">
-                                                <span class="text-xs font-bold text-on-surface truncate max-w-[14rem]"><?= adminEsc($u['name']) ?><?= $self ? ' <span class="ml-1 text-[10px] font-semibold text-primary">(you)</span>' : '' ?></span>
-                                                <span class="text-[11px] text-on-surface-variant truncate max-w-[14rem]"><?= adminEsc($u['email']) ?></span>
+                                                <span class="text-xs font-bold text-slate-900 truncate max-w-[14rem]"><?= adminEsc($u['name']) ?><?= $self ? ' <span class="ml-1 text-[10px] font-semibold text-primary">(you)</span>' : '' ?></span>
+                                                <span class="text-[11px] text-slate-500 truncate max-w-[14rem]"><?= adminEsc($u['email']) ?></span>
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="px-4 py-3 hidden md:table-cell">
+                                    <td class="px-4 py-2 hidden md:table-cell">
                                         <span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md border <?= $roleBadge[$u['role']] ?? $roleBadge['user'] ?>"><?= adminEsc($u['role']) ?></span>
                                     </td>
-                                    <td class="px-4 py-3">
+                                    <td class="px-4 py-2">
                                         <span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md border <?= $statusBadge[$u['status']] ?? $statusBadge['pending'] ?>"><?= adminEsc($u['status']) ?></span>
                                     </td>
-                                    <td class="px-4 py-3 text-xs text-on-surface-variant whitespace-nowrap hidden sm:table-cell"><?= adminEsc($u['joined']) ?></td>
-                                    <td class="px-4 py-3 text-xs text-on-surface-variant whitespace-nowrap hidden lg:table-cell"><?= adminEsc($u['lastActive']) ?></td>
-                                    <td class="px-4 py-3 text-right">
+                                    <td class="px-4 py-2 text-xs text-on-surface-variant whitespace-nowrap hidden sm:table-cell"><?= adminEsc($u['joined']) ?></td>
+                                    <td class="px-4 py-2 text-xs text-on-surface-variant whitespace-nowrap hidden lg:table-cell"><?= adminEsc($u['lastActive']) ?></td>
+                                    <td class="px-4 py-2 text-right">
                                         <button type="button" data-user-id="<?= (int) $u['id'] ?>" aria-label="View details for <?= adminEsc($u['name']) ?>"
                                             class="px-3 py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container-high text-xs font-semibold text-on-surface transition-colors">Details</button>
                                     </td>
@@ -174,8 +174,8 @@ $sortLink = function (string $key, string $label, string $cls = '') use ($f): st
     </div>
 </div>
 
-<!-- Detail drawer (filled by admin-users.js) -->
-<div id="user-drawer-overlay" class="fixed inset-0 bg-black/50 z-[60] hidden opacity-0 transition-opacity"></div>
+<!-- Detail drawer -->
+<div id="user-drawer-overlay" class="fixed inset-0 z-[60] hidden opacity-0 transition-opacity drawer-backdrop"></div>
 <aside id="user-drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-name" tabindex="-1"
        class="fixed right-0 top-0 h-full w-full sm:w-[26rem] bg-surface-container-lowest border-l border-outline-variant/60 shadow-2xl z-[70] translate-x-full transition-transform duration-300 flex flex-col invisible">
     <div class="flex items-start justify-between gap-3 p-5 border-b border-outline-variant/40">

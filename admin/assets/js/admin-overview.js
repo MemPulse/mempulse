@@ -15,9 +15,14 @@
     var statusTitle = document.getElementById('overview-chart-status-title');
     var statusText = document.getElementById('overview-chart-status-text');
     var buttons = Array.prototype.slice.call(document.querySelectorAll('[data-range]'));
+    var seriesButtons = Array.prototype.slice.call(document.querySelectorAll('[data-series]'));
+    var seriesIndex = { reviews: 0, active: 1, signups: 2 };
+    var seriesEnabled = { reviews: true, active: true, signups: true };
 
     var ON = ['bg-primary-fixed', 'text-on-primary-fixed-variant', 'shadow-sm'];
     var OFF = ['text-on-surface-variant', 'hover:bg-surface-container-high'];
+    var SERIES_ON = ['shadow-sm'];
+    var SERIES_OFF = ['opacity-50'];
 
     // Series colors (chart.js needs real color values; these match the app's accents).
     var COLORS = { reviews: '#0ea5e9', active: '#14b8a6', signups: '#f59e0b' };
@@ -73,6 +78,24 @@
         });
     }
 
+    function setSeriesButtons() {
+        seriesButtons.forEach(function (b) {
+            var key = b.getAttribute('data-series');
+            var on = !!seriesEnabled[key];
+            b.setAttribute('aria-pressed', on ? 'true' : 'false');
+            SERIES_ON.forEach(function (c) { b.classList.toggle(c, on); });
+            SERIES_OFF.forEach(function (c) { b.classList.toggle(c, !on); });
+        });
+    }
+
+    function applySeriesVisibility() {
+        if (!chart) return;
+        Object.keys(seriesIndex).forEach(function (key) {
+            chart.data.datasets[seriesIndex[key]].hidden = !seriesEnabled[key];
+        });
+        chart.update();
+    }
+
     function render(range) {
         var s = slice(range);
         setButtons(range);
@@ -89,6 +112,9 @@
             chart.data.datasets[0].data = s.reviews;
             chart.data.datasets[1].data = s.active;
             chart.data.datasets[2].data = s.signups;
+            Object.keys(seriesIndex).forEach(function (key) {
+                chart.data.datasets[seriesIndex[key]].hidden = !seriesEnabled[key];
+            });
             chart.update();
             return;
         }
@@ -119,7 +145,7 @@
                 maintainAspectRatio: false,
                 interaction: { mode: 'index', intersect: false },
                 plugins: {
-                    legend: { position: 'bottom', labels: { color: text, usePointStyle: true, boxWidth: 8, font: { size: 11 } } },
+                    legend: { display: false },
                     tooltip: { padding: 10, cornerRadius: 10 }
                 },
                 scales: {
@@ -135,11 +161,26 @@
                 }
             }
         });
+        Object.keys(seriesIndex).forEach(function (key) {
+            chart.data.datasets[seriesIndex[key]].hidden = !seriesEnabled[key];
+        });
+        chart.update();
     }
+
+    seriesButtons.forEach(function (b) {
+        b.addEventListener('click', function () {
+            var key = b.getAttribute('data-series');
+            if (!Object.prototype.hasOwnProperty.call(seriesEnabled, key)) return;
+            seriesEnabled[key] = !seriesEnabled[key];
+            setSeriesButtons();
+            applySeriesVisibility();
+        });
+    });
 
     buttons.forEach(function (b) {
         b.addEventListener('click', function () { render(Number(b.getAttribute('data-range'))); });
     });
 
+    setSeriesButtons();
     render(Number(data.defaultRange) || 30);
 })();
