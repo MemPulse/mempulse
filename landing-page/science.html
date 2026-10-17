@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en-PH" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Science of Better Learning | MemPulse</title>
+
+    <!-- Student-focused SEO metadata -->
+    <meta name="title" content="The Science of Better Learning | MemPulse">
+    <meta name="description" content="Discover how active recall and spaced repetition can support more effective study habits, and learn how MemPulse puts these techniques into practice.">
+    <meta name="keywords" content="MemPulse, flashcards app, study tools for college, active recall, spaced repetition, study decks, university exam prep, study app">
+    <meta name="author" content="MemPulse Team">
+    <meta name="robots" content="index, follow">
+
+    <!-- Open Graph metadata -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://example.com">
+    <meta property="og:title" content="The Science of Better Learning | MemPulse">
+    <meta property="og:description" content="Learn how active recall and spaced repetition work together, and how MemPulse helps you put them into practice.">
+    <meta property="og:image" content="https://example.com/assets/og-student-preview.png">
+
+    <!-- Fonts and icon set used by the visual reference -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+
+    <!-- Styling is intentionally embedded here so index.html is self-contained. -->
+    <style>
+        :root {
+            color-scheme: light;
+            --surface: #faf8ff;
+            --surface-low: #f2f3ff;
+            --surface-card: #ffffff;
+            --surface-container: #eaedff;
+            --surface-high: #e2e7ff;
+            --surface-highest: #dae2fd;
+            --ink: #131b2e;
+            --muted: #464555;
+            --muted-soft: #777587;
+            --primary: #3525cd;
+            --primary-deep: #1e00a9;
+            --secondary: #4b41e1;
+            --secondary-fixed: #e2dfff;
+            --mint: #4edea3;
+            --mint-pale: #d6f8e9;
+            --error-pale: #ffdad6;
+            --radius-lg: 1rem;
+            --radius-xl: 1.25rem;
+            --shadow-soft: 0 8px 30px rgba(53, 37, 205, .07);
+            --shadow-card: 0 20px 50px rgba(53, 37, 205, .10);
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            scroll-padding-top: 6rem;
+        }
+
+        body {
+            margin: 0;
+            background: var(--surface);
+            color: var(--ink);
+            font-family: "Inter", sans-serif;
+            font-size: 1rem;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body::selection {
+            background: var(--surface-highest);
+            color: var(--primary-deep);
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        img,
+        svg {
+            max-width: 100%;
+        }
+
+        button,
+        a {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .material-symbols-outlined {
+            font-family: "Material Symbols Outlined";
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            font-feature-settings: "liga";
+            -webkit-font-feature-settings: "liga";
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Header */
+        .app-header {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            background: rgba(250, 248, 255, .86);
+            border-bottom: 1px solid rgba(199, 196, 216, .38);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+        }
+
+        .header-container {
+            width: min(100% - 3rem, 80rem);
+            min-height: 5rem;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .logo-link {
+            display: inline-flex;
+            align-items: center;
+            gap: .7rem;
+            font-family: "Plus Jakarta Sans", sans-serif;
+            font-weight: 800;
+            font-size: 1.2rem;
+            letter-spacing: -.04em;
+            white-space: nowrap;
+        }
+
+        .logo-icon {
+            display: grid;
+            width: 2.6rem;
+            height: 2.6rem;
+            place-items: center;
+            border-radius: .85rem;
+            background: var(--surface-container);
+            box-shadow: 0 3px 12px rgba(53, 37, 205, .10);
+            font-size: 1.35rem;
+            color: rgb(53, 37, 205);
+        }
+
+        .logo-link {
+            justify-self: start;
+        }
+
+        .main-nav {
+            justify-self: center;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--muted);
+            font-size: .88rem;
+            font-weight: 600;
+            transition: color .2s ease;
+        }
+
+        .nav-links a:hover,
+        .nav-links a:focus-visible {
+            color: var(--primary);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            justify-self: end;
+            gap: .8rem;
+        }
+
+        .btn {
+            min-height: 2.75rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .5rem;
+            border: 1px solid transparent;
+            border-radius: 999px;
+            padding: .7rem 1.25rem;
+            font: 700 .88rem/1.2 "Plus Jakarta Sans", sans-serif;
+            transition: transform .2s ease, background .2s ease, box-shadow .2s ease, border-color .2s ease;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-primary,
+        .btn-filled {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 8px 22px rgba(53, 37, 205, .22);
+        }
+
+        .btn-primary:hover,
+        .btn-filled:hover {
+            background: var(--secondary);
+            box-shadow: 0 12px 26px rgba(75, 65, 225, .28);
+        }
+
+        .btn-outlined {
+            color: var(--ink);
+            background: rgba(255, 255, 255, .82);
+            border-color: #d9d9ed;
+            box-shadow: 0 3px 12px rgba(19, 27, 46, .04);
+        }
+
+        .btn-outlined:hover {
+            background: var(--surface-low);
+            border-color: #c7c4d8;
+        }
+
+        /* Hero */
+        main {
+            overflow: hidden;
+        }
+
+        .hero-section {
+            position: relative;
+            isolation: isolate;
+            overflow: hidden;
+            padding: clamp(5rem, 9vw, 8rem) 1.5rem clamp(6rem, 10vw, 9rem);
+            text-align: center;
+        }
+
+        .hero-section::before,
+        .hero-section::after {
+            content: "";
+            position: absolute;
+            z-index: -1;
+            pointer-events: none;
+            border-radius: 50%;
+            filter: blur(2px);
+        }
+
+        .hero-section::before {
+            width: min(76vw, 850px);
+            height: 450px;
+            top: -230px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: radial-gradient(ellipse, rgba(218, 226, 253, .92) 0%, rgba(226, 223, 255, .45) 45%, transparent 72%);
+        }
+
+        .hero-section::after {
+            width: 420px;
+            height: 350px;
+            right: -220px;
+            bottom: 0;
+            background: radial-gradient(ellipse, rgba(78, 222, 163, .17), transparent 70%);
+        }
+
+        .hero-container {
+            width: min(100%, 72rem);
+            margin: 0 auto;
+        }
+
+        .hero-container::before {
+            content: "●  EVIDENCE-BASED ACTIVE RECALL & SPACED REPETITION";
+            display: inline-flex;
+            align-items: center;
+            margin-bottom: 1.7rem;
+            padding: .55rem 1rem;
+            border-radius: 999px;
+            background: var(--surface-high);
+            color: var(--ink);
+            font: 700 .7rem/1.4 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: .075em;
+            box-shadow: 0 3px 12px rgba(19, 27, 46, .04);
+        }
+
+        .hero-container h1 {
+            max-width: 900px;
+            margin: 0 auto 1.5rem;
+            font: 800 clamp(3rem, 7.5vw, 5.4rem)/1.04 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: -.065em;
+        }
+
+        .hero-container h1 br {
+            display: block;
+        }
+
+        .hero-container h1 {
+            text-wrap: balance;
+        }
+
+        .hero-container h1::first-line {
+            color: var(--ink);
+        }
+
+        .hero-container>p {
+            max-width: 680px;
+            margin: 0 auto 2.25rem;
+            color: var(--muted);
+            font-size: clamp(1rem, 2vw, 1.15rem);
+            line-height: 1.8;
+        }
+
+        .hero-buttons {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: .85rem;
+        }
+
+        .hero-buttons .btn {
+            min-height: 3.25rem;
+            padding: .95rem 1.7rem;
+        }
+
+        /* Features */
+        .features-section,
+        .testimonials-section {
+            padding: clamp(4.5rem, 8vw, 7rem) 1.5rem;
+        }
+
+        .features-section {
+            background: rgba(242, 243, 255, .72);
+        }
+
+        .section-title-area {
+            max-width: 760px;
+            margin: 0 auto 3.5rem;
+            text-align: center;
+        }
+
+        .section-title-area::before {
+            content: "OPTIMIZED COGNITIVE WORKFLOW";
+            display: inline-block;
+            margin-bottom: 1rem;
+            padding: .45rem .8rem;
+            border-radius: 999px;
+            background: var(--secondary-fixed);
+            color: #3323cc;
+            font: 700 .68rem/1.4 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: .08em;
+        }
+
+        .section-title-area h2 {
+            margin: 0 0 1rem;
+            font: 700 clamp(1.9rem, 4vw, 2.7rem)/1.2 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: -.045em;
+            text-wrap: balance;
+        }
+
+        .section-title-area p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+
+        .features-container {
+            width: min(100%, 80rem);
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1.5rem;
+        }
+
+        .feature-item {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            min-width: 0;
+            padding: 2rem;
+            border: 1px solid rgba(199, 196, 216, .48);
+            border-radius: var(--radius-xl);
+            background: var(--surface-card);
+            box-shadow: 0 4px 18px rgba(19, 27, 46, .035);
+            transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+        }
+
+        .feature-item:hover {
+            transform: translateY(-5px);
+            border-color: rgba(75, 65, 225, .25);
+            box-shadow: var(--shadow-soft);
+        }
+
+        .feature-icon {
+            display: grid;
+            width: 3.25rem;
+            height: 3.25rem;
+            place-items: center;
+            margin-bottom: 1.5rem;
+            border-radius: 1rem;
+            background: var(--mint-pale);
+            box-shadow: 0 3px 10px rgba(19, 27, 46, .04);
+            font-size: 1.6rem;
+        }
+
+        .feature-item:nth-child(2) .feature-icon {
+            background: var(--secondary-fixed);
+        }
+
+        .feature-item:nth-child(3) .feature-icon {
+            background: var(--surface-high);
+        }
+
+        .feature-item h3 {
+            margin: 0 0 .8rem;
+            font: 700 1.25rem/1.35 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: -.025em;
+        }
+
+        .feature-item p {
+            margin: 0;
+            color: var(--muted);
+            font-size: .92rem;
+            line-height: 1.8;
+        }
+
+        /* Testimonials */
+        .testimonials-section {
+            background: var(--surface);
+        }
+
+        .testimonials-section .section-title-area::before {
+            content: "REAL STUDY ROUTINES, BETTER RETENTION";
+            background: var(--mint-pale);
+            color: #005236;
+        }
+
+        .testimonials-grid {
+            width: min(100%, 80rem);
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1.25rem;
+            align-items: stretch;
+        }
+
+        .testimonial-card {
+            margin: 0;
+            padding: 1.7rem;
+            border: 1px solid rgba(199, 196, 216, .55);
+            border-radius: var(--radius-lg);
+            background: var(--surface-card);
+            box-shadow: 0 5px 20px rgba(19, 27, 46, .035);
+            transition: transform .2s ease, box-shadow .2s ease;
+        }
+
+        .testimonial-card:hover,
+        .testimonial-card:focus-visible {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-soft);
+            outline: none;
+        }
+
+        .testimonial-card p {
+            margin: 0 0 1.25rem;
+            color: #34394a;
+            font-size: .94rem;
+            line-height: 1.8;
+        }
+
+        .testimonial-card strong {
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        .testimonial-card cite {
+            display: block;
+            color: var(--muted-soft);
+            font-size: .82rem;
+            font-style: normal;
+            font-weight: 600;
+        }
+
+        /* Footer */
+        .app-footer {
+            padding: 2.2rem 1.5rem;
+            background: #171d32;
+            color: #e8eaff;
+        }
+
+        .footer-container {
+            width: min(100%, 80rem);
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .footer-container p {
+            margin: 0;
+            color: #c2c7df;
+            font-size: .85rem;
+            line-height: 1.9;
+        }
+
+        :focus-visible {
+            outline: 3px solid rgba(75, 65, 225, .55);
+            outline-offset: 3px;
+        }
+
+        @media (max-width: 900px) {
+            .header-container {
+                width: min(100% - 2rem, 80rem);
+            }
+
+            .nav-links {
+                gap: 1.1rem;
+            }
+
+            .features-container {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .testimonials-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 640px) {
+            .header-container {
+                min-height: 4.5rem;
+                gap: .8rem;
+            }
+
+            .logo-link {
+                font-size: 1.05rem;
+            }
+
+            .logo-emoji {
+                width: 2.3rem;
+                height: 2.3rem;
+            }
+
+
+            .btn {
+                padding: .65rem 1rem;
+                font-size: .8rem;
+            }
+
+            .hero-section {
+                padding: 4.5rem 1.1rem 5.5rem;
+            }
+
+            .hero-container::before {
+                max-width: 100%;
+                font-size: .56rem;
+                letter-spacing: .045em;
+            }
+
+            .hero-container h1 {
+                font-size: clamp(2.7rem, 12vw, 4rem);
+            }
+
+            .hero-container>p {
+                font-size: 1rem;
+            }
+
+            .hero-buttons {
+                flex-direction: column;
+            }
+
+            .hero-buttons .btn {
+                width: min(100%, 20rem);
+            }
+
+            .features-section,
+            .testimonials-section {
+                padding: 4.2rem 1.1rem;
+            }
+
+            .section-title-area {
+                margin-bottom: 2.3rem;
+            }
+
+            .section-title-area h2 {
+                font-size: 1.9rem;
+            }
+
+            .features-container,
+            .testimonials-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .feature-item {
+                padding: 1.5rem;
+            }
+
+            .testimonial-card {
+                padding: 1.4rem;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+
+            *,
+            *::before,
+            *::after {
+                scroll-behavior: auto !important;
+                transition-duration: .01ms !important;
+                animation-duration: .01ms !important;
+            }
+        }
+
+        /* Shared header: nav stays centered; on small screens it wraps to its own row (like login.php) */
+        .nav-links a[aria-current="page"] {
+            color: var(--primary);
+        }
+
+        @media (max-width: 768px) {
+            html {
+                scroll-padding-top: 8rem;
+            }
+
+            .header-container {
+                grid-template-columns: 1fr auto;
+                row-gap: .5rem;
+                min-height: 0;
+                padding: .75rem 0;
+            }
+
+            .main-nav {
+                grid-column: 1 / -1;
+                grid-row: 2;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .nav-links {
+                gap: .85rem;
+            }
+
+            .nav-links a {
+                font-size: .82rem;
+            }
+        }
+
+        /* Science article: quiet, Notion-inspired long-form reading layout */
+        .science-page {
+            width: min(100% - 3rem, 740px);
+            margin: 0 auto;
+            padding: clamp(3.5rem, 8vw, 6rem) 0 5rem;
+        }
+        .article-meta {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: .55rem;
+            margin-bottom: 1.5rem;
+            color: var(--muted-soft);
+            font-size: .82rem;
+        }
+        .article-meta .meta-separator { color: #b7b5c4; }
+        .article-kicker {
+            margin: 0 0 .8rem;
+            color: var(--primary);
+            font: 700 .75rem/1.4 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: .09em;
+            text-transform: uppercase;
+        }
+        .article-title {
+            margin: 0 0 1.2rem;
+            color: var(--ink);
+            font: 800 clamp(2.5rem, 7vw, 4rem)/1.08 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: -.06em;
+            text-wrap: balance;
+        }
+        .article-deck {
+            margin: 0;
+            color: var(--muted);
+            font-size: clamp(1.05rem, 2.5vw, 1.2rem);
+            line-height: 1.85;
+        }
+        .article-rule {
+            height: 1px;
+            margin: 2.3rem 0;
+            border: 0;
+            background: rgba(199, 196, 216, .72);
+        }
+        .toc {
+            position: sticky;
+            top: 5.75rem;
+            z-index: 10;
+            max-height: calc(100vh - 6.5rem);
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            margin: 0 0 3.4rem;
+            padding: 1.15rem 1.5rem;
+            border: 1px solid rgba(199, 196, 216, .72);
+            border-radius: .8rem;
+            background: rgba(250, 248, 255, .96);
+            box-shadow: 0 8px 28px rgba(41, 35, 78, .07);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            scroll-margin-top: 6rem;
+        }
+        .toc-jump {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            margin-top: 1rem;
+            color: var(--primary);
+            font-size: .92rem;
+            font-weight: 700;
+            text-decoration: underline;
+            text-decoration-color: rgba(103, 80, 220, .35);
+            text-underline-offset: .22em;
+        }
+        .toc-jump:hover, .toc-jump:focus-visible { text-decoration-color: currentColor; }
+        html { scroll-behavior: smooth; scroll-padding-top: 6rem; }
+        @media (prefers-reduced-motion: reduce) {
+            html { scroll-behavior: auto; }
+        }
+        .toc h2 {
+            margin: 0 0 .8rem;
+            font: 700 1rem/1.5 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: -.015em;
+        }
+        .toc ol { margin: 0; padding-left: 1.25rem; color: var(--muted); }
+        .toc li { padding: .2rem 0; }
+        .toc a { text-decoration: underline; text-decoration-color: transparent; text-underline-offset: .2em; transition: color .2s, text-decoration-color .2s; }
+        .toc a:hover, .toc a:focus-visible { color: var(--primary); text-decoration-color: currentColor; }
+        .article-section { margin: 0 0 3.5rem; scroll-margin-top: 7rem; }
+        .article-section h2 {
+            margin: 0 0 1rem;
+            font: 700 clamp(1.65rem, 4vw, 2rem)/1.3 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: -.04em;
+            text-wrap: balance;
+        }
+        .article-section h3 {
+            margin: 1.8rem 0 .55rem;
+            font: 700 1.15rem/1.45 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: -.02em;
+        }
+        .article-section p, .article-section li {
+            color: #343547;
+            font-size: 1rem;
+            line-height: 1.9;
+        }
+        .article-section p { margin: 0 0 1rem; }
+        .article-section ul, .article-section ol { margin: .5rem 0 1.2rem; padding-left: 1.4rem; }
+        .article-section li + li { margin-top: .4rem; }
+        .article-section strong { color: var(--ink); font-weight: 700; }
+        .article-callout {
+            margin: 1.5rem 0 1.7rem;
+            padding: 1rem 1.2rem;
+            border-left: 3px solid var(--primary);
+            background: rgba(242, 243, 255, .78);
+            color: var(--muted);
+            line-height: 1.85;
+        }
+        .article-callout strong { color: var(--ink); }
+        .article-steps { padding-left: 1.5rem; }
+        .article-steps li { padding-left: .2rem; }
+        .article-cta {
+            margin-top: 3.8rem;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(199, 196, 216, .72);
+        }
+        .article-cta h2 {
+            margin: 0 0 .8rem;
+            font: 700 1.65rem/1.35 "Plus Jakarta Sans", sans-serif;
+            letter-spacing: -.035em;
+        }
+        .article-cta p { max-width: 620px; margin: 0 0 1.25rem; color: var(--muted); line-height: 1.85; }
+        .article-cta .btn { min-height: 2.9rem; }
+        .article-footer-note { margin-top: 2rem; color: var(--muted-soft); font-size: .82rem; line-height: 1.7; }
+        @media (max-width: 640px) {
+            .science-page { width: min(100% - 2.2rem, 740px); padding-top: 3rem; }
+            .article-title { font-size: clamp(2.35rem, 11vw, 3.25rem); }
+            .toc {
+                top: 5.25rem;
+                max-height: min(42vh, 22rem);
+                padding: 1rem 1.1rem;
+                margin-bottom: 2.8rem;
+            }
+            .toc h2 { margin-bottom: .45rem; }
+            .toc li { padding: .12rem 0; }
+            .article-section { margin-bottom: 2.8rem; }
+            .article-section p, .article-section li { font-size: .97rem; }
+        }
+
+    </style>
+</head>
+
+<body>
+    <!-- Global App Header Navigation -->
+    <header class="app-header">
+        <div class="header-container">
+            <a href="#" class="logo-link" aria-label="MemPulse home">
+                <span class="material-symbols-outlined logo-icon" aria-hidden="true">neurology</span>
+                <span>MemPulse</span>
+            </a>
+
+            <nav class="main-nav" aria-label="Main navigation">
+                <ul class="nav-links">
+                    <li><a href="index.html#features">Features</a></li>
+                    <li><a href="index.html#testimonials">Reviews</a></li>
+                    <li><a href="science.html" aria-current="page">Science</a></li>
+                    <li><a href="pricing.html">Pricing</a></li>
+                    <li><a href="about.html">About</a></li>
+                </ul>
+            </nav>
+
+            <div class="header-actions">
+                <a href="../authentication/login.php" class="btn btn-primary">Login</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <article class="science-page">
+            <header class="article-header">
+                <div class="article-meta">
+                    <span>Learning guide</span><span class="meta-separator">/</span><span>6 min read</span>
+                </div>
+                <p class="article-kicker">The science of studying</p>
+                <h1 class="article-title">The Science of Better Learning</h1>
+                <p class="article-deck">How active recall and spaced repetition can help you practice remembering, make reviews more intentional, and build a consistent study routine.</p>
+                <a class="toc-jump" href="#on-this-page">Jump to a section <span aria-hidden="true">↓</span></a>
+            </header>
+
+            <hr class="article-rule">
+
+            <nav class="toc" id="on-this-page" aria-label="On this page">
+                <h2>On this page</h2>
+                <ol>
+                    <li><a href="#introduction">Why study methods matter</a></li>
+                    <li><a href="#active-recall">Active recall: practice remembering</a></li>
+                    <li><a href="#spaced-repetition">Spaced repetition: review over time</a></li>
+                    <li><a href="#forgetting-curve">The forgetting curve</a></li>
+                    <li><a href="#combine-techniques">Why combine both techniques?</a></li>
+                    <li><a href="#mempulse-workflow">Putting it into practice with MemPulse</a></li>
+                </ol>
+            </nav>
+
+            <section class="article-section" id="introduction">
+                <h2>Why study methods matter</h2>
+                <p>When you have several subjects to prepare for, it can be tempting to reread notes for hours or leave most of the work until the night before an exam. These habits can make material feel familiar, but familiarity does not always mean you can recall or explain it when you need to.</p>
+                <p>A more deliberate approach is to practice retrieving what you have learned and return to it across multiple study sessions. Two techniques that support this approach are <strong>active recall</strong> and <strong>spaced repetition</strong>.</p>
+                <p>Active recall is about how you practice remembering. Spaced repetition is about when you practice again. Used together, they give your study sessions a clear structure.</p>
+            </section>
+
+            <section class="article-section" id="active-recall">
+                <h2>1. Active recall: practice remembering</h2>
+                <p>Active recall means trying to retrieve information from memory before checking the answer. Rather than looking at a definition and immediately rereading it, you ask yourself a question and make a genuine attempt to answer it first.</p>
+                <h3>How to use active recall</h3>
+                <ol class="article-steps">
+                    <li><strong>Start with a prompt.</strong> Choose a question, concept, definition, or problem you want to learn.</li>
+                    <li><strong>Try to answer from memory.</strong> Look away from your notes and give yourself time to think.</li>
+                    <li><strong>Check your answer.</strong> Reveal the answer or consult your source and compare it with what you recalled.</li>
+                    <li><strong>Notice the gaps.</strong> Identify missing details or misunderstandings that need another review.</li>
+                </ol>
+                <p>The goal is not to get every answer right on the first attempt. The goal is to find out what you can retrieve independently and where you still need practice.</p>
+                <div class="article-callout"><strong>Example:</strong> Instead of rereading a biology definition, turn it into a question. Try to explain the concept in your own words before checking the textbook or flashcard answer.</div>
+                <p>Flashcards are one practical way to use active recall. The question or prompt appears on the front; the answer stays hidden until you have tried to remember it.</p>
+            </section>
+
+            <section class="article-section" id="spaced-repetition">
+                <h2>2. Spaced repetition: review over time</h2>
+                <p>Spaced repetition means spreading review sessions over time instead of trying to learn everything in one sitting. You return to information at intervals, and the timing can be adjusted according to how well you remember it.</p>
+                <h3>How it works</h3>
+                <ul>
+                    <li><strong>Learn:</strong> Study a concept and try to recall it.</li>
+                    <li><strong>Review:</strong> Return to the concept after some time has passed.</li>
+                    <li><strong>Extend the interval:</strong> If you remember the answer, schedule the next review farther into the future.</li>
+                    <li><strong>Review sooner:</strong> If you forget the answer, bring it back earlier for more practice.</li>
+                </ul>
+                <p>Spaced repetition helps structure your study time. Instead of giving every card the same attention every day, you can focus on material that is due for review.</p>
+                <p>There is no single interval pattern that is perfect for every learner or every subject. The useful principle is to return to material repeatedly over time and adjust your practice based on your performance.</p>
+            </section>
+
+            <section class="article-section" id="forgetting-curve">
+                <h2>3. The forgetting curve: why review matters</h2>
+                <p>The forgetting curve describes the general observation that newly learned information can become harder to recall as time passes, particularly when it is not revisited. How quickly this happens varies with the person, the material, prior knowledge, and the conditions in which learning took place.</p>
+                <p>This is one reason a topic can seem easy immediately after studying but become difficult to explain a few days later. Seeing the same information again can create a feeling of familiarity, but that feeling is not the same as successfully retrieving it from memory.</p>
+                <p>Testing yourself and returning to material over time gives you opportunities to practice retrieval and notice what has become difficult to remember. The aim is not to eliminate forgetting completely; it is to make review a deliberate part of learning.</p>
+            </section>
+
+            <section class="article-section" id="combine-techniques">
+                <h2>4. Why combine active recall and spaced repetition?</h2>
+                <p>The two techniques work on different parts of the study process. Active recall gives you a way to test what you can remember. Spaced repetition gives you a way to organize when you will practice again.</p>
+                <p>Together, they create a repeatable cycle:</p>
+                <ol class="article-steps">
+                    <li><strong>Retrieve:</strong> Attempt to answer without looking.</li>
+                    <li><strong>Evaluate:</strong> Check what you remembered and what you missed.</li>
+                    <li><strong>Schedule:</strong> Decide when the material should be reviewed again.</li>
+                    <li><strong>Repeat:</strong> Return to the material across future sessions.</li>
+                </ol>
+                <p>This routine can be useful when managing several courses because it provides a practical way to keep track of material that needs attention. It works best when paired with understanding, practice problems, and other methods appropriate to the subject—not as a replacement for them.</p>
+            </section>
+
+            <section class="article-section" id="mempulse-workflow">
+                <h2>5. Putting it into practice with MemPulse</h2>
+                <p>MemPulse brings active recall and spaced repetition into a flashcard workflow. You organize material into decks, attempt to answer each card, record whether you remembered it, and use the review schedule to decide what to study next.</p>
+                <h3>Organize your material</h3>
+                <p>Create a deck for each subject or topic. Add focused questions and answers so that each card tests a specific piece of knowledge.</p>
+                <h3>Review what is due</h3>
+                <p>Use the review hub to see which cards are due. Try to recall the answer before revealing it, then mark whether you remembered or forgot.</p>
+                <h3>Let your responses guide the schedule</h3>
+                <p>MemPulse adjusts each card's next review interval according to your response and your scheduling settings. With the default multipliers, a remembered card's interval grows by 2×, while a forgotten card's interval is reduced to 0.5×. The starting interval is one day, and the interval is capped at 365 days; these settings can be configured.</p>
+                <h3>Review your progress</h3>
+                <p>Your dashboard and reports show study activity such as cards due, cards reviewed, accuracy, streaks, and trends. Use this information to maintain a consistent routine and identify cards that continue to challenge you.</p>
+                <div class="article-callout"><strong>A practical starting point:</strong> Make a small deck for one topic, test yourself before revealing each answer, and return to the cards when they are due. Consistency is more useful than trying to build a perfect routine all at once.</div>
+            </section>
+
+            <section class="article-cta" aria-labelledby="article-cta-title">
+                <h2 id="article-cta-title">Make remembering part of your routine</h2>
+                <p>Turn your study material into focused flashcards, practice recalling what you have learned, and build a review habit one session at a time.</p>
+                <a href="../authentication/login.php" class="btn btn-primary">Start studying with MemPulse</a>
+                <p class="article-footer-note">Learning techniques are tools, not guarantees. Choose review methods that fit your subject, learning goals, and study context.</p>
+            </section>
+        </article>
+    </main>
+
+    <footer class="app-footer">
+        <div class="footer-container">
+            <p>&copy; 2026 MemPulse. All rights reserved.<br>Practice retrieval. Review over time. Learn at your own pace.</p>
+        </div>
+    </footer>
+</body>
+
+</html>

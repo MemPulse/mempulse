@@ -172,9 +172,9 @@
                         <div class="relative w-full h-full min-h-[280px]">
                             
                             <!-- DIV: SLIDE 0 - Memory Science -->
-                            <!-- <div class="hero-slide absolute inset-0 transition-opacity duration-500 ease-in-out flex flex-col justify-between p-5 sm:p-6 opacity-100 z-10" data-slide-index="0" aria-hidden="false"> -->
+                            <div class="hero-slide absolute inset-0 transition-opacity duration-500 ease-in-out flex flex-col justify-between p-5 sm:p-6 opacity-100 z-10" data-slide-index="0" aria-hidden="false">
                                 <!-- DIV: Slide Header & Description Block -->
-                                <!-- <div class="relative z-10 flex flex-col gap-2">
+                                <div class="relative z-10 flex flex-col gap-2">
                                     <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-primary/20 border border-primary/30 backdrop-blur-md text-cyan-200 font-label-sm text-[10px] font-bold tracking-wider uppercase w-fit">
                                         <span class="material-symbols-outlined text-[14px]">psychology</span>
                                         <span>Memory Science</span>
@@ -185,15 +185,15 @@
                                     <p class="font-body-sm text-xs sm:text-sm text-slate-300 leading-relaxed max-w-lg">
                                         Explore the science behind spaced repetition, forgetting curves, and effective long-term learning.
                                     </p>
-                                </div> -->
+                                </div>
                                 <!-- DIV: Slide Action Button & Wayfinder Dots Bar -->
-                                <!-- <div class="relative z-10 flex items-center justify-between pt-4 border-t border-white/10">
+                                <div class="relative z-10 flex items-center justify-between pt-4 border-t border-white/10">
                                     <a href="science.php" class="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-900 font-label-md text-xs font-bold shadow-xs transition-all group">
                                         <span>Learn More</span>
                                         <span class="material-symbols-outlined text-[16px] transition-transform group-hover:translate-x-1">arrow_forward</span>
-                                    </a> -->
+                                    </a>
                                     <!-- DIV: Wayfinder Pagination Navigation Dots Shell -->
-                                    <!-- <div class="flex items-center gap-2 hero-dots-container" aria-label="Carousel navigation">
+                                    <div class="flex items-center gap-2 hero-dots-container" aria-label="Carousel navigation">
                                         <button type="button" title="Memory Science" aria-label="Slide 1: Memory Science" class="hero-dot h-2 rounded-full transition-all duration-300 bg-cyan-400 w-6" data-dot-index="0" aria-current="true"></button>
                                         <button type="button" title="Decks" aria-label="Slide 2: Decks" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="1" aria-current="false"></button>
                                         <button type="button" title="Create Flashcards" aria-label="Slide 3: Create Flashcards" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="2" aria-current="false"></button>
@@ -201,7 +201,7 @@
                                         <button type="button" title="Reports & Statistics" aria-label="Slide 5: Reports & Statistics" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="4" aria-current="false"></button>
                                     </div>
                                 </div>
-                            </div> -->
+                            </div>
 
                             <!-- DIV: SLIDE 1 - Decks -->
                             <div class="hero-slide absolute inset-0 transition-opacity duration-500 ease-in-out flex flex-col justify-between p-5 sm:p-6 opacity-0 pointer-events-none z-0" data-slide-index="1" aria-hidden="true">

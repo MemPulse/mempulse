@@ -429,6 +429,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 <ul class="nav-links">
                     <li><a href="../landing-page/index.html#features">Features</a></li>
                     <li><a href="../landing-page/index.html#testimonials">Reviews</a></li>
+                    <li><a href="science.html">Science</a></li>
                     <li><a href="../landing-page/pricing.html">Pricing</a></li>
                     <li><a href="../landing-page/about.html">About</a></li>
                 </ul>

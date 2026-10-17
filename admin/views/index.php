@@ -16,6 +16,8 @@ $currentPage = 'overview';
 
 $jsPayload = ['trend' => $trend, 'defaultRange' => 30];
 $jsVersion = @filemtime(__DIR__ . '/../assets/js/admin-overview.js') ?: time();
+// The hero carousel script is shared with the student app (it auto-starts on #hero-carousel).
+$carouselVersion = @filemtime(__DIR__ . '/../../app/assets/js/hero-carousel.js') ?: time();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -33,6 +35,7 @@ $jsVersion = @filemtime(__DIR__ . '/../assets/js/admin-overview.js') ?: time();
     <script>
         window.MemPulseAdminOverview = <?= json_encode($jsPayload, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
     </script>
+    <script src="<?= APP_URL ?>assets/js/hero-carousel.js?v=<?= $carouselVersion ?>" defer></script>
     <!-- Pin this to the same Chart.js version the reports page uses. -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
     <script src="<?= ADMIN_URL ?>assets/js/admin-overview.js?v=<?= $jsVersion ?>" defer></script>
