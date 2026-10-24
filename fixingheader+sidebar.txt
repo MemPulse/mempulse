@@ -1,0 +1,2677 @@
+decks.php
+```
+<?php
+// 1. Initialize user session tracking
+session_start();
+
+// 2. Route Protection: Redirect to login view if user credentials are uninitialized
+if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || !isset($_SESSION['user_id'])) {
+    header("Location: ../../authentication/login.php");
+    exit;
+}
+
+// 3. Connect to database module and load business service
+require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../api/DeckService.php';
+
+// CSRF token used by the rename/archive/create/restore/add_card requests
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+$userId = (int) $_SESSION['user_id'];
+
+// --- DATA ORCHESTRATION ---
+$decks         = DeckService::getUserDecks($conn, $userId);
+$archivedDecks = DeckService::getArchivedDecks($conn, $userId);
+$deckTotal     = count($decks);
+
+$pageTitle   = "Decks";
+$currentPage = "decks";
+?>
+<!DOCTYPE html>
+<html lang="en">
+
+<?php include __DIR__ . '/../includes/head.php'; ?>
+
+<!-- BODY: Main App Background & Styling Root -->
+<body class="bg-background font-body-md text-on-surface antialiased min-h-screen selection:bg-primary-fixed selection:text-on-primary-fixed">
+
+    <?php include __DIR__ . '/../includes/sidebar.php'; ?>
+
+    <!-- MAIN: Viewport Shell Offset for Fixed Top Header (pt-16) and Sidebar (md:pl-72) -->
+    <main id="main-content" 
+        class="pl-0 md:pl-72 pt-16 transition-all duration-300 ease-in-out">
+        <?php include __DIR__ . '/decks-view.php'; ?>
+    </main>
+
+    <!-- 1. DATA INJECTION: Server-side PHP variables passed safely to client-side JS -->
+    <script>
+        window.MemPulseDeckData = {
+            csrfToken: <?= json_encode($_SESSION['csrf_token'] ?? '') ?>,
+            createRequested: <?= isset($_GET['create']) && $_GET['create'] === '1' ? 'true' : 'false' ?>,
+            addCardRequested: <?= isset($_GET['add_card']) && $_GET['add_card'] === '1' ? 'true' : 'false' ?>,
+            requestedDeckId: <?= isset($_GET['deck_id']) && ctype_digit((string) $_GET['deck_id']) ? (int) $_GET['deck_id'] : 'null' ?>
+        };
+    </script>
+
+    <!-- 2. CLIENT-SIDE ASSET IMPORTS: Separated standalone JavaScript modules -->
+    <script src="../assets/js/decks.js" defer></script>
+</body>
+</html>
+```
+
+index.php
+```
+<?php
+// 1. Initialize user session tracking
+session_start();
+
+// 2. Route Protection: Redirect to login view if user credentials are uninitialized
+if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || !isset($_SESSION['user_id'])) {
+    header("Location: ../../authentication/login.php");
+    exit;
+}
+
+// 3. Connect to database module and load business service
+require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../api/DashboardService.php';
+
+$userId = (int) $_SESSION['user_id'];
+
+// --- DATA ORCHESTRATION ---
+$profileData    = DashboardService::getUserProfile($conn, $userId);
+$metricsData    = DashboardService::getMetrics($conn, $userId);
+$streakData     = DashboardService::getStreakAndHeatmapData($conn, $userId);
+$recentSessions = DashboardService::getRecentSessions($conn, $userId, 4);
+
+// Extracted variables for template includes
+$displayName    = $profileData['displayName'];
+$current_streak = $streakData['currentStreak'];
+$pageTitle      = "Home Dashboard";
+$currentPage    = 'home';
+
+/**
+ * Helper function for Heatmap grid CSS class matching review intensity (Green Palette).
+ */
+if (!function_exists('heatmap_level_style')) {
+    function heatmap_level_style(int $reviews): string {
+        if ($reviews <= 0) return 'background-color: #F6F6FD; border: 1px solid rgba(150,150,150,0.2);';
+        if ($reviews <= 7) return 'background-color: #86efac;';
+        if ($reviews <= 14) return 'background-color: #4ade80;';
+        if ($reviews <= 21) return 'background-color: #16a34a;';
+        return 'background-color: #15803d;';
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+
+<?php include __DIR__ . '/../includes/head.php'; ?>
+
+<!-- BODY: Main App Background & Styling Root -->
+<body class="bg-background font-body-md text-on-surface antialiased min-h-screen selection:bg-primary-fixed selection:text-on-primary-fixed">
+
+    <?php include __DIR__ . '/../includes/sidebar.php'; ?>
+
+    <!-- MAIN: Viewport Shell Offset for Fixed Top Header (pt-16) and Sidebar (md:pl-72) -->
+    <main id="main-content" 
+        class="pl-0 md:pl-72 pt-16 transition-all duration-300 ease-in-out">
+        <?php include __DIR__ . '/dashboard.php'; ?>                
+    </main>
+
+    <!-- 1. DATA INJECTION: Server-side PHP metrics passed safely to client-side JS -->
+    <script>
+        window.MemPulseHomeData = {
+            stats: {
+                cardsDue: <?php echo (int) $metricsData['cardsDue']; ?>,
+                masteredCards: <?php echo (int) $metricsData['masteredCards']; ?>,
+                toughCards: <?php echo (int) $metricsData['toughCards']; ?>,
+                currentStreak: <?php echo (int) $streakData['currentStreak']; ?>,
+                bestStreak: <?php echo (int) $streakData['bestStreak']; ?>,
+                streakAccuracy: <?php echo (float) $streakData['streakAccuracy']; ?>
+            }
+        };
+
+        /**
+         * Global Dashboard UI Manager
+         * Synchronizes dynamic metrics across header, sidebar, and metric panels.
+         */
+        const MemPulseDashboard = {
+            updateAll(payload) {
+                if (!payload) return;
+                this.syncHeader(payload.user);
+                this.syncSidebarProfile(payload.user);
+                this.syncMetrics(payload.stats);
+            },
+
+            syncHeader(user) {
+                if (!user || !user.displayName) return;
+                document.querySelectorAll('[data-user-name]').forEach((el) => {
+                    el.textContent = user.displayName;
+                });
+            },
+
+            syncSidebarProfile(user) {
+                if (!user || !user.displayName) return;
+                document.querySelectorAll('[data-user-name]').forEach((el) => {
+                    el.textContent = user.displayName;
+                });
+            },
+
+            syncMetrics(stats) {
+                if (!stats) return;
+                this.setElText('stat-cards-due', stats.cardsDue);
+                this.setElText('stat-mastered', stats.masteredCards);
+                this.setElText('stat-tough', stats.toughCards);
+                this.setElText('stat-current-streak', stats.currentStreak);
+                this.setElText('stat-best-streak', stats.bestStreak);
+                this.setElText('stat-streak-accuracy', stats.streakAccuracy);
+            },
+
+            setElText(id, value) {
+                const el = document.getElementById(id);
+                if (el) el.textContent = value ?? '--';
+            }
+        };
+
+        document.addEventListener("DOMContentLoaded", () => {
+            MemPulseDashboard.updateAll(window.MemPulseHomeData);
+
+            const heatmapScroller = document.getElementById("heatmap-scroll");
+            if (heatmapScroller) {
+                requestAnimationFrame(() => {
+                    heatmapScroller.scrollLeft = heatmapScroller.scrollWidth - heatmapScroller.clientWidth;
+                });
+            }
+        });
+    </script>
+
+    <!-- 2. CLIENT-SIDE ASSET IMPORTS: Separated standalone JavaScript modules -->
+    <script src="../assets/js/hero-carousel.js" defer></script>
+</body>
+</html>
+```
+
+dashboard.php
+```
+<!-- ========================================================================= -->
+<!-- MAIN DASHBOARD CONTENT CONTAINER CONTAINER DIV                            -->
+<!-- Outer responsive padding shell wrapping top metrics, carousel, and history -->
+<!-- ========================================================================= -->
+<div class="w-full px-2 sm:px-6 lg:px-8 py-4 sm:py-6 overflow-visible">    <!-- DIV: Vertical Layout Flex Shell -->
+    <div class="flex flex-col w-full gap-4 sm:gap-6">
+
+        <!-- DIV: TOP SECTION - Core Analytics Cards, Action Carousel & Streak Bar -->
+        <div class="flex flex-col gap-4 sm:gap-6 w-full">
+
+            <!-- DIV: ROW 1 - Grid Split: 2x2 Metric Grid (Left) vs Hero Carousel (Right) -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-stretch w-full">
+                
+                <!-- DIV: LEFT COLUMN - 2x2 Core Metrics Card Grid Container -->
+                <div class="lg:col-span-6 flex flex-col justify-between w-full min-w-0">
+                    <!-- DIV: 2-Column Responsive Metric Grid Shell -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 w-full h-full">
+                        
+                        <!-- DIV: CARD 1 - Scheduled Cards Due Metric Container -->
+                        <div class="bg-gradient-to-br from-primary/10 via-surface-container-lowest to-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col justify-between h-32 sm:h-36 relative group hover:border-primary/50 hover:shadow-md transition-all">
+                            <!-- DIV: Ambient Background Blur Decorative Shape -->
+                            <div class="absolute right-0 bottom-0 w-20 h-20 bg-primary/10 rounded-br-2xl rounded-tl-full blur-md pointer-events-none group-hover:bg-primary/20 transition-all"></div>
+                            
+                            <!-- DIV: Card Header Row Shell (Title & Tooltip) -->
+                            <div class="flex items-center justify-between w-full relative z-10">
+                                <!-- DIV: Label & Information Tooltip Shell -->
+                                <div class="flex items-center gap-1.5">
+                                    <!-- SPAN: Scheduled Cards Category Tag -->
+                                    <span class="font-label-sm text-[11px] font-bold uppercase tracking-wider text-primary">Scheduled</span>
+                                    <!-- DIV: Informational Tooltip Wrapper -->
+                                    <div class="relative group/tooltip flex items-center">
+                                        <!-- SPAN: Info Graphic Icon -->
+                                        <span class="material-symbols-outlined text-[15px] text-primary/60 cursor-help hover:text-primary transition-colors">info</span>
+                                        <!-- DIV: Floating Tooltip Hover Content Container -->
+                                        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/tooltip:block w-52 p-2.5 bg-slate-900 text-white text-[11px] font-medium rounded-xl shadow-xl z-50 pointer-events-none leading-snug text-center">
+                                            Total cards scheduled for review today.
+                                            <!-- DIV: Tooltip Arrow Point Graphic -->
+                                            <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-900"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- DIV: Metric Card Alarm Icon Container Badge -->
+                                <div class="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary flex-shrink-0 shadow-xs">
+                                    <!-- SPAN: Alarm Clock Icon Graphic -->
+                                    <span class="material-symbols-outlined text-[18px]">alarm</span>
+                                </div>
+                            </div>
+                            <!-- DIV: Metric Numerical Display Wrapper -->
+                            <div class="flex flex-col mt-2 relative z-10">
+                                <!-- SPAN: Dynamic Cards Due Counter Output -->
+                                <span id="stat-cards-due" class="font-headline-lg text-2xl sm:text-3xl font-extrabold tracking-tight text-on-surface">
+                                    <?php echo (int) $metricsData['cardsDue']; ?>
+                                </span>
+                                <!-- SPAN: Metric Name Subtitle -->
+                                <span class="text-xs text-on-surface-variant/80 font-medium mt-0.5">Cards Due Today</span>
+                            </div>
+                        </div>
+
+                        <!-- DIV: CARD 2 - Cards Reviewed Today Metric Container -->
+                        <div class="bg-gradient-to-br from-teal-500/10 via-surface-container-lowest to-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col justify-between h-32 sm:h-36 relative group hover:border-teal-500/50 hover:shadow-md transition-all">
+                            <!-- DIV: Ambient Background Glow Graphic -->
+                            <div class="absolute right-0 bottom-0 w-20 h-20 bg-teal-500/10 rounded-br-2xl rounded-tl-full blur-md pointer-events-none group-hover:bg-teal-500/20 transition-all"></div>
+                            
+                            <!-- DIV: Header Metric Shell -->
+                            <div class="flex items-center justify-between w-full relative z-10">
+                                <!-- DIV: Category Label Group -->
+                                <div class="flex items-center gap-1.5">
+                                    <!-- SPAN: Category Tag -->
+                                    <span class="font-label-sm text-[11px] font-bold uppercase tracking-wider text-teal-700">Reviewed</span>
+                                    <!-- DIV: Tooltip Hover Trigger -->
+                                    <div class="relative group/tooltip flex items-center">
+                                        <!-- SPAN: Info Graphic Icon -->
+                                        <span class="material-symbols-outlined text-[15px] text-teal-700/60 cursor-help hover:text-teal-700 transition-colors">info</span>
+                                        <!-- DIV: Floating Tooltip Box -->
+                                        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/tooltip:block w-52 p-2.5 bg-slate-900 text-white text-[11px] font-medium rounded-xl shadow-xl z-50 pointer-events-none leading-snug text-center">
+                                            Total cards reviewed in completed study sessions today.
+                                            <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-900"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- DIV: Icon Badge Shell -->
+                                <div class="w-8 h-8 rounded-xl bg-teal-50 border border-teal-200/80 flex items-center justify-center text-teal-600 flex-shrink-0 shadow-xs">
+                                    <!-- SPAN: Flashcards Graphic Icon -->
+                                    <span class="material-symbols-outlined text-[18px]">style</span>
+                                </div>
+                            </div>
+                            <!-- DIV: Numerical Value Group -->
+                            <div class="flex flex-col mt-2 relative z-10">
+                                <!-- SPAN: Dynamic Cards Reviewed Counter Output -->
+                                <span id="stat-reviewed-today" class="font-headline-lg text-2xl sm:text-3xl font-extrabold tracking-tight text-on-surface">
+                                    <?php echo (int) $metricsData['cardsReviewedToday']; ?>
+                                </span>
+                                <!-- SPAN: Metric Name Subtitle -->
+                                <span class="text-xs text-on-surface-variant/80 font-medium mt-0.5">Cards Reviewed Today</span>
+                            </div>
+                        </div>
+
+                        <!-- DIV: CARD 3 - Retention Rate Percentage Metric Container -->
+                        <div class="bg-gradient-to-br from-rose-500/10 via-surface-container-lowest to-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col justify-between h-32 sm:h-36 relative group hover:border-error/50 hover:shadow-md transition-all">
+                            <!-- DIV: Decorative Background Overlay -->
+                            <div class="absolute right-0 bottom-0 w-20 h-20 bg-rose-500/10 rounded-br-2xl rounded-tl-full blur-md pointer-events-none group-hover:bg-rose-500/20 transition-all"></div>
+                            
+                            <!-- DIV: Header Information Bar Shell -->
+                            <div class="flex items-center justify-between w-full relative z-10">
+                                <div class="flex items-center gap-1.5">
+                                    <!-- SPAN: Retention Tag -->
+                                    <span class="font-label-sm text-[11px] font-bold uppercase tracking-wider text-error">Retention Rate</span>
+                                    <div class="relative group/tooltip flex items-center">
+                                        <span class="material-symbols-outlined text-[15px] text-error/60 cursor-help hover:text-error transition-colors">info</span>
+                                        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/tooltip:block w-52 p-2.5 bg-slate-900 text-white text-[11px] font-medium rounded-xl shadow-xl z-50 pointer-events-none leading-snug text-center">
+                                            Percentage of completed reviews where the learner successfully remembered the card.
+                                            <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-900"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="w-8 h-8 rounded-xl bg-red-50 border border-red-200/80 flex items-center justify-center text-error flex-shrink-0 shadow-xs">
+                                    <!-- SPAN: Accuracy Target Icon -->
+                                    <span class="material-symbols-outlined text-[18px]">track_changes</span>
+                                </div>
+                            </div>
+                            <div class="flex flex-col mt-2 relative z-10">
+                                <!-- SPAN: Dynamic Retention Output Percentage -->
+                                <span id="stat-retention" class="font-headline-lg text-2xl sm:text-3xl font-extrabold tracking-tight text-on-surface">
+                                    <?php echo (float) $metricsData['retentionRate']; ?>%
+                                </span>
+                                <span class="text-xs text-on-surface-variant/80 font-medium mt-0.5">Retention Rate</span>
+                            </div>
+                        </div>
+
+                        <!-- DIV: CARD 4 - Mastered Cards Metric Container -->
+                        <div class="bg-gradient-to-br from-indigo-500/10 via-surface-container-lowest to-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col justify-between h-32 sm:h-36 relative group hover:border-indigo-500/50 hover:shadow-md transition-all">
+                            <div class="absolute right-0 bottom-0 w-20 h-20 bg-indigo-500/10 rounded-br-2xl rounded-tl-full blur-md pointer-events-none group-hover:bg-indigo-500/20 transition-all"></div>
+                            
+                            <div class="flex items-center justify-between w-full relative z-10">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="font-label-sm text-[11px] font-bold uppercase tracking-wider text-indigo-700">Mastered</span>
+                                    <div class="relative group/tooltip flex items-center">
+                                        <span class="material-symbols-outlined text-[15px] text-indigo-700/60 cursor-help hover:text-indigo-700 transition-colors">info</span>
+                                        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/tooltip:block w-52 p-2.5 bg-slate-900 text-white text-[11px] font-medium rounded-xl shadow-xl z-50 pointer-events-none leading-snug text-center">
+                                            Cards that have reached a review interval of at least 21 days.
+                                            <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-900"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-200/80 flex items-center justify-center text-indigo-600 flex-shrink-0 shadow-xs">
+                                    <!-- SPAN: Verified Badge Icon -->
+                                    <span class="material-symbols-outlined text-[18px]">verified</span>
+                                </div>
+                            </div>
+                            <div class="flex flex-col mt-2 relative z-10">
+                                <!-- SPAN: Dynamic Mastered Cards Count Output -->
+                                <span id="stat-mastered" class="font-headline-lg text-2xl sm:text-3xl font-extrabold tracking-tight text-on-surface">
+                                    <?php echo (int) $metricsData['masteredCards']; ?>
+                                </span>
+                                <span class="text-xs text-on-surface-variant/80 font-medium mt-0.5">Cards Mastered</span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- DIV: RIGHT COLUMN - Dynamic Action Hero Carousel Container -->
+                <div class="lg:col-span-6 flex w-full min-w-0 h-full">
+                    <!-- SECTION: Interactive Carousel Wrapper Shell -->
+                    <section class="relative w-full h-full rounded-2xl overflow-hidden shadow-xs border border-outline-variant/30 min-h-[280px] bg-gradient-to-br from-inverse-surface via-slate-900 to-inverse-surface text-inverse-on-surface flex flex-col justify-between" id="hero-carousel" aria-label="Learning Quick Actions Carousel">
+                        <!-- DIV: Background Ambient Glow Effects -->
+                        <div class="absolute -right-10 -top-10 w-40 h-40 bg-primary/20 rounded-full blur-3xl pointer-events-none"></div>
+                        <div class="absolute -left-10 -bottom-10 w-40 h-40 bg-secondary-container/20 rounded-full blur-3xl pointer-events-none"></div>
+
+                        <!-- DIV: Carousel Slide Frame Wrapper -->
+                        <div class="relative w-full h-full min-h-[280px]">
+                            
+                            <!-- DIV: SLIDE 0 - Memory Science -->
+                            <div class="hero-slide absolute inset-0 transition-opacity duration-500 ease-in-out flex flex-col justify-between p-5 sm:p-6 opacity-100 z-10" data-slide-index="0" aria-hidden="false">
+                                <!-- DIV: Slide Header & Description Block -->
+                                <div class="relative z-10 flex flex-col gap-2">
+                                    <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-primary/20 border border-primary/30 backdrop-blur-md text-cyan-200 font-label-sm text-[10px] font-bold tracking-wider uppercase w-fit">
+                                        <span class="material-symbols-outlined text-[14px]">psychology</span>
+                                        <span>Memory Science</span>
+                                    </div>
+                                    <h2 class="font-headline-md text-lg sm:text-2xl font-extrabold tracking-tight text-white leading-snug mt-1">
+                                        Understand How Memory Works
+                                    </h2>
+                                    <p class="font-body-sm text-xs sm:text-sm text-slate-300 leading-relaxed max-w-lg">
+                                        Explore the science behind spaced repetition, forgetting curves, and effective long-term learning.
+                                    </p>
+                                </div>
+                                <!-- DIV: Slide Action Button & Wayfinder Dots Bar -->
+                                <div class="relative z-10 flex items-center justify-between pt-4 border-t border-white/10">
+                                    <a href="science.php" class="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-900 font-label-md text-xs font-bold shadow-xs transition-all group">
+                                        <span>Learn More</span>
+                                        <span class="material-symbols-outlined text-[16px] transition-transform group-hover:translate-x-1">arrow_forward</span>
+                                    </a>
+                                    <!-- DIV: Wayfinder Pagination Navigation Dots Shell -->
+                                    <div class="flex items-center gap-2 hero-dots-container" aria-label="Carousel navigation">
+                                        <button type="button" title="Memory Science" aria-label="Slide 1: Memory Science" class="hero-dot h-2 rounded-full transition-all duration-300 bg-cyan-400 w-6" data-dot-index="0" aria-current="true"></button>
+                                        <button type="button" title="Decks" aria-label="Slide 2: Decks" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="1" aria-current="false"></button>
+                                        <button type="button" title="Create Flashcards" aria-label="Slide 3: Create Flashcards" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="2" aria-current="false"></button>
+                                        <button type="button" title="Review & History" aria-label="Slide 4: Review & History" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="3" aria-current="false"></button>
+                                        <button type="button" title="Reports & Statistics" aria-label="Slide 5: Reports & Statistics" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="4" aria-current="false"></button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- DIV: SLIDE 1 - Decks -->
+                            <div class="hero-slide absolute inset-0 transition-opacity duration-500 ease-in-out flex flex-col justify-between p-5 sm:p-6 opacity-0 pointer-events-none z-0" data-slide-index="1" aria-hidden="true">
+                                <div class="relative z-10 flex flex-col gap-2">
+                                    <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-teal-500/20 border border-teal-500/30 backdrop-blur-md text-teal-200 font-label-sm text-[10px] font-bold tracking-wider uppercase w-fit">
+                                        <span class="material-symbols-outlined text-[14px]">style</span>
+                                        <span>Decks</span>
+                                    </div>
+                                    <h2 class="font-headline-md text-lg sm:text-2xl font-extrabold tracking-tight text-white leading-snug mt-1">
+                                        View and Organize Your Decks
+                                    </h2>
+                                    <p class="font-body-sm text-xs sm:text-sm text-slate-300 leading-relaxed max-w-lg">
+                                        Manage your study collections, browse your cards, and keep your learning materials organized.
+                                    </p>
+                                </div>
+                                <div class="relative z-10 flex items-center justify-between pt-4 border-t border-white/10">
+                                    <a href="decks.php" class="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-900 font-label-md text-xs font-bold shadow-xs transition-all group">
+                                        <span>View Decks</span>
+                                        <span class="material-symbols-outlined text-[16px] transition-transform group-hover:translate-x-1">arrow_forward</span>
+                                    </a>
+                                    <div class="flex items-center gap-2 hero-dots-container" aria-label="Carousel navigation">
+                                        <button type="button" title="Memory Science" aria-label="Slide 1: Memory Science" class="hero-dot h-2 rounded-full transition-all duration-300 bg-cyan-400 w-6" data-dot-index="0" aria-current="true"></button>
+                                        <button type="button" title="Decks" aria-label="Slide 2: Decks" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="1" aria-current="false"></button>
+                                        <button type="button" title="Create Flashcards" aria-label="Slide 3: Create Flashcards" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="2" aria-current="false"></button>
+                                        <button type="button" title="Review & History" aria-label="Slide 4: Review & History" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="3" aria-current="false"></button>
+                                        <button type="button" title="Reports & Statistics" aria-label="Slide 5: Reports & Statistics" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="4" aria-current="false"></button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- DIV: SLIDE 2 - Flashcard Creation -->
+                            <div class="hero-slide absolute inset-0 transition-opacity duration-500 ease-in-out flex flex-col justify-between p-5 sm:p-6 opacity-0 pointer-events-none z-0" data-slide-index="2" aria-hidden="true">
+                                <div class="relative z-10 flex flex-col gap-2">
+                                    <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-indigo-500/20 border border-indigo-500/30 backdrop-blur-md text-indigo-200 font-label-sm text-[10px] font-bold tracking-wider uppercase w-fit">
+                                        <span class="material-symbols-outlined text-[14px]">edit_note</span>
+                                        <span>Flashcard Creation</span>
+                                    </div>
+                                    <h2 class="font-headline-md text-lg sm:text-2xl font-extrabold tracking-tight text-white leading-snug mt-1">
+                                        Create Your Flashcards
+                                    </h2>
+                                    <p class="font-body-sm text-xs sm:text-sm text-slate-300 leading-relaxed max-w-lg">
+                                        Build focused study cards and turn complex subjects into concise prompts for active recall.
+                                    </p>
+                                </div>
+                                <div class="relative z-10 flex items-center justify-between pt-4 border-t border-white/10">
+                                    <a href="decks.php?add_card=1" class="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-900 font-label-md text-xs font-bold shadow-xs transition-all group">
+                                        <span>Create Flashcards</span>
+                                        <span class="material-symbols-outlined text-[16px] transition-transform group-hover:translate-x-1">arrow_forward</span>
+                                    </a>
+                                    <div class="flex items-center gap-2 hero-dots-container" aria-label="Carousel navigation">
+                                        <button type="button" title="Memory Science" aria-label="Slide 1: Memory Science" class="hero-dot h-2 rounded-full transition-all duration-300 bg-cyan-400 w-6" data-dot-index="0" aria-current="true"></button>
+                                        <button type="button" title="Decks" aria-label="Slide 2: Decks" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="1" aria-current="false"></button>
+                                        <button type="button" title="Create Flashcards" aria-label="Slide 3: Create Flashcards" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="2" aria-current="false"></button>
+                                        <button type="button" title="Review & History" aria-label="Slide 4: Review & History" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="3" aria-current="false"></button>
+                                        <button type="button" title="Reports & Statistics" aria-label="Slide 5: Reports & Statistics" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="4" aria-current="false"></button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- DIV: SLIDE 3 - Review & History -->
+                            <div class="hero-slide absolute inset-0 transition-opacity duration-500 ease-in-out flex flex-col justify-between p-5 sm:p-6 opacity-0 pointer-events-none z-0" data-slide-index="3" aria-hidden="true">
+                                <div class="relative z-10 flex flex-col gap-2">
+                                    <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-amber-500/20 border border-amber-500/30 backdrop-blur-md text-amber-200 font-label-sm text-[10px] font-bold tracking-wider uppercase w-fit">
+                                        <span class="material-symbols-outlined text-[14px]">pace</span>
+                                        <span>Review & History</span>
+                                    </div>
+                                    <h2 class="font-headline-md text-lg sm:text-2xl font-extrabold tracking-tight text-white leading-snug mt-1">
+                                        Review Cards and Track Your History
+                                    </h2>
+                                    <p class="font-body-sm text-xs sm:text-sm text-slate-300 leading-relaxed max-w-lg">
+                                        Start a review session, reinforce what you know, and view your completed review history.
+                                    </p>
+                                </div>
+                                <div class="relative z-10 flex items-center justify-between pt-4 border-t border-white/10">
+                                    <a href="review.php" class="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-900 font-label-md text-xs font-bold shadow-xs transition-all group">
+                                        <span>Review Now</span>
+                                        <span class="material-symbols-outlined text-[16px] transition-transform group-hover:translate-x-1">arrow_forward</span>
+                                    </a>
+                                    <div class="flex items-center gap-2 hero-dots-container" aria-label="Carousel navigation">
+                                        <button type="button" title="Memory Science" aria-label="Slide 1: Memory Science" class="hero-dot h-2 rounded-full transition-all duration-300 bg-cyan-400 w-6" data-dot-index="0" aria-current="true"></button>
+                                        <button type="button" title="Decks" aria-label="Slide 2: Decks" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="1" aria-current="false"></button>
+                                        <button type="button" title="Create Flashcards" aria-label="Slide 3: Create Flashcards" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="2" aria-current="false"></button>
+                                        <button type="button" title="Review & History" aria-label="Slide 4: Review & History" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="3" aria-current="false"></button>
+                                        <button type="button" title="Reports & Statistics" aria-label="Slide 5: Reports & Statistics" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="4" aria-current="false"></button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- DIV: SLIDE 4 - Reports & Statistics -->
+                            <div class="hero-slide absolute inset-0 transition-opacity duration-500 ease-in-out flex flex-col justify-between p-5 sm:p-6 opacity-0 pointer-events-none z-0" data-slide-index="4" aria-hidden="true">
+                                <div class="relative z-10 flex flex-col gap-2">
+                                    <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-purple-500/20 border border-purple-500/30 backdrop-blur-md text-purple-200 font-label-sm text-[10px] font-bold tracking-wider uppercase w-fit">
+                                        <span class="material-symbols-outlined text-[14px]">monitoring</span>
+                                        <span>Reports & Statistics</span>
+                                    </div>
+                                    <h2 class="font-headline-md text-lg sm:text-2xl font-extrabold tracking-tight text-white leading-snug mt-1">
+                                        See Your Learning Progress
+                                    </h2>
+                                    <p class="font-body-sm text-xs sm:text-sm text-slate-300 leading-relaxed max-w-lg">
+                                        Explore detailed statistics and reports to understand your review activity and learning progress.
+                                    </p>
+                                </div>
+                                <div class="relative z-10 flex items-center justify-between pt-4 border-t border-white/10">
+                                    <a href="reports.php" class="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-900 font-label-md text-xs font-bold shadow-xs transition-all group">
+                                        <span>View Reports</span>
+                                        <span class="material-symbols-outlined text-[16px] transition-transform group-hover:translate-x-1">arrow_forward</span>
+                                    </a>
+                                    <div class="flex items-center gap-2 hero-dots-container" aria-label="Carousel navigation">
+                                        <button type="button" title="Memory Science" aria-label="Slide 1: Memory Science" class="hero-dot h-2 rounded-full transition-all duration-300 bg-cyan-400 w-6" data-dot-index="0" aria-current="true"></button>
+                                        <button type="button" title="Decks" aria-label="Slide 2: Decks" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="1" aria-current="false"></button>
+                                        <button type="button" title="Create Flashcards" aria-label="Slide 3: Create Flashcards" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="2" aria-current="false"></button>
+                                        <button type="button" title="Review & History" aria-label="Slide 4: Review & History" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="3" aria-current="false"></button>
+                                        <button type="button" title="Reports & Statistics" aria-label="Slide 5: Reports & Statistics" class="hero-dot h-2 rounded-full transition-all duration-300 hover:bg-white/70 bg-white/30 w-2" data-dot-index="4" aria-current="false"></button>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </section>
+                </div>
+
+            </div>
+
+                        <?php
+            // ---- "Due Now" call-to-action state ----
+            $dueTotal     = (int) ($metricsData['cardsDue'] ?? 0);
+            $dueDecks     = $dueByDeck ?? [];
+            $nextDueSecs  = $nextDueSecs ?? null;
+            $curStreak    = (int) ($streakData['currentStreak'] ?? 0);
+            $streakAtRisk = $dueTotal > 0 && $curStreak > 0 && (int) ($metricsData['cardsReviewedToday'] ?? 0) === 0;
+            $reviewHref   = count($dueDecks) === 1 ? 'review.php?deck_id=' . (int) $dueDecks[0]['id'] : 'review.php';
+
+            if ($streakAtRisk) {
+                $dueSubtitle = 'Keep your ' . $curStreak . '-day streak alive';
+            } elseif (count($dueDecks) === 1) {
+                $dueSubtitle = 'in ' . $dueDecks[0]['title'];
+            } elseif (count($dueDecks) > 1) {
+                $dueSubtitle = 'across ' . count($dueDecks) . ' decks';
+            } else {
+                $dueSubtitle = '';
+            }
+
+            $nextDueLabel = '';
+            if ($nextDueSecs !== null && $nextDueSecs > 0) {
+                if ($nextDueSecs < 3600)       $nextDueLabel = 'Next cards due in ' . max(1, (int) ceil($nextDueSecs / 60)) . ' min';
+                elseif ($nextDueSecs < 86400)  $nextDueLabel = 'Next cards due in ' . (int) floor($nextDueSecs / 3600) . ' h';
+                else                           $nextDueLabel = 'Next cards due in ' . (int) floor($nextDueSecs / 86400) . ' d';
+            }
+            ?>
+
+            <!-- DIV: ROW 2 - Grid Split: Streak Stats (Left, matches heatmap) vs Due Now CTA (Right, matches carousel) -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-stretch w-full">
+
+                <!-- DIV: LEFT COLUMN - Streak Analytics Metric Bar -->
+                <div class="lg:col-span-6 flex w-full min-w-0 order-last lg:order-none">
+                    <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-2 sm:p-2.5 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-1 sm:gap-3 w-full h-full">
+                        <!-- DIV: Metric 1 - Best Historical Streak -->
+                        <div class="flex items-center gap-3 w-full sm:flex-1 justify-start p-2 sm:p-2.5 rounded-xl hover:bg-primary/5 transition-all group/streak cursor-default">
+                            <div class="w-8 h-8 rounded-lg bg-primary-fixed/60 border border-primary-fixed-dim/40 flex items-center justify-center text-primary flex-shrink-0 group-hover/streak:scale-105 transition-transform">
+                                <span class="material-symbols-outlined text-[18px]">emoji_events</span>
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70">Best Streak</span>
+                                <span id="stat-best-streak" class="font-headline-sm text-sm font-bold text-on-surface group-hover/streak:text-primary transition-colors">
+                                    <?php echo (int) $streakData['bestStreak']; ?> days
+                                </span>
+                            </div>
+                        </div>
+                        <!-- DIV: Vertical Divider -->
+                        <div class="hidden sm:block w-[1px] h-8 bg-outline-variant/30"></div>
+
+                        <!-- DIV: Metric 2 - Current Active Streak -->
+                        <div class="flex items-center gap-3 w-full sm:flex-1 justify-start p-2 sm:p-2.5 rounded-xl hover:bg-amber-500/5 transition-all group/streak cursor-default">
+                            <div class="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200/80 flex items-center justify-center text-amber-500 flex-shrink-0 group-hover/streak:scale-105 transition-transform">
+                                <span class="material-symbols-outlined text-[18px]">local_fire_department</span>
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70">Current Streak</span>
+                                <span id="stat-current-streak" class="font-headline-sm text-sm font-bold text-on-surface group-hover/streak:text-amber-600 transition-colors">
+                                    <?php echo (int) $streakData['currentStreak']; ?> days
+                                </span>
+                            </div>
+                        </div>
+                        <!-- DIV: Vertical Divider -->
+                        <div class="hidden sm:block w-[1px] h-8 bg-outline-variant/30"></div>
+
+                        <!-- DIV: Metric 3 - Streak Accuracy Percentage -->
+                        <div class="flex items-center gap-3 w-full sm:flex-1 justify-start p-2 sm:p-2.5 rounded-xl hover:bg-teal-500/5 transition-all group/streak cursor-default">
+                            <div class="w-8 h-8 rounded-lg bg-teal-50 border border-teal-200/80 flex items-center justify-center text-teal-500 flex-shrink-0 group-hover/streak:scale-105 transition-transform">
+                                <span class="material-symbols-outlined text-[18px]">track_changes</span>
+                            </div>
+                            <div class="flex flex-col">
+                                <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70">Streak Acc.</span>
+                                <span id="stat-streak-accuracy" class="font-headline-sm text-sm font-bold text-on-surface group-hover/streak:text-teal-600 transition-colors">
+                                    <?php echo (float) $streakData['streakAccuracy']; ?>%
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DIV: RIGHT COLUMN - Due Now Call-To-Action (same width as carousel / recent sessions) -->
+                <div class="lg:col-span-6 flex w-full min-w-0 order-first lg:order-none">
+
+                    <?php if ($dueTotal > 0): ?>
+                        <!-- A: Cards due - primary call-to-action -->
+                        <a href="<?php echo htmlspecialchars($reviewHref, ENT_QUOTES, 'UTF-8'); ?>"
+                           id="stat-due-cta"
+                           aria-label="Review <?php echo $dueTotal; ?> due <?php echo $dueTotal === 1 ? 'card' : 'cards'; ?>"
+                           class="group/cta relative overflow-hidden flex items-center justify-between gap-4 w-full h-full min-h-[64px] px-4 sm:px-5 py-3 rounded-2xl bg-gradient-to-r from-primary to-primary-container text-on-primary shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
+                            <!-- DIV: Ambient Glow -->
+                            <div class="absolute -right-6 -top-8 w-28 h-28 bg-white/15 rounded-full blur-2xl pointer-events-none"></div>
+
+                            <!-- DIV: Icon + Text -->
+                            <div class="relative z-10 flex items-center gap-3 min-w-0">
+                                <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+                                    <span class="material-symbols-outlined text-[22px]">alarm</span>
+                                </div>
+                                <div class="flex flex-col min-w-0">
+                                    <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-on-primary/80">Due Now</span>
+                                    <span class="text-base sm:text-lg font-extrabold leading-tight truncate">
+                                        <span id="stat-due-cta-count"><?php echo $dueTotal; ?></span>
+                                        <?php echo $dueTotal === 1 ? 'card' : 'cards'; ?> ready to review
+                                    </span>
+                                    <?php if ($dueSubtitle !== ''): ?>
+                                        <span class="text-[11px] sm:text-xs text-on-primary/80 truncate"><?php echo htmlspecialchars($dueSubtitle, ENT_QUOTES, 'UTF-8'); ?></span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+
+                            <!-- DIV: Action Pill -->
+                            <span class="relative z-10 inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl bg-white text-primary font-label-md text-xs font-bold shadow-xs flex-shrink-0">
+                                <span class="hidden sm:inline">Start Review</span>
+                                <span class="material-symbols-outlined text-[18px] transition-transform group-hover/cta:translate-x-1">arrow_forward</span>
+                            </span>
+                        </a>
+
+                    <?php elseif ($nextDueSecs !== null): ?>
+                        <!-- B: Nothing due, cards are scheduled -->
+                        <div id="stat-due-cta" class="flex items-center gap-3 w-full h-full min-h-[64px] px-4 sm:px-5 py-3 rounded-2xl bg-surface-container-lowest border border-outline-variant/30 shadow-xs">
+                            <div class="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-center text-emerald-600 flex-shrink-0">
+                                <span class="material-symbols-outlined text-[22px]">task_alt</span>
+                            </div>
+                            <div class="flex flex-col min-w-0">
+                                <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70">Due Now</span>
+                                <span class="text-base sm:text-lg font-extrabold leading-tight text-on-surface">All caught up</span>
+                                <?php if ($nextDueLabel !== ''): ?>
+                                    <span class="text-[11px] sm:text-xs text-on-surface-variant"><?php echo htmlspecialchars($nextDueLabel, ENT_QUOTES, 'UTF-8'); ?></span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                    <?php else: ?>
+                        <!-- C: No cards at all - point to creation -->
+                        <a href="decks.php?add_card=1" id="stat-due-cta"
+                           class="group/cta flex items-center justify-between gap-4 w-full h-full min-h-[64px] px-4 sm:px-5 py-3 rounded-2xl bg-surface-container-lowest border border-outline-variant/30 shadow-xs hover:border-primary/50 hover:shadow-md transition-all">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                                    <span class="material-symbols-outlined text-[22px]">add</span>
+                                </div>
+                                <div class="flex flex-col min-w-0">
+                                    <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70">No Due Today</span>
+                                    <span class="text-base sm:text-lg font-extrabold leading-tight text-on-surface truncate">Create new cards</span>
+                                </div>
+                            </div>
+                            <span class="material-symbols-outlined text-[20px] text-primary flex-shrink-0 transition-transform group-hover/cta:translate-x-1">arrow_forward</span>
+                        </a>
+                    <?php endif; ?>
+
+                </div>
+            </div>
+
+        </div>
+
+        <!-- DIV: BOTTOM SECTION - Streak Heatmap Grid & Recent Activity History -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 w-full items-stretch mt-2">
+            
+            <!-- DIV: Streak Heatmap Card Container Shell -->
+            <div class="lg:col-span-6 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col justify-between min-h-[320px] min-w-0 overflow-visible">
+                
+                <!-- DIV: Heatmap Title & Intensity Legend Wrapper -->
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary text-[22px]">calendar_month</span>
+                            <h3 class="font-headline-sm text-base font-semibold text-on-surface m-0">Streak Heatmap</h3>
+                        </div>
+                        <p class="text-[11px] text-on-surface-variant mt-1 ml-7">
+                            Last 365 days • <span class="font-semibold text-on-surface"><?php echo (int) $streakData['studyDays']; ?> / 365</span> study days
+                        </p>
+                    </div>
+
+                    <div class="flex items-center gap-1.5 font-label-sm text-[10px] text-on-surface-variant">
+                        <span>Less</span>
+                        <span class="w-3 h-3 rounded" style="background-color: transparent; border: 1px solid rgba(150,150,150,0.3);" title="0 reviews"></span>
+                        <span class="w-3 h-3 rounded" style="background-color: #86efac;" title="1-14 reviews"></span>
+                        <span class="w-3 h-3 rounded" style="background-color: #4ade80;" title="15-39 reviews"></span>
+                        <span class="w-3 h-3 rounded" style="background-color: #16a34a;" title="40-79 reviews"></span>
+                        <span class="w-3 h-3 rounded" style="background-color: #15803d;" title="80+ reviews"></span>
+                        <span>More</span>
+                    </div>
+                </div>
+
+                <!-- DIV: Heatmap CSS Grid Scroll Area Wrapper -->
+                <div id="heatmap-scroll" class="flex-1 flex items-center py-4 w-full overflow-x-auto">
+                    <div class="w-max grid justify-start" style="--cell: 16px; gap: 3px; grid-template-columns: auto repeat(53, var(--cell)); grid-template-rows: auto repeat(7, var(--cell));">
+
+                        <?php foreach ([3 => 'Mon', 5 => 'Wed', 7 => 'Fri'] as $row => $name): ?>
+                            <!-- SPAN: Day Name Axis Labels -->
+                            <span class="flex items-center pr-2 text-[10px] leading-none whitespace-nowrap text-on-surface-variant select-none" style="grid-column: 1; grid-row: <?php echo $row; ?>;">
+                                <?php echo $name; ?>
+                            </span>
+                        <?php endforeach; ?>
+
+                        <?php
+                        $weekStart = clone $streakData['calendarStart'];
+                        for ($w = 0; $w < 53; $w++) {
+                            for ($d = 0; $d < 7; $d++) {
+                                $date = clone $weekStart;
+                                $date->modify('+' . $d . ' days');
+
+                                if ($date < $streakData['heatmapStart'] || $date > $streakData['heatmapEnd']) continue;
+
+                                if ($date->format('j') === '1' && $w <= 51) {
+                                    echo '<div class="text-[10px] leading-none font-medium whitespace-nowrap text-on-surface-variant" style="grid-row: 1; grid-column: ' . ($w + 2) . ' / span 3;">' . htmlspecialchars($date->format('M'), ENT_QUOTES) . '</div>';
+                                }
+
+                                $key = $date->format('Y-m-d');
+                                $reviews = $streakData['heatmapData'][$key] ?? 0;
+                                $tooltip = $date->format('M j, Y') . ' • ' . ($reviews === 0 ? 'No reviews' : ($reviews === 1 ? '1 review' : $reviews . ' reviews'));
+                                echo '<div class="heatmap-cell rounded-[4px] transition-transform hover:scale-110" style="grid-row: ' . ($d + 2) . '; grid-column: ' . ($w + 2) . '; ' . heatmap_level_style($reviews) . '" data-tooltip="' . htmlspecialchars($tooltip, ENT_QUOTES) . '"></div>';                            }
+                            $weekStart->modify('+7 days');
+                        }
+                        ?>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DIV: Recent Review Sessions Feed Card Shell -->
+            <div class="lg:col-span-6 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col justify-between min-h-[290px] min-w-0">
+                
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-primary text-[22px]">history</span>
+                            <h3 class="font-headline-sm text-base font-semibold text-on-surface m-0">Recent Review Sessions</h3>
+                        </div>
+                        <p class="text-[11px] text-on-surface-variant mt-1 ml-7">Your latest spaced repetition drills</p>
+                    </div>
+                    <a href="sessions.php" class="text-xs text-primary hover:underline font-semibold flex items-center gap-1 transition-all">
+                        <span>View All</span>
+                        <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+                    </a>
+                </div>
+
+                <!-- DIV: Session Items List Wrapper Container -->
+                <div class="flex flex-col gap-2.5 flex-1 justify-center">
+                    <?php if (!empty($recentSessions)): ?>
+                        <?php foreach ($recentSessions as $session): ?>
+                            <!-- DIV: Individual Session Card Shell -->
+                            <div class="flex items-center justify-between p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 hover:border-primary/30 hover:bg-surface-container transition-all">
+                                <div class="flex items-center gap-3 min-w-0">
+                                    <div class="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                                        <span class="material-symbols-outlined text-[18px]">style</span>
+                                    </div>
+                                    <div class="flex flex-col min-w-0">
+                                        <span class="text-xs font-bold text-on-surface truncate">
+                                            <?php echo htmlspecialchars($session['deckTitle'], ENT_QUOTES, 'UTF-8'); ?>
+                                        </span>
+                                        <div class="flex items-center gap-2 text-[11px] text-on-surface-variant mt-0.5">
+                                            <span><?php echo (int) $session['cardsReviewed']; ?> cards reviewed</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex flex-col items-end flex-shrink-0 ml-2">
+                                    <span class="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-md">
+                                        <?php echo (int) $session['accuracy']; ?>%
+                                    </span>
+                                    <span class="text-[10px] text-on-surface-variant/70 mt-1">
+                                        <?php echo htmlspecialchars($session['formattedTime'], ENT_QUOTES, 'UTF-8'); ?>
+                                    </span>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <!-- DIV: Empty State Fallback Shell -->
+                        <div class="flex flex-col items-center justify-center p-6 text-center text-on-surface-variant h-full">
+                            <span class="material-symbols-outlined text-[32px] text-outline mb-2">history_edu</span>
+                            <span class="text-sm font-medium">No recent review sessions found.</span>
+                            <span class="text-xs mt-1 text-on-surface-variant/70">Complete a study session to see your history here.</span>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+</div>
+```
+
+sidebar.php
+```
+<?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+if (empty($_SESSION['settings_csrf'])) {
+    $_SESSION['settings_csrf'] = bin2hex(random_bytes(32));
+}
+
+if (!defined('BASE_URL')) {
+    define('BASE_URL', '/mempulse/app/');
+}
+
+// Ensure database connection is present
+if (!isset($conn)) {
+    @include_once __DIR__ . '/../../config/db.php';
+}
+
+$currentPage = $currentPage ?? '';
+$user_id = $_SESSION['user_id'] ?? null;
+
+// 1. Calculate total due cards globally for the sidebar badge
+$sidebarDueCount = 0;
+if ($user_id && isset($conn)) {
+    $sidebarSql = "SELECT COUNT(*) FROM flashcards f 
+                   JOIN decks d ON f.deck_id = d.id 
+                   WHERE d.user_id = ? AND f.deleted_at IS NULL AND f.next_review_at <= NOW()";
+    if ($sidebarStmt = mysqli_prepare($conn, $sidebarSql)) {
+        mysqli_stmt_bind_param($sidebarStmt, "i", $user_id);
+        mysqli_stmt_execute($sidebarStmt);
+        mysqli_stmt_bind_result($sidebarStmt, $sidebarDueCount);
+        mysqli_stmt_fetch($sidebarStmt);
+        mysqli_stmt_close($sidebarStmt);
+    }
+}
+
+// 2. Fetch User Display Name and Role
+if (!isset($displayName) || !isset($displayRole)) {
+    $displayName = 'Active Learner';
+    $displayRole = 'User';
+    
+    if ($user_id && isset($conn)) {
+        $user_sql = "SELECT first_name, last_name, role FROM users WHERE id = ? AND deleted_at IS NULL";
+        if ($user_stmt = mysqli_prepare($conn, $user_sql)) {
+            mysqli_stmt_bind_param($user_stmt, "i", $user_id);
+            mysqli_stmt_execute($user_stmt);
+            mysqli_stmt_bind_result($user_stmt, $first_name, $last_name, $role);
+            mysqli_stmt_fetch($user_stmt);
+            mysqli_stmt_close($user_stmt);
+
+            $fullName = trim(($first_name ?? '') . ' ' . ($last_name ?? ''));
+            if ($fullName !== '') {
+                $displayName = $fullName;
+            }
+            if (!empty($role)) {
+                $displayRole = ucfirst(strtolower($role));
+            }
+        }
+    }
+}
+
+// 3. Saved appearance preference (light | dark | system)
+$userTheme = 'system';
+if ($user_id && isset($conn)) {
+    try {
+        if ($theme_stmt = mysqli_prepare($conn, "SELECT theme FROM user_settings WHERE user_id = ?")) {
+            mysqli_stmt_bind_param($theme_stmt, "i", $user_id);
+            mysqli_stmt_execute($theme_stmt);
+            mysqli_stmt_bind_result($theme_stmt, $savedTheme);
+            if (mysqli_stmt_fetch($theme_stmt) && in_array($savedTheme, ['light', 'dark', 'system'], true)) {
+                $userTheme = $savedTheme;
+            }
+            mysqli_stmt_close($theme_stmt);
+        }
+    } catch (Throwable $e) {
+        // theme column not added yet: fall back to "system"
+    }
+}
+
+// 4. Fetch lightweight search data (Decks & Flashcards) for the Header Search Dropdown
+$headerSearchDecks = [];
+$headerSearchCards = [];
+if ($user_id && isset($conn)) {
+    try {
+        $deckSearchSql = "SELECT d.id, d.title, COUNT(f.id) AS card_count
+                          FROM decks d
+                          LEFT JOIN flashcards f ON f.deck_id = d.id AND f.deleted_at IS NULL
+                          WHERE d.user_id = ? AND d.deleted_at IS NULL
+                          GROUP BY d.id, d.title
+                          ORDER BY d.updated_at DESC
+                          LIMIT 20";
+        if ($dsStmt = mysqli_prepare($conn, $deckSearchSql)) {
+            mysqli_stmt_bind_param($dsStmt, "i", $user_id);
+            mysqli_stmt_execute($dsStmt);
+            mysqli_stmt_bind_result($dsStmt, $dId, $dTitle, $dCount);
+            while (mysqli_stmt_fetch($dsStmt)) {
+                $headerSearchDecks[] = [
+                    'id'    => (int) $dId,
+                    'title' => $dTitle,
+                    'count' => (int) $dCount,
+                ];
+            }
+            mysqli_stmt_close($dsStmt);
+        }
+
+        $cardSearchSql = "SELECT f.id, f.deck_id, f.front, f.back, d.title AS deck_title
+                          FROM flashcards f
+                          JOIN decks d ON f.deck_id = d.id
+                          WHERE d.user_id = ? AND d.deleted_at IS NULL AND f.deleted_at IS NULL
+                          ORDER BY f.updated_at DESC
+                          LIMIT 40";
+        if ($csStmt = mysqli_prepare($conn, $cardSearchSql)) {
+            mysqli_stmt_bind_param($csStmt, "i", $user_id);
+            mysqli_stmt_execute($csStmt);
+            mysqli_stmt_bind_result($csStmt, $cId, $cDeckId, $cFront, $cBack, $cDeckTitle);
+            while (mysqli_stmt_fetch($csStmt)) {
+                $headerSearchCards[] = [
+                    'id'        => (int) $cId,
+                    'deckId'    => (int) $cDeckId,
+                    'front'     => mb_substr(trim(strip_tags((string) $cFront)), 0, 100),
+                    'back'      => mb_substr(trim(strip_tags((string) $cBack)), 0, 100),
+                    'deckTitle' => $cDeckTitle,
+                ];
+            }
+            mysqli_stmt_close($csStmt);
+        }
+    } catch (Throwable $e) {
+        // Gracefully ignore if tables are unavailable
+    }
+}
+?>
+
+<style>
+    /* Keep the sidebar itself from creating horizontal scrolling. Tooltips are
+       rendered under <body> with position: fixed, outside this clipping area. */
+    #sidebar {
+        box-sizing: border-box;
+        /* Do not clip the desktop collapse toggle hanging off the right edge. */
+        overflow-x: visible;
+        overflow-y: visible;
+    }
+
+    #sidebar.collapsed .hide-collapsed {
+        display: none !important;
+    }
+
+    #sidebar.collapsed .sidebar-row {
+        box-sizing: border-box !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex: 0 0 44px !important;
+        width: 44px !important;
+        min-width: 44px !important;
+        max-width: 44px !important;
+        height: 44px !important;
+        min-height: 44px !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+
+    #sidebar.collapsed .sidebar-gap {
+        gap: 0 !important;
+    }
+
+    /* Floating tooltip lives under document.body, so sidebar overflow and its
+       scroll container cannot clip it. */
+    #sidebar-floating-tooltip {
+        position: fixed;
+        z-index: 99999;
+        max-width: min(280px, calc(100vw - 24px));
+        padding: 6px 10px;
+        border-radius: 8px;
+        background: #1e293b;
+        color: #fff;
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1.4;
+        white-space: nowrap;
+        pointer-events: none;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(-50%);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, .18);
+        transition: opacity .12s ease;
+    }
+
+    #sidebar-floating-tooltip.is-visible {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    #sidebar-floating-tooltip::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: -8px;
+        transform: translateY(-50%);
+        border: 4px solid transparent;
+        border-right-color: #1e293b;
+    }
+
+    #sidebar-floating-tooltip.tooltip-left::before {
+        left: auto;
+        right: -8px;
+        border-right-color: transparent;
+        border-left-color: #1e293b;
+    }
+
+    @keyframes memory-pulse {
+        0%, 100% { background-color: rgba(56, 189, 248, 0.10); } 
+        50% { background-color: rgba(56, 189, 248, 0); }
+    }
+
+    .memory-pulse-bg {
+        animation: memory-pulse 2.5s ease-in-out infinite;
+        border-radius: 50%;
+        padding: 4px;
+        margin-left: -4px; 
+    }
+</style>
+
+<!-- TOP APPLICATION HEADER -->
+<header id="app-header" class="fixed top-0 left-0 right-0 h-16 bg-surface-container-lowest border-b border-outline-variant/40 z-50 px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-6 shadow-[0_1px_8px_rgba(0,0,0,0.03)]">
+
+    <!-- Left Section: Mobile Sidebar Button & MemPulse Logo -->
+    <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+        <!-- Mobile Sidebar Trigger (Included in Header on Mobile Width) -->
+        <button id="floating-mobile-toggle" type="button" aria-label="Toggle Sidebar" aria-expanded="false"
+            class="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-colors outline-none">
+            <span id="mobile-toggle-icon" class="material-symbols-outlined text-[24px]">menu</span>
+        </button>
+
+        <!-- MemPulse Brand Logo -->
+        <a href="<?php echo BASE_URL; ?>views/index.php" class="flex items-center gap-2.5 sm:gap-3 h-8 outline-none group">
+            <span class="material-symbols-outlined text-[28px] text-primary memory-pulse-bg">neurology</span>
+            <span class="logo-text font-headline-sm text-lg sm:text-xl font-bold tracking-tight text-on-surface transition-all duration-200">MemPulse</span>
+        </a>
+    </div>
+
+    <!-- Center Section: Interactive Search Bar with Dropdown -->
+    <div id="header-search-container" class="relative flex-1 max-w-md lg:max-w-lg mx-1 sm:mx-4">
+        <div class="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-container-low border border-outline-variant/30 text-on-surface-variant focus-within:border-primary/60 focus-within:bg-surface-container-lowest focus-within:ring-2 focus-within:ring-primary/20 hover:border-primary/40 transition-all">
+            <span class="material-symbols-outlined text-[20px] flex-shrink-0">search</span>
+            <input id="header-search-input" type="text"
+                placeholder="Search..."
+                autocomplete="off"
+                aria-label="Search decks, flashcards, or pages"
+                aria-autocomplete="list"
+                aria-controls="header-search-dropdown"
+                aria-expanded="false"
+                class="w-full bg-transparent border-none outline-none font-body-sm text-sm text-on-surface placeholder:text-on-surface-variant min-w-0">
+            <button type="button" id="header-search-clear" aria-label="Clear search"
+                class="hidden p-0.5 rounded-md text-on-surface-variant hover:text-on-surface transition-colors flex-shrink-0">
+                <span class="material-symbols-outlined text-[16px] block">close</span>
+            </button>
+            <kbd id="header-search-kbd" class="hidden sm:inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold text-on-surface-variant bg-surface-container-lowest border border-outline-variant/40 rounded-md flex-shrink-0 select-none">
+                CTRL+K
+            </kbd>
+        </div>
+
+        <!-- Search Results Dropdown -->
+        <div id="header-search-dropdown" role="listbox"
+            class="hidden absolute left-0 right-0 top-[calc(100%+8px)] bg-surface-container-lowest border border-outline-variant/40 rounded-2xl shadow-xl z-[100] overflow-hidden flex flex-col max-h-[75vh]">
+            <div id="header-search-results" class="overflow-y-auto p-2 space-y-2 max-h-[60vh]">
+                <!-- Dynamically populated via JS -->
+            </div>
+            <div class="px-3.5 py-2 border-t border-outline-variant/20 bg-surface-container-low/50 flex items-center justify-between text-[11px] text-on-surface-variant">
+                <span>Press <kbd class="font-semibold">↑↓</kbd> to navigate, <kbd class="font-semibold">Enter</kbd> to select</span>
+                <span><kbd class="font-semibold">Esc</kbd> to close</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Section: User Profile & Account/System/Logout Dropdown -->
+    <div class="relative flex items-center flex-shrink-0">
+        <button type="button" id="profile-popover-trigger"
+            class="flex items-center gap-2.5 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-left group hover:bg-surface-container-low border border-transparent hover:border-outline-variant/30 transition-all outline-none"
+            title="Account menu" aria-label="Open account menu"
+            aria-haspopup="true" aria-controls="settings-popover" aria-expanded="false">
+            <span class="material-symbols-outlined text-[32px] flex-shrink-0 transition-all group-hover:scale-105" style="color: rgb(53, 37, 205);">account_circle</span>
+            <div class="hidden sm:flex flex-col min-w-0 max-w-[140px]">
+                <span data-user-name class="font-label-sm font-semibold text-on-surface leading-tight truncate">
+                    <?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?>
+                </span>
+                <span class="text-[11px] text-on-surface-variant font-medium leading-none tracking-wide mt-1 truncate">
+                    <?php echo htmlspecialchars($displayRole, ENT_QUOTES, 'UTF-8'); ?>
+                </span>
+            </div>
+            <span id="profile-chevron" class="material-symbols-outlined text-[18px] text-on-surface-variant hidden sm:inline-block transition-transform duration-200">expand_more</span>
+        </button>
+
+        <!-- Profile Dropdown Menu: Account Settings, System Settings, and Logout -->
+        <div id="settings-popover"
+            class="hidden absolute top-[calc(100%+8px)] right-0 w-56 bg-surface-container-lowest border border-outline-variant/30 shadow-xl rounded-xl py-1.5 z-[100] transform origin-top-right">
+            <div class="px-3.5 py-2 border-b border-outline-variant/20 mb-1">
+                <p data-user-name class="text-xs font-semibold text-on-surface truncate"><?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?></p>
+                <p class="text-[10px] text-on-surface-variant truncate"><?php echo htmlspecialchars($displayRole, ENT_QUOTES, 'UTF-8'); ?></p>
+            </div>
+            <button type="button" data-open-settings="account"
+                class="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors text-left">
+                <span class="material-symbols-outlined text-[18px]">manage_accounts</span>
+                Account Settings
+            </button>
+            <button type="button" data-open-settings="system"
+                class="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors text-left">
+                <span class="material-symbols-outlined text-[18px]">settings</span>
+                System Settings
+            </button>
+            <div class="h-px bg-outline-variant/20 my-1"></div>
+            <button type="button" id="logout-btn"
+                class="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-error hover:bg-rose-50 hover:text-error transition-colors text-left">
+                <span class="material-symbols-outlined text-[18px]">logout</span>
+                Logout
+            </button>
+        </div>
+    </div>
+
+</header>
+
+<!-- Mobile Sidebar Backdrop Overlay (Below Header) -->
+<div id="mobile-sidebar-overlay" class="fixed inset-x-0 top-16 bottom-0 bg-black/50 z-30 hidden md:hidden transition-opacity opacity-0"></div>
+
+<!-- MAIN SIDEBAR CONTAINER (Positioned below the h-16 top header) -->
+<aside id="sidebar" class="fixed left-0 top-16 h-[calc(100vh-4rem)] w-72 bg-surface-container-lowest border-r border-outline-variant/40 z-40 flex flex-col transition-all duration-300 ease-in-out transform -translate-x-full md:translate-x-0 shadow-[0_1px_8px_rgba(0,0,0,0.03)]">
+    
+    <!-- Synchronous script to prevent FOUC -->
+    <script>
+        if (localStorage.getItem("sidebarCollapsed") === "true" && window.innerWidth >= 768) {
+            document.getElementById("sidebar").classList.add("collapsed");
+        }
+    </script>
+
+    <!-- Border Toggle Button (Desktop Only) -->
+    <button id="sidebar-toggle" aria-label="Toggle Sidebar" class="hidden md:flex absolute -right-3.5 top-6 w-7 h-7 bg-surface-container-lowest border border-outline-variant/40 text-on-surface-variant rounded-full items-center justify-center hover:text-primary hover:border-primary shadow-sm transition-colors z-[60]">
+        <span class="material-symbols-outlined text-[16px]">left_panel_close</span>
+    </button>
+
+    <!-- Scrollable Navigation -->
+    <nav class="sidebar-navigation flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-1.5" data-active-classes="bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm">
+        
+        <a data-tooltip="Home" aria-current="<?= $currentPage === 'home' ? 'page' : 'false' ?>"
+           class="sidebar-tooltip sidebar-row sidebar-gap flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group <?= $currentPage === 'home' ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm' : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface' ?>"
+           href="<?php echo BASE_URL; ?>views/index.php">
+            <div class="flex items-center gap-3 sidebar-gap">
+                <span class="material-symbols-outlined text-[24px] <?= $currentPage === 'home' ? '' : 'text-on-surface-variant group-hover:text-on-surface' ?> transition-colors">home</span>
+                <span class="hide-collapsed transition-opacity duration-200">Home</span>
+            </div>
+        </a>
+
+        <a data-tooltip="Decks" aria-current="<?= $currentPage === 'decks' ? 'page' : 'false' ?>"
+           class="sidebar-tooltip sidebar-row sidebar-gap flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group <?= $currentPage === 'decks' ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm' : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface' ?>"
+           href="<?php echo BASE_URL; ?>views/decks.php">
+            <div class="flex items-center gap-3 sidebar-gap">
+                <span class="material-symbols-outlined text-[24px] <?= $currentPage === 'decks' ? '' : 'text-on-surface-variant group-hover:text-on-surface' ?> transition-colors">style</span>
+                <span class="hide-collapsed transition-opacity duration-200">Decks</span>
+            </div>
+        </a>
+
+        <a data-tooltip="Review <?= $sidebarDueCount > 0 ? '('.$sidebarDueCount.')' : '' ?>" aria-current="<?= $currentPage === 'review' ? 'page' : 'false' ?>"
+           class="sidebar-tooltip sidebar-row sidebar-gap flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group <?= $currentPage === 'review' ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm' : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface' ?>"
+           href="<?php echo BASE_URL; ?>views/review.php">
+            <div class="flex items-center gap-3 sidebar-gap relative">
+                <span class="material-symbols-outlined text-[24px] <?= $currentPage === 'review' ? '' : 'text-on-surface-variant group-hover:text-on-surface' ?> transition-colors">pace</span>
+                <span class="hide-collapsed transition-opacity duration-200">Review</span>
+                <!-- Notification dot for collapsed view -->
+                <?php if ($sidebarDueCount > 0): ?>
+                    <span class="md:hidden hidden absolute top-0 right-0 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-surface-container-lowest" id="review-dot"></span>
+                <?php endif; ?>
+            </div>
+            <?php if ($sidebarDueCount > 0): ?>
+                <div class="hide-collapsed transition-opacity duration-200">
+                    <span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200/50 font-bold text-[11px] shadow-sm">
+                        <?= $sidebarDueCount ?>
+                    </span>
+                </div>
+            <?php endif; ?>
+        </a>
+
+        <a data-tooltip="Reports" aria-current="<?= $currentPage === 'reports' ? 'page' : 'false' ?>"
+           class="sidebar-tooltip sidebar-row sidebar-gap flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group <?= $currentPage === 'reports' ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm' : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface' ?>"
+           href="<?php echo BASE_URL; ?>views/reports.php">
+            <div class="flex items-center gap-3 sidebar-gap">
+                <span class="material-symbols-outlined text-[24px] <?= $currentPage === 'reports' ? '' : 'text-on-surface-variant group-hover:text-on-surface' ?> transition-colors">monitoring</span>
+                <span class="hide-collapsed transition-opacity duration-200">Reports</span>
+            </div>
+        </a>
+
+    </nav>
+</aside>
+
+<!-- Logout Confirmation Dialog -->
+<dialog id="logout-dialog" class="rounded-2xl p-0 w-full max-w-sm bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-2xl backdrop:bg-black/50 backdrop:backdrop-blur-xs transition-all">
+    <div class="p-6 flex flex-col gap-5">
+        <h3 class="font-headline-sm text-lg font-bold text-on-surface tracking-tight">Log out?</h3>
+        <p class="text-sm text-on-surface-variant font-medium leading-relaxed">
+            Are you sure you want to exit? You will need to sign back in to access your flashcards.
+        </p>
+        <div class="flex items-center justify-end gap-3 pt-4 border-t border-outline-variant/20">
+            <button type="button" id="logout-cancel" class="px-4 py-2 rounded-xl bg-surface-container-low hover:bg-surface-container-high text-on-surface font-semibold text-sm transition-colors">
+                Cancel
+            </button>
+            <a href="/mempulse/authentication/logout.php" class="inline-flex items-center px-4 py-2 rounded-xl bg-error hover:bg-rose-700 text-white font-semibold text-sm shadow-sm transition-colors">
+                Log out
+            </a>
+        </div>
+    </div>
+</dialog>
+
+
+<!-- Settings Modal -->
+<dialog id="settings-dialog"
+    aria-labelledby="settings-title"
+    class="w-[calc(100%-2rem)] max-w-2xl max-h-[85vh] p-0 m-auto
+           rounded-2xl bg-surface-container-lowest text-on-surface
+           border border-outline-variant/40 shadow-2xl
+           backdrop:bg-black/50 backdrop:backdrop-blur-sm"
+    data-csrf="<?= htmlspecialchars($_SESSION['settings_csrf'], ENT_QUOTES, 'UTF-8') ?>"
+    data-account-api="<?= htmlspecialchars(BASE_URL . 'api/account-actions.php', ENT_QUOTES, 'UTF-8') ?>"
+    data-theme="<?= htmlspecialchars($userTheme, ENT_QUOTES, 'UTF-8') ?>">
+
+    <div class="flex flex-col max-h-[85vh]">
+
+        <!-- Header -->
+        <header class="flex items-start justify-between gap-4 p-6 border-b border-outline-variant/30">
+            <div>
+                <h2 id="settings-title"
+                    class="text-xl font-bold tracking-tight">
+                    Settings
+                </h2>
+                <p class="text-sm text-on-surface-variant mt-1">
+                    Manage your account and learning preferences.
+                </p>
+            </div>
+
+            <button type="button" id="settings-close"
+                aria-label="Close settings"
+                class="p-2 rounded-lg hover:bg-surface-container-low transition-colors">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </header>
+
+        <!-- Tabs -->
+        <div class="px-6 pt-4">
+            <div class="flex gap-2 border-b border-outline-variant/30 overflow-x-auto"
+                 role="tablist" aria-label="Settings sections">
+
+                <button type="button" id="settings-tab-system"
+                    role="tab" aria-controls="settings-panel-system"
+                    aria-selected="true" data-settings-tab="system"
+                    class="px-4 py-3 text-sm font-semibold border-b-2 border-primary text-primary shrink-0">
+                    <span class="material-symbols-outlined text-[18px] align-middle mr-1">tune</span>
+                    System
+                </button>
+
+                <button type="button" id="settings-tab-appearance"
+                    role="tab" aria-controls="settings-panel-appearance"
+                    aria-selected="false" data-settings-tab="appearance"
+                    class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-on-surface-variant shrink-0">
+                    <span class="material-symbols-outlined text-[18px] align-middle mr-1">palette</span>
+                    Appearance
+                </button>
+
+                <button type="button" id="settings-tab-account"
+                    role="tab" aria-controls="settings-panel-account"
+                    aria-selected="false" data-settings-tab="account"
+                    class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-on-surface-variant shrink-0">
+                    <span class="material-symbols-outlined text-[18px] align-middle mr-1">person</span>
+                    Profile
+                </button>
+
+                <button type="button" id="settings-tab-security"
+                    role="tab" aria-controls="settings-panel-security"
+                    aria-selected="false" data-settings-tab="security"
+                    class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-on-surface-variant shrink-0">
+                    <span class="material-symbols-outlined text-[18px] align-middle mr-1">lock</span>
+                    Security
+                </button>
+            </div>
+        </div>
+
+        <!-- Scrollable Content -->
+        <div class="overflow-y-auto p-6 flex-1">
+
+            <!-- System Settings -->
+            <section id="settings-panel-system"
+                role="tabpanel" aria-labelledby="settings-tab-system"
+                class="space-y-5">
+
+                <div>
+                    <h3 class="font-semibold text-base">Learning preferences</h3>
+                    <p class="text-sm text-on-surface-variant mt-1">
+                        Configure how MemPulse schedules your flashcard reviews.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                    <label class="block space-y-2">
+                        <span class="text-sm font-medium">Remember multiplier</span>
+                        <input id="remember-multiplier" name="remember_multiplier" type="number" step="0.01" min="0.01" max="10" required
+                            value="2.00"
+                            class="w-full rounded-xl border border-outline-variant/50
+                                   bg-surface-container-low px-3 py-2.5 text-sm
+                                   focus:outline-none focus:ring-2 focus:ring-primary/40">
+                        <span class="block text-xs text-on-surface-variant">
+                            Default: 2.00
+                        </span>
+                    </label>
+
+                    <label class="block space-y-2">
+                        <span class="text-sm font-medium">Forgot multiplier</span>
+                        <input id="forgot-multiplier" name="forgot_multiplier" type="number" step="0.01" min="0.01" max="10" required
+                            value="0.50"
+                            class="w-full rounded-xl border border-outline-variant/50
+                                   bg-surface-container-low px-3 py-2.5 text-sm
+                                   focus:outline-none focus:ring-2 focus:ring-primary/40">
+                        <span class="block text-xs text-on-surface-variant">
+                            Default: 0.50
+                        </span>
+                    </label>
+
+                    <label class="block space-y-2">
+                        <span class="text-sm font-medium">Initial interval (days)</span>
+                        <input id="initial-interval" name="initial_interval_days" type="number" min="1" max="36500" step="1" value="1" required
+                            class="w-full rounded-xl border border-outline-variant/50
+                                   bg-surface-container-low px-3 py-2.5 text-sm
+                                   focus:outline-none focus:ring-2 focus:ring-primary/40">
+                    </label>
+
+                    <label class="block space-y-2">
+                        <span class="text-sm font-medium">Maximum interval (days)</span>
+                        <input id="maximum-interval" name="maximum_interval_days" type="number" min="1" max="36500" step="1" value="365" required
+                            class="w-full rounded-xl border border-outline-variant/50
+                                   bg-surface-container-low px-3 py-2.5 text-sm
+                                   focus:outline-none focus:ring-2 focus:ring-primary/40">
+                    </label>
+
+                </div>
+            </section>
+
+            <!-- Appearance -->
+            <section id="settings-panel-appearance"
+                role="tabpanel" aria-labelledby="settings-tab-appearance"
+                class="hidden space-y-5">
+
+                <div>
+                    <h3 class="font-semibold text-base">Appearance</h3>
+                    <p class="text-sm text-on-surface-variant mt-1">
+                        Choose how MemPulse looks. Your choice is saved to your account.
+                    </p>
+                </div>
+
+                <fieldset class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <legend class="sr-only">Theme</legend>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="appearance" value="light" class="peer sr-only">
+                        <span class="flex flex-col items-center gap-2 p-4 rounded-xl border border-outline-variant/50
+                                     bg-surface-container-low text-sm font-medium transition-colors
+                                     peer-checked:border-primary peer-checked:ring-2 peer-checked:ring-primary/40
+                                     peer-focus-visible:ring-2 peer-focus-visible:ring-primary/40">
+                            <span class="material-symbols-outlined text-[28px]">light_mode</span>
+                            Light
+                        </span>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="appearance" value="dark" class="peer sr-only">
+                        <span class="flex flex-col items-center gap-2 p-4 rounded-xl border border-outline-variant/50
+                                     bg-surface-container-low text-sm font-medium transition-colors
+                                     peer-checked:border-primary peer-checked:ring-2 peer-checked:ring-primary/40
+                                     peer-focus-visible:ring-2 peer-focus-visible:ring-primary/40">
+                            <span class="material-symbols-outlined text-[28px]">dark_mode</span>
+                            Dark
+                        </span>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="appearance" value="system" class="peer sr-only">
+                        <span class="flex flex-col items-center gap-2 p-4 rounded-xl border border-outline-variant/50
+                                     bg-surface-container-low text-sm font-medium transition-colors
+                                     peer-checked:border-primary peer-checked:ring-2 peer-checked:ring-primary/40
+                                     peer-focus-visible:ring-2 peer-focus-visible:ring-primary/40">
+                            <span class="material-symbols-outlined text-[28px]">brightness_auto</span>
+                            Use device setting
+                        </span>
+                    </label>
+                </fieldset>
+
+                <p id="appearance-status" class="text-sm" role="status" aria-live="polite"></p>
+            </section>
+
+            <!-- Profile -->
+            <section id="settings-panel-account"
+                role="tabpanel" aria-labelledby="settings-tab-account"
+                class="hidden space-y-5">
+
+                <div>
+                    <h3 class="font-semibold text-base">Profile</h3>
+                    <p class="text-sm text-on-surface-variant mt-1">
+                        Update your name and email address.
+                    </p>
+                </div>
+
+                <form id="profile-form" class="space-y-4" novalidate>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <label class="block space-y-2">
+                            <span class="text-sm font-medium">First name</span>
+                            <input id="profile-first-name" type="text" maxlength="100" required autocomplete="given-name"
+                                class="w-full rounded-xl border border-outline-variant/50 bg-surface-container-low px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
+                        </label>
+
+                        <label class="block space-y-2">
+                            <span class="text-sm font-medium">Last name</span>
+                            <input id="profile-last-name" type="text" maxlength="100" required autocomplete="family-name"
+                                class="w-full rounded-xl border border-outline-variant/50 bg-surface-container-low px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
+                        </label>
+
+                        <label class="block space-y-2 sm:col-span-2">
+                            <span class="text-sm font-medium">Email address</span>
+                            <input id="profile-email" type="email" maxlength="255" required autocomplete="email"
+                                class="w-full rounded-xl border border-outline-variant/50 bg-surface-container-low px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
+                        </label>
+
+                        <label id="profile-password-wrap" class="hidden block space-y-2 sm:col-span-2">
+                            <span class="text-sm font-medium">Current password</span>
+                            <input id="profile-password" type="password" autocomplete="current-password"
+                                class="w-full rounded-xl border border-outline-variant/50 bg-surface-container-low px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
+                            <span class="block text-xs text-on-surface-variant">
+                                Enter your password to confirm the new email address.
+                            </span>
+                        </label>
+                    </div>
+
+                    <p id="profile-meta" class="text-xs text-on-surface-variant"></p>
+
+                    <div class="flex items-center justify-between gap-3">
+                        <p id="profile-status" class="text-sm" role="status" aria-live="polite"></p>
+                        <button type="submit" id="profile-save" class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-primary text-on-primary hover:opacity-90 disabled:opacity-60">Save profile</button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Security -->
+            <section id="settings-panel-security"
+                role="tabpanel" aria-labelledby="settings-tab-security"
+                class="hidden space-y-5">
+
+                <div>
+                    <h3 class="font-semibold text-base">Password and security</h3>
+                    <p class="text-sm text-on-surface-variant mt-1">
+                        Change your password. You stay signed in on this device.
+                    </p>
+                </div>
+
+                <form id="password-form" class="space-y-4" novalidate>
+                    <label class="block space-y-2">
+                        <span class="text-sm font-medium">Current password</span>
+                        <input id="pw-current" type="password" required autocomplete="current-password"
+                            class="w-full rounded-xl border border-outline-variant/50 bg-surface-container-low px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
+                    </label>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <label class="block space-y-2">
+                            <span class="text-sm font-medium">New password</span>
+                            <input id="pw-new" type="password" required minlength="8" autocomplete="new-password"
+                                class="w-full rounded-xl border border-outline-variant/50 bg-surface-container-low px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
+                            <span class="block text-xs text-on-surface-variant">At least 8 characters.</span>
+                        </label>
+
+                        <label class="block space-y-2">
+                            <span class="text-sm font-medium">Confirm new password</span>
+                            <input id="pw-confirm" type="password" required autocomplete="new-password"
+                                class="w-full rounded-xl border border-outline-variant/50 bg-surface-container-low px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40">
+                        </label>
+                    </div>
+
+                    <label class="inline-flex items-center gap-2 text-sm text-on-surface-variant cursor-pointer">
+                        <input id="pw-show" type="checkbox" class="rounded border-outline-variant/50">
+                        Show passwords
+                    </label>
+
+                    <p id="pw-meta" class="text-xs text-on-surface-variant"></p>
+
+                    <div class="flex items-center justify-between gap-3">
+                        <p id="pw-status" class="text-sm" role="status" aria-live="polite"></p>
+                        <button type="submit" id="pw-save" class="px-4 py-2.5 rounded-xl text-sm font-semibold bg-primary text-on-primary hover:opacity-90 disabled:opacity-60">Change password</button>
+                    </div>
+                </form>
+            </section>
+        </div>
+
+        
+        <p id="settings-status" class="px-6 pb-2 text-sm"
+            role="status" aria-live="polite"></p>
+
+        <!-- Footer -->
+        <footer class="flex justify-end gap-3 p-4 sm:px-6 border-t border-outline-variant/30">
+            <button type="button" id="settings-cancel"
+                class="px-4 py-2.5 rounded-xl text-sm font-semibold
+                       bg-surface-container-low hover:bg-surface-container-high">
+                Close
+            </button>
+
+            <button type="button" id="settings-save"
+                class="px-4 py-2.5 rounded-xl text-sm font-semibold
+                    bg-primary text-on-primary hover:opacity-90">
+                Save changes
+            </button>
+        </footer>
+
+    </div>
+</dialog>
+
+<script>
+    window.MemPulseHeaderSearchData = {
+        baseUrl: <?= json_encode(BASE_URL) ?>,
+        decks: <?= json_encode($headerSearchDecks, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        cards: <?= json_encode($headerSearchCards, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>
+    };
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const sidebar = document.querySelector("#sidebar");
+        const mainContent = document.querySelector("main");
+        const toggleBtn = document.querySelector("#sidebar-toggle");
+        
+        // Mobile elements (Trigger inside Header)
+        const floatingToggleBtn = document.querySelector("#floating-mobile-toggle");
+        const mobileToggleIcon = document.querySelector("#mobile-toggle-icon");
+        const mobileOverlay = document.querySelector("#mobile-sidebar-overlay");
+        const reviewDot = document.querySelector("#review-dot");
+
+        // Header Profile Popover Elements
+        const profileTrigger = document.querySelector("#profile-popover-trigger");
+        const profileChevron = document.querySelector("#profile-chevron");
+        const settingsPopover = document.querySelector("#settings-popover");
+
+        if (!sidebar) return;
+
+        // Body-level fixed tooltip for collapsed desktop sidebar
+        let floatingTooltip = document.getElementById("sidebar-floating-tooltip");
+        if (!floatingTooltip) {
+            floatingTooltip = document.createElement("div");
+            floatingTooltip.id = "sidebar-floating-tooltip";
+            floatingTooltip.setAttribute("role", "tooltip");
+            document.body.appendChild(floatingTooltip);
+        }
+
+        let tooltipTarget = null;
+        function hideSidebarTooltip() {
+            floatingTooltip.classList.remove("is-visible");
+            tooltipTarget = null;
+        }
+        function showSidebarTooltip(target) {
+            const label = target.getAttribute("data-tooltip") || target.getAttribute("aria-label");
+            if (!label || !sidebar.classList.contains("collapsed") || window.innerWidth < 768) {
+                hideSidebarTooltip();
+                return;
+            }
+            tooltipTarget = target;
+            floatingTooltip.textContent = label;
+            floatingTooltip.style.left = "0px";
+            floatingTooltip.style.top = "0px";
+            floatingTooltip.classList.add("is-visible");
+            const rect = target.getBoundingClientRect();
+            const tipRect = floatingTooltip.getBoundingClientRect();
+            const gap = 12;
+            let left = rect.right + gap;
+            if (left + tipRect.width > window.innerWidth - 8) {
+                left = Math.max(8, rect.left - tipRect.width - gap);
+                floatingTooltip.classList.add("tooltip-left");
+            } else {
+                floatingTooltip.classList.remove("tooltip-left");
+            }
+            const top = Math.min(window.innerHeight - 8, Math.max(8, rect.top + rect.height / 2));
+            floatingTooltip.style.left = `${left}px`;
+            floatingTooltip.style.top = `${top}px`;
+        }
+
+        sidebar.querySelectorAll(".sidebar-tooltip").forEach((item) => {
+            item.addEventListener("mouseenter", () => showSidebarTooltip(item));
+            item.addEventListener("mouseleave", hideSidebarTooltip);
+            item.addEventListener("focus", () => showSidebarTooltip(item));
+            item.addEventListener("blur", hideSidebarTooltip);
+        });
+        sidebar.addEventListener("scroll", hideSidebarTooltip, true);
+        window.addEventListener("resize", hideSidebarTooltip);
+        window.addEventListener("scroll", () => {
+            if (tooltipTarget) showSidebarTooltip(tooltipTarget);
+        }, true);
+
+        const toggleIcon = toggleBtn ? toggleBtn.querySelector(".material-symbols-outlined") : null;
+
+        // Apply visual collapsed state on desktop
+        const sidebarCollapsed = localStorage.getItem("sidebarCollapsed") === "true";
+        if (sidebarCollapsed && window.innerWidth >= 768) {
+            sidebar.classList.add("collapsed");
+            if (mainContent) mainContent.classList.add("collapsed");
+            if (toggleIcon) toggleIcon.textContent = "left_panel_open";
+            if (reviewDot) reviewDot.classList.remove("hidden");
+        }
+
+        // Desktop Border Toggle Interaction
+        if (toggleBtn) {
+            toggleBtn.addEventListener("click", () => {
+                const isCollapsed = sidebar.classList.toggle("collapsed");
+                
+                document.documentElement.classList.toggle(
+                    "sidebar-collapsed",
+                    isCollapsed
+                );
+                
+                hideSidebarTooltip();
+                if (mainContent) {
+                    mainContent.classList.toggle("collapsed", isCollapsed);
+                }
+                if (toggleIcon) {
+                    toggleIcon.textContent = isCollapsed ? "left_panel_open" : "left_panel_close";
+                }
+                if (reviewDot) {
+                    isCollapsed ? reviewDot.classList.remove("hidden") : reviewDot.classList.add("hidden");
+                }
+                setAccountPopoverOpen(false);
+                localStorage.setItem("sidebarCollapsed", isCollapsed);
+            });
+        }
+
+        // Mobile Sidebar Drawer Toggle (Inside Header)
+        function isMobileSidebarOpen() {
+            return !sidebar.classList.contains("-translate-x-full");
+        }
+
+        function openMobileSidebar() {
+            sidebar.classList.remove("-translate-x-full", "collapsed");
+            mobileOverlay.classList.remove("hidden");
+            if (floatingToggleBtn) floatingToggleBtn.setAttribute("aria-expanded", "true");
+            if (mobileToggleIcon) mobileToggleIcon.textContent = "close";
+            setTimeout(() => mobileOverlay.classList.remove("opacity-0"), 10);
+        }
+
+        function closeMobileSidebar() {
+            sidebar.classList.add("-translate-x-full");
+            mobileOverlay.classList.add("opacity-0");
+            if (floatingToggleBtn) floatingToggleBtn.setAttribute("aria-expanded", "false");
+            if (mobileToggleIcon) mobileToggleIcon.textContent = "menu";
+            setTimeout(() => mobileOverlay.classList.add("hidden"), 300);
+        }
+
+        if (floatingToggleBtn) {
+            floatingToggleBtn.addEventListener("click", () => {
+                if (isMobileSidebarOpen()) {
+                    closeMobileSidebar();
+                } else {
+                    openMobileSidebar();
+                }
+            });
+        }
+        if (mobileOverlay) mobileOverlay.addEventListener("click", closeMobileSidebar);
+
+        // Header Profile Popover Toggle Logic
+        function setAccountPopoverOpen(isOpen) {
+            if (!settingsPopover || !profileTrigger) return;
+            settingsPopover.classList.toggle('hidden', !isOpen);
+            profileTrigger.setAttribute('aria-expanded', String(isOpen));
+            if (profileChevron) {
+                profileChevron.classList.toggle('rotate-180', isOpen);
+            }
+        }
+
+        function togglePopover(e) {
+            e.stopPropagation();
+            closeSearchDropdown();
+            setAccountPopoverOpen(settingsPopover?.classList.contains('hidden'));
+        }
+
+        if (profileTrigger) profileTrigger.addEventListener('click', togglePopover);
+
+        // Click outside closes the account popover
+        document.addEventListener('click', (e) => {
+            if (
+                settingsPopover &&
+                !settingsPopover.contains(e.target) &&
+                !profileTrigger?.contains(e.target)
+            ) {
+                setAccountPopoverOpen(false);
+            }
+        });
+
+        // --- Header Search Dropdown Logic ---
+        const searchContainer = document.getElementById('header-search-container');
+        const searchInput = document.getElementById('header-search-input');
+        const searchClear = document.getElementById('header-search-clear');
+        const searchDropdown = document.getElementById('header-search-dropdown');
+        const searchResults = document.getElementById('header-search-results');
+
+        const searchData = window.MemPulseHeaderSearchData || { baseUrl: '/mempulse/app/', decks: [], cards: [] };
+        const baseUrl = searchData.baseUrl;
+
+        const quickPages = [
+            { title: 'Home Dashboard', subtitle: 'Overview & streak metrics', icon: 'home', href: `${baseUrl}views/index.php` },
+            { title: 'Decks', subtitle: 'Manage your flashcard collections', icon: 'style', href: `${baseUrl}views/decks.php` },
+            { title: 'Create Flashcards', subtitle: 'Add new cards to your decks', icon: 'edit_note', href: `${baseUrl}views/decks.php?add_card=1` },
+            { title: 'Review', subtitle: 'Practice due flashcards now', icon: 'pace', href: `${baseUrl}views/review.php` },
+            { title: 'Reports', subtitle: 'View accuracy & learning analytics', icon: 'monitoring', href: `${baseUrl}views/reports.php` },
+            { title: 'Memory Science', subtitle: 'How spaced repetition works', icon: 'psychology', href: `${baseUrl}views/science.php` },
+            { title: 'Account Settings', subtitle: 'Profile, email & security', icon: 'manage_accounts', action: 'account' },
+            { title: 'System Settings', subtitle: 'SRS intervals & multipliers', icon: 'settings', action: 'system' }
+        ];
+
+        let activeSearchIndex = -1;
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str ?? '';
+            return div.innerHTML;
+        }
+
+        function closeSearchDropdown() {
+            if (!searchDropdown || !searchInput) return;
+            searchDropdown.classList.add('hidden');
+            searchInput.setAttribute('aria-expanded', 'false');
+            activeSearchIndex = -1;
+        }
+
+        function openSearchDropdown() {
+            if (!searchDropdown || !searchInput) return;
+            setAccountPopoverOpen(false);
+            renderSearchResults(searchInput.value.trim());
+            searchDropdown.classList.remove('hidden');
+            searchInput.setAttribute('aria-expanded', 'true');
+        }
+
+        function renderSearchResults(query) {
+            if (!searchResults) return;
+            const q = query.toLowerCase();
+            activeSearchIndex = -1;
+
+            const matchedPages = q === ''
+                ? quickPages.slice(0, 5)
+                : quickPages.filter(p => p.title.toLowerCase().includes(q) || p.subtitle.toLowerCase().includes(q));
+
+            const matchedDecks = q === ''
+                ? (searchData.decks || []).slice(0, 4)
+                : (searchData.decks || []).filter(d => (d.title || '').toLowerCase().includes(q)).slice(0, 6);
+
+            const matchedCards = q === ''
+                ? []
+                : (searchData.cards || []).filter(c =>
+                    (c.front || '').toLowerCase().includes(q) ||
+                    (c.back || '').toLowerCase().includes(q) ||
+                    (c.deckTitle || '').toLowerCase().includes(q)
+                ).slice(0, 6);
+
+            let html = '';
+
+            if (matchedPages.length === 0 && matchedDecks.length === 0 && matchedCards.length === 0) {
+                html = `
+                    <div class="py-8 px-4 text-center text-on-surface-variant">
+                        <span class="material-symbols-outlined text-[28px] text-outline mb-1 block">search_off</span>
+                        <p class="text-sm font-medium text-on-surface">No results found for "${escapeHtml(query)}"</p>
+                        <p class="text-xs text-on-surface-variant/80 mt-0.5">Try searching for a deck title, card keyword, or page name.</p>
+                    </div>
+                `;
+                searchResults.innerHTML = html;
+                return;
+            }
+
+            if (matchedPages.length > 0) {
+                html += `
+                    <div>
+                        <div class="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70">
+                            ${q === '' ? 'Quick Navigation' : 'Pages & Actions'}
+                        </div>
+                        <div class="flex flex-col gap-0.5">
+                            ${matchedPages.map(item => `
+                                <a href="${item.href ? escapeHtml(item.href) : '#'}"
+                                   ${item.action ? `data-search-settings="${escapeHtml(item.action)}"` : ''}
+                                   class="search-result-item flex items-center justify-between gap-3 px-2.5 py-2 rounded-xl hover:bg-surface-container-low text-on-surface transition-colors group">
+                                    <div class="flex items-center gap-3 min-w-0">
+                                        <div class="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                                            <span class="material-symbols-outlined text-[18px]">${escapeHtml(item.icon)}</span>
+                                        </div>
+                                        <div class="flex flex-col min-w-0">
+                                            <span class="text-xs font-semibold text-on-surface truncate">${escapeHtml(item.title)}</span>
+                                            <span class="text-[11px] text-on-surface-variant truncate">${escapeHtml(item.subtitle)}</span>
+                                        </div>
+                                    </div>
+                                    <span class="material-symbols-outlined text-[16px] text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity">arrow_forward</span>
+                                </a>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (matchedDecks.length > 0) {
+                html += `
+                    <div>
+                        <div class="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70">
+                            Decks
+                        </div>
+                        <div class="flex flex-col gap-0.5">
+                            ${matchedDecks.map(deck => `
+                                <a href="${escapeHtml(baseUrl)}views/deck.php?deck_id=${deck.id}&id=${deck.id}"
+                                   class="search-result-item flex items-center justify-between gap-3 px-2.5 py-2 rounded-xl hover:bg-surface-container-low text-on-surface transition-colors group">
+                                    <div class="flex items-center gap-3 min-w-0">
+                                        <div class="w-8 h-8 rounded-lg bg-teal-500/10 text-teal-600 flex items-center justify-center flex-shrink-0">
+                                            <span class="material-symbols-outlined text-[18px]">style</span>
+                                        </div>
+                                        <span class="text-xs font-semibold text-on-surface truncate">${escapeHtml(deck.title)}</span>
+                                    </div>
+                                    <span class="text-[11px] font-medium text-on-surface-variant bg-surface-container-low px-2 py-0.5 rounded-full flex-shrink-0">
+                                        ${deck.count} ${deck.count === 1 ? 'card' : 'cards'}
+                                    </span>
+                                </a>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (matchedCards.length > 0) {
+                html += `
+                    <div>
+                        <div class="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant/70">
+                            Flashcards
+                        </div>
+                        <div class="flex flex-col gap-0.5">
+                            ${matchedCards.map(card => `
+                                <a href="${escapeHtml(baseUrl)}views/deck.php?deck_id=${card.deckId}&id=${card.deckId}"
+                                   class="search-result-item flex items-center justify-between gap-3 px-2.5 py-2 rounded-xl hover:bg-surface-container-low text-on-surface transition-colors group">
+                                    <div class="flex items-center gap-3 min-w-0">
+                                        <div class="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-600 flex items-center justify-center flex-shrink-0">
+                                            <span class="material-symbols-outlined text-[18px]">quiz</span>
+                                        </div>
+                                        <div class="flex flex-col min-w-0">
+                                            <span class="text-xs font-semibold text-on-surface truncate">${escapeHtml(card.front)}</span>
+                                            <span class="text-[11px] text-on-surface-variant truncate">${escapeHtml(card.back)}</span>
+                                        </div>
+                                    </div>
+                                    <span class="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-md flex-shrink-0 max-w-[110px] truncate">
+                                        ${escapeHtml(card.deckTitle)}
+                                    </span>
+                                </a>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            searchResults.innerHTML = html;
+
+            searchResults.querySelectorAll('[data-search-settings]').forEach(el => {
+                el.addEventListener('click', (ev) => {
+                    ev.preventDefault();
+                    const tab = el.getAttribute('data-search-settings');
+                    closeSearchDropdown();
+                    openSettingsModal(tab);
+                });
+            });
+        }
+
+        function updateSearchHighlight(items) {
+            items.forEach((el, idx) => {
+                if (idx === activeSearchIndex) {
+                    el.classList.add('bg-surface-container-low');
+                    el.scrollIntoView({ block: 'nearest' });
+                } else {
+                    el.classList.remove('bg-surface-container-low');
+                }
+            });
+        }
+
+        if (searchInput) {
+            searchInput.addEventListener('focus', openSearchDropdown);
+            searchInput.addEventListener('input', () => {
+                const val = searchInput.value;
+                searchClear?.classList.toggle('hidden', val.length === 0);
+                openSearchDropdown();
+            });
+
+            searchInput.addEventListener('keydown', (e) => {
+                if (!searchDropdown || searchDropdown.classList.contains('hidden')) return;
+                const items = Array.from(searchResults.querySelectorAll('.search-result-item'));
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    if (items.length > 0) {
+                        activeSearchIndex = (activeSearchIndex + 1) % items.length;
+                        updateSearchHighlight(items);
+                    }
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    if (items.length > 0) {
+                        activeSearchIndex = (activeSearchIndex - 1 + items.length) % items.length;
+                        updateSearchHighlight(items);
+                    }
+                } else if (e.key === 'Enter' && activeSearchIndex >= 0 && items[activeSearchIndex]) {
+                    e.preventDefault();
+                    items[activeSearchIndex].click();
+                } else if (e.key === 'Escape') {
+                    closeSearchDropdown();
+                    searchInput.blur();
+                }
+            });
+        }
+
+        if (searchClear) {
+            searchClear.addEventListener('click', () => {
+                searchInput.value = '';
+                searchClear.classList.add('hidden');
+                searchInput.focus();
+                renderSearchResults('');
+            });
+        }
+
+        // Global CTRL+K / CMD+K shortcut to focus header search
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                searchInput?.focus();
+                searchInput?.select();
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (searchContainer && !searchContainer.contains(e.target)) {
+                closeSearchDropdown();
+            }
+        });
+
+        // --- Settings Modal Logic ---
+        const settingsDialog = document.getElementById('settings-dialog');
+        const settingsClose = document.getElementById('settings-close');
+        const settingsCancel = document.getElementById('settings-cancel');
+
+        const settingsTabs = document.querySelectorAll('[data-settings-tab]');
+        const settingsOpeners = document.querySelectorAll('[data-open-settings]');
+
+        function switchSettingsTab(tabName) {
+            document.getElementById('settings-save')?.classList.toggle('hidden', tabName !== 'system');
+            settingsTabs.forEach((tab) => {
+                const active = tab.dataset.settingsTab === tabName;
+
+                tab.setAttribute('aria-selected', String(active));
+                tab.classList.toggle('border-primary', active);
+                tab.classList.toggle('text-primary', active);
+                tab.classList.toggle('font-semibold', active);
+                tab.classList.toggle('border-transparent', !active);
+                tab.classList.toggle('text-on-surface-variant', !active);
+                tab.classList.toggle('font-medium', !active);
+
+                const panel = document.getElementById(
+                    `settings-panel-${tab.dataset.settingsTab}`
+                );
+
+                if (panel) {
+                    panel.classList.toggle('hidden', !active);
+                }
+            });
+        }
+
+        const settingsSave = document.getElementById('settings-save');
+        const settingsStatus = document.getElementById('settings-status');
+
+        const settingsFields = {
+            remember_multiplier: document.getElementById('remember-multiplier'),
+            forgot_multiplier: document.getElementById('forgot-multiplier'),
+            initial_interval_days: document.getElementById('initial-interval'),
+            maximum_interval_days: document.getElementById('maximum-interval')
+        };
+
+        const settingsApi = <?= json_encode(BASE_URL . 'api/settings-actions.php') ?>;
+
+        function showSettingsStatus(message, isError = false) {
+            if (!settingsStatus) return;
+
+            settingsStatus.textContent = message;
+            settingsStatus.classList.toggle('text-error', isError);
+            settingsStatus.classList.toggle('text-primary', !isError);
+        }
+
+        function displaySettings(settings) {
+            Object.entries(settingsFields).forEach(([key, input]) => {
+                if (input) input.value = settings[key];
+            });
+        }
+
+        async function loadSettings() {
+            showSettingsStatus('Loading settings...');
+
+            try {
+                const response = await fetch(settingsApi, {
+                    credentials: 'same-origin'
+                });
+
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    throw new Error(result.message || 'Could not load settings.');
+                }
+
+                displaySettings(result.settings);
+                showSettingsStatus('');
+            } catch (error) {
+                showSettingsStatus(error.message, true);
+            }
+        }
+
+        async function saveSettings() {
+            const payload = {};
+
+            for (const [key, input] of Object.entries(settingsFields)) {
+                if (!input || !input.checkValidity()) {
+                    input?.reportValidity();
+                    return;
+                }
+
+                payload[key] = input.value;
+            }
+
+            const initialValue = Number(payload.initial_interval_days);
+            const maximumValue = Number(payload.maximum_interval_days);
+            if (maximumValue < initialValue) {
+                settingsFields.maximum_interval_days.setCustomValidity('Maximum interval must be at least the initial interval.');
+                settingsFields.maximum_interval_days.reportValidity();
+                settingsFields.maximum_interval_days.setCustomValidity('');
+                return;
+            }
+
+            settingsSave.disabled = true;
+            showSettingsStatus('Saving settings...');
+
+            try {
+                const response = await fetch(settingsApi, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': settingsDialog.dataset.csrf
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    throw new Error(result.message || 'Could not save settings.');
+                }
+
+                displaySettings(result.settings);
+                showSettingsStatus(result.message);
+            } catch (error) {
+                showSettingsStatus(error.message, true);
+            } finally {
+                settingsSave.disabled = false;
+            }
+        }
+
+        settingsSave?.addEventListener('click', saveSettings);
+
+        function openSettingsModal(tabName) {
+            setAccountPopoverOpen(false);
+            switchSettingsTab(tabName);
+
+            if (settingsDialog) {
+                if (!settingsDialog.open) {
+                    settingsDialog.showModal();
+                }
+                loadSettings();
+            }
+        }
+
+        settingsOpeners.forEach((button) => {
+            button.addEventListener('click', () => {
+                openSettingsModal(button.dataset.openSettings);
+            });
+        });
+
+        settingsTabs.forEach((tab) => {
+            tab.addEventListener('click', () => {
+                switchSettingsTab(tab.dataset.settingsTab);
+            });
+        });
+
+        function closeSettings() {
+            if (settingsDialog?.open) {
+                settingsDialog.close();
+            }
+        }
+
+        settingsClose?.addEventListener('click', closeSettings);
+        settingsCancel?.addEventListener('click', closeSettings);
+
+        settingsDialog?.addEventListener('click', (event) => {
+            if (event.target === settingsDialog) {
+                closeSettings();
+            }
+        });
+
+        // Logout Dialog Logic
+        const logoutBtn = document.getElementById('logout-btn');
+        const logoutDialog = document.getElementById('logout-dialog');
+        const logoutCancel = document.getElementById('logout-cancel');
+
+        if (logoutBtn && logoutDialog) {
+            logoutBtn.addEventListener('click', () => {
+                setAccountPopoverOpen(false);
+                logoutDialog.showModal();
+            });
+
+            if (logoutCancel) {
+                logoutCancel.addEventListener('click', () => logoutDialog.close());
+            }
+
+            logoutDialog.addEventListener('click', (e) => {
+                const rect = logoutDialog.getBoundingClientRect();
+                if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
+                    logoutDialog.close();
+                }
+            });
+        }
+    });
+</script>
+
+<script src="<?php echo BASE_URL; ?>assets/js/account-settings.js" defer></script>
+```
+
+app.css
+```
+@layer base {
+
+    html,
+    body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow-y: auto !important;
+        overscroll-behavior-y: auto;
+    }
+
+    body {
+        overscroll-behavior: none;
+    }
+
+    main {
+        min-height: 100vh;
+        overflow-y: auto !important;
+    }
+
+    main>:first-child {
+        margin-top: 0 !important;
+    }
+
+    main>:last-child {
+        margin-bottom: 0 !important;
+    }
+}
+
+/* In app/assets/css/app.css, add/update inside @layer base or below it: */
+#main-content {
+    padding-top: 4rem !important;
+    /* 64px offset for fixed #app-header across all views */
+}
+
+/* Inside @media (min-width: 768px) in app/assets/css/app.css, update #sidebar-toggle: */
+@media (min-width: 768px) {
+
+    /* Keep the toggle attached to the sidebar edge below the header */
+    #sidebar-toggle {
+        position: absolute !important;
+        right: -14px !important;
+        top: 1.5rem !important;
+        z-index: 60 !important;
+    }
+}
+
+@layer utilities {
+
+    /* Premium diffused shadow for structural panels */
+    .shadow-premium-panel {
+        box-shadow: 0 8px 30px -4px rgba(0, 0, 0, 0.04), 0 4px 10px -2px rgba(0, 0, 0, 0.02);
+    }
+
+    /* Subtle interactive lift for metric cards */
+    .hover-lift {
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+    }
+
+    .hover-lift:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 35px -4px rgba(0, 0, 0, 0.06);
+    }
+
+    /* Elevated backdrop blur for the drawer overlay */
+    .drawer-backdrop {
+        background-color: rgba(15, 23, 42, 0.4);
+        backdrop-filter: blur(4px);
+    }
+}
+
+/* Subtle custom scrollbar for page scrolling */
+html,
+body,
+main {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+main::-webkit-scrollbar {
+    display: block;
+    width: 6px;
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+main::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+main::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.35);
+    border-radius: 9999px;
+}
+
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
+main::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.6);
+}
+
+/* Sidebar section divider */
+#sidebar .sidebar-section-divider {
+    flex-shrink: 0;
+    margin: 0 1rem;
+    border: 0;
+    border-top: 1px solid var(--color-outline-variant, #cbd5e1);
+    opacity: 0.4;
+    transition: margin 0.3s ease;
+}
+
+
+/* Sidebar Toggle */
+/* --- Base Collapsed Sidebar Rules (Desktop Only) --- */
+@media (min-width: 768px) {
+
+    /* Prevent initial main-content layout shift */
+    html.sidebar-collapsed #main-content {
+        padding-left: 80px !important;
+    }
+
+    html.sidebar-collapsed #main-content header {
+        left: 80px !important;
+    }
+
+    #sidebar.collapsed {
+        box-sizing: border-box !important;
+        width: 80px !important;
+        min-width: 80px !important;
+        max-width: 80px !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        /* Allow the desktop toggle to protrude beyond the sidebar edge. */
+        overflow-x: visible !important;
+        overflow-y: visible !important;
+    }
+
+    /* Keep the toggle attached to the sidebar edge in either state. */
+    #sidebar-toggle {
+        position: absolute !important;
+        right: -14px !important;
+        top: 2rem !important;
+        z-index: 60 !important;
+    }
+
+    #sidebar.collapsed .sidebar-section-divider {
+        margin-left: 12px;
+        margin-right: 12px;
+    }
+
+    #sidebar.collapsed>.flex.flex-col.gap-4 {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        align-items: center !important;
+    }
+
+    #sidebar.collapsed .sidebar-navigation {
+        box-sizing: border-box !important;
+        min-width: 0 !important;
+        width: 100% !important;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        scrollbar-width: thin;
+    }
+
+    #sidebar.collapsed .sidebar-navigation>.sidebar-row {
+        width: 44px !important;
+        min-width: 44px !important;
+        max-width: 44px !important;
+        flex: 0 0 44px !important;
+    }
+
+    /* Hide standard layout text elements */
+    #sidebar.collapsed .sidebar-text {
+        opacity: 0 !important;
+        display: none !important;
+    }
+
+    /* Hide the logo name text string when collapsed */
+    #sidebar.collapsed .logo-text {
+        opacity: 0 !important;
+        width: 0 !important;
+        display: none !important;
+    }
+
+    /* Change header layout structure from a row grid to vertical stack */
+    #sidebar.collapsed #sidebar-header {
+        flex-direction: column !important;
+        gap: 16px !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        align-items: center !important;
+    }
+
+    #sidebar.collapsed #sidebar-header>div {
+        order: 1 !important;
+    }
+
+    #sidebar.collapsed #sidebar-toggle {
+        order: 2 !important;
+    }
+
+    /* ─── NEW: FORCE MAIN CONTENT AND FIXED HEADER TO SHIFT LEFT ─── */
+    main.collapsed {
+        padding-left: 80px !important;
+        /* Shakes off the pl-72 padding */
+    }
+
+    main.collapsed header {
+        left: 80px !important;
+        /* Shakes off the left-72 fixed offset */
+    }
+}
+
+/* --- Streak Heatmap Tooltip Styles (Pure CSS Absolute Positioning) --- */
+#heatmap-scroll {
+    position: relative;
+    overflow-x: auto;
+}
+
+#heatmap-scroll .heatmap-cell {
+    position: relative;
+    cursor: pointer;
+    outline: none !important;
+    -webkit-tap-highlight-color: transparent;
+}
+
+#heatmap-scroll .heatmap-cell:hover {
+    z-index: 100;
+}
+
+/* Tooltip box */
+#heatmap-scroll .heatmap-cell::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e293b;
+    color: #ffffff;
+    font-size: 11px;
+    line-height: 1.3;
+    padding: 6px 10px;
+    border-radius: 8px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    z-index: 9999;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+/* Tooltip arrow */
+#heatmap-scroll .heatmap-cell::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 2px);
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: #1e293b;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    z-index: 101;
+}
+
+#heatmap-scroll .heatmap-cell:hover::after,
+#heatmap-scroll .heatmap-cell:hover::before {
+    opacity: 1;
+}
+
+/* --- Universal Heatmap Scrollbar Rules (Visible in All Views) --- */
+#heatmap-scroll {
+    overflow-x: auto !important;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
+}
+
+#heatmap-scroll::-webkit-scrollbar {
+    display: block !important;
+    height: 6px;
+}
+
+#heatmap-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#heatmap-scroll::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.35);
+    border-radius: 999px;
+}
+
+#heatmap-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 116, 139, 0.6);
+}
+
+/* --- Archived Decks Button Pulse Animation --- */
+@keyframes archivePulse {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(var(--color-primary, 59, 130, 246), 0.7);
+    }
+
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 12px 4px rgba(var(--color-primary, 59, 130, 246), 0.5);
+    }
+
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(var(--color-primary, 59, 130, 246), 0);
+    }
+}
+
+.animate-archive-pulse {
+    animation: archivePulse 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) 2;
+    color: currentColor !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* ==========================================================================
+   Flashcard Table & Resizable Columns
+   ========================================================================== */
+
+/* Resizable Header Cell Handle */
+.resizable-col {
+    position: relative;
+    user-select: none;
+}
+
+.resizer {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    cursor: col-resize;
+    user-select: none;
+    touch-action: none;
+    z-index: 10;
+    transition: background-color 0.15s ease;
+}
+
+.resizer:hover,
+.resizer.resizing {
+    background-color: var(--color-primary, #3b82f6);
+}
+
+/* Selected Row Highlighting */
+#flashcards-table-body tr.selected-row {
+    background-color: rgba(var(--color-primary-rgb, 59, 130, 246), 0.08) !important;
+    border-left: 3px solid var(--color-primary, #3b82f6);
+}
+
+/* Custom Scrollbars for Table Header & Body Cells */
+#flashcard-table-scroll-container {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
+}
+
+#flashcard-table-scroll-container::-webkit-scrollbar {
+    height: 6px;
+}
+
+#flashcard-table-scroll-container::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.35);
+    border-radius: 999px;
+}
+
+/* ==========================================================================
+   Card Editor Panel Drawer
+   ========================================================================== */
+
+#card-editor-panel {
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+        margin 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+        width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform, opacity;
+}
+
+#card-editor-panel.collapsed {
+    display: none !important;
+}
+
+/* ==========================================================================
+   Tabulator Grid - MemPulse Custom Styling
+   ========================================================================== */
+
+/* Main Table Container Override */
+.tabulator {
+    background-color: transparent !important;
+    border: none !important;
+    font-family: inherit !important;
+    font-size: 0.875rem !important;
+    /* 14px */
+}
+
+/* Header Styling */
+.tabulator .tabulator-header {
+    background-color: var(--color-surface-container-low, #f1f5f9) !important;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.25) !important;
+    color: var(--color-on-surface-variant, #64748b) !important;
+    font-weight: 700 !important;
+    font-size: 0.75rem !important;
+    /* 12px */
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+}
+
+.tabulator .tabulator-header .tabulator-col {
+    background-color: transparent !important;
+    border-right: 1px solid rgba(148, 163, 184, 0.15) !important;
+    padding: 8px 12px !important;
+}
+
+.tabulator .tabulator-header .tabulator-col-content {
+    padding: 0 !important;
+}
+
+/* Header Resizer Drag Handles */
+.tabulator .tabulator-header .tabulator-col .tabulator-col-resize-handle {
+    width: 6px !important;
+    right: 0 !important;
+    opacity: 0;
+    transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.tabulator .tabulator-header .tabulator-col:hover .tabulator-col-resize-handle,
+.tabulator .tabulator-header .tabulator-col .tabulator-col-resize-handle:hover {
+    opacity: 1;
+    background-color: var(--color-primary, #3b82f6) !important;
+}
+
+/* Row Styling (Non-Compact Readable Format) */
+.tabulator .tabulator-tableholder .tabulator-table .tabulator-row {
+    background-color: var(--color-surface-container-lowest, #ffffff) !important;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2) !important;
+    color: var(--color-on-surface, #0f172a) !important;
+    transition: background-color 0.15s ease;
+    min-height: 36px !important;
+}
+
+/* Alternate Row Hover */
+.tabulator .tabulator-tableholder .tabulator-table .tabulator-row:hover {
+    background-color: rgba(241, 245, 249, 0.6) !important;
+    cursor: pointer;
+}
+
+/* Selected Row Highlight */
+.tabulator .tabulator-tableholder .tabulator-table .tabulator-row.tabulator-selected {
+    background-color: rgba(59, 130, 246, 0.08) !important;
+    border-left: 3px solid var(--color-primary, #3b82f6) !important;
+}
+
+/* Cell Padding & Alignment */
+.tabulator .tabulator-cell {
+    padding: 6px 12px !important;
+    border-right: 1px solid rgba(148, 163, 184, 0.12) !important;
+    display: inline-block !important;
+    vertical-align: middle !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    line-height: 24px !important;
+}
+
+/* Cell Editing Focus State */
+.tabulator .tabulator-cell.tabulator-editing {
+    outline: 2px solid var(--color-primary, #3b82f6) !important;
+    outline-offset: -2px !important;
+    padding: 8px !important;
+    background-color: #ffffff !important;
+}
+
+.tabulator .tabulator-cell.tabulator-editing textarea,
+.tabulator .tabulator-cell.tabulator-editing input {
+    font-family: inherit !important;
+    font-size: 0.875rem !important;
+    color: #0f172a !important;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    width: 100% !important;
+    resize: vertical !important;
+}
+
+/* Frozen Actions column: opaque, so scrolled content never shows through */
+.tabulator .tabulator-cell.tabulator-frozen {
+    background-color: #ffffff !important;
+    box-shadow: 2px 0 6px rgba(0, 0, 0, 0.06) !important;
+    z-index: 2;
+}
+
+.tabulator .tabulator-row:hover .tabulator-cell.tabulator-frozen {
+    background-color: #f6f8fb !important;
+}
+
+.tabulator .tabulator-row.tabulator-selected .tabulator-cell.tabulator-frozen {
+    background-color: #eff5fe !important;
+}
+
+.tabulator .tabulator-header .tabulator-col.tabulator-frozen {
+    background-color: #f1f5f9 !important;
+    /* same as the header background */
+    box-shadow: 2px 0 6px rgba(0, 0, 0, 0.06) !important;
+    z-index: 3;
+}
+
+/* Custom Scrollbar for Grid Container */
+.tabulator .tabulator-tableholder {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
+}
+
+.tabulator .tabulator-tableholder::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+}
+
+.tabulator .tabulator-tableholder::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.35);
+    /* border-radius: 999px; */
+}
+
+
+/* ==========================================================================
+   Sidebar Card Editor Collapse State
+   ========================================================================== */
+#card-editor-sidebar.collapsed #sidebar-content-wrapper {
+    display: none !important;
+}
+```
+

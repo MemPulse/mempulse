@@ -22,7 +22,7 @@ $recentSessions = DashboardService::getRecentSessions($conn, $userId, 4);
 
 // Extracted variables for template includes
 $displayName    = $profileData['displayName'];
-$current_streak  = $streakData['currentStreak'];
+$current_streak = $streakData['currentStreak'];
 $pageTitle      = "Home Dashboard";
 $currentPage    = 'home';
 
@@ -49,9 +49,9 @@ if (!function_exists('heatmap_level_style')) {
 
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
-    <!-- MAIN: Viewport Shell Offset for Mobile/Desktop Navigation Bar -->
+    <!-- MAIN: Viewport Shell Offset for Fixed Top Header (pt-16) and Sidebar (md:pl-72) -->
     <main id="main-content" 
-        class="pl-0 md:pl-72 pt-16 md:pt-6 transition-all duration-300 ease-in-out">
+        class="pl-0 md:pl-72 pt-16 transition-all duration-300 ease-in-out">
         <?php include __DIR__ . '/dashboard.php'; ?>                
     </main>
 
@@ -78,6 +78,20 @@ if (!function_exists('heatmap_level_style')) {
                 this.syncHeader(payload.user);
                 this.syncSidebarProfile(payload.user);
                 this.syncMetrics(payload.stats);
+            },
+
+            syncHeader(user) {
+                if (!user || !user.displayName) return;
+                document.querySelectorAll('[data-user-name]').forEach((el) => {
+                    el.textContent = user.displayName;
+                });
+            },
+
+            syncSidebarProfile(user) {
+                if (!user || !user.displayName) return;
+                document.querySelectorAll('[data-user-name]').forEach((el) => {
+                    el.textContent = user.displayName;
+                });
             },
 
             syncMetrics(stats) {

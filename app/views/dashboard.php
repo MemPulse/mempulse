@@ -2,8 +2,7 @@
 <!-- MAIN DASHBOARD CONTENT CONTAINER CONTAINER DIV                            -->
 <!-- Outer responsive padding shell wrapping top metrics, carousel, and history -->
 <!-- ========================================================================= -->
-<div class="w-full px-2 sm:px-6 lg:px-8 py-4 sm:py-6 md:py-8 overflow-visible">
-    <!-- DIV: Vertical Layout Flex Shell -->
+<div class="w-full px-2 sm:px-6 lg:px-8 py-4 sm:py-6 overflow-visible">    <!-- DIV: Vertical Layout Flex Shell -->
     <div class="flex flex-col w-full gap-4 sm:gap-6">
 
         <!-- DIV: TOP SECTION - Core Analytics Cards, Action Carousel & Streak Bar -->

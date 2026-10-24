@@ -40,7 +40,6 @@ if (!isset($displayName) || !isset($displayRole)) {
     $displayRole = 'User';
     
     if ($user_id && isset($conn)) {
-        // Updated query to fetch role
         $user_sql = "SELECT first_name, last_name, role FROM users WHERE id = ? AND deleted_at IS NULL";
         if ($user_stmt = mysqli_prepare($conn, $user_sql)) {
             mysqli_stmt_bind_param($user_stmt, "i", $user_id);
@@ -59,6 +58,7 @@ if (!isset($displayName) || !isset($displayRole)) {
         }
     }
 }
+
 // 3. Saved appearance preference (light | dark | system)
 $userTheme = 'system';
 if ($user_id && isset($conn)) {
@@ -74,6 +74,58 @@ if ($user_id && isset($conn)) {
         }
     } catch (Throwable $e) {
         // theme column not added yet: fall back to "system"
+    }
+}
+
+// 4. Fetch lightweight search data (Decks & Flashcards) for the Header Search Dropdown
+$headerSearchDecks = [];
+$headerSearchCards = [];
+if ($user_id && isset($conn)) {
+    try {
+        $deckSearchSql = "SELECT d.id, d.title, COUNT(f.id) AS card_count
+                          FROM decks d
+                          LEFT JOIN flashcards f ON f.deck_id = d.id AND f.deleted_at IS NULL
+                          WHERE d.user_id = ? AND d.deleted_at IS NULL
+                          GROUP BY d.id, d.title
+                          ORDER BY d.updated_at DESC
+                          LIMIT 20";
+        if ($dsStmt = mysqli_prepare($conn, $deckSearchSql)) {
+            mysqli_stmt_bind_param($dsStmt, "i", $user_id);
+            mysqli_stmt_execute($dsStmt);
+            mysqli_stmt_bind_result($dsStmt, $dId, $dTitle, $dCount);
+            while (mysqli_stmt_fetch($dsStmt)) {
+                $headerSearchDecks[] = [
+                    'id'    => (int) $dId,
+                    'title' => $dTitle,
+                    'count' => (int) $dCount,
+                ];
+            }
+            mysqli_stmt_close($dsStmt);
+        }
+
+        $cardSearchSql = "SELECT f.id, f.deck_id, f.front, f.back, d.title AS deck_title
+                          FROM flashcards f
+                          JOIN decks d ON f.deck_id = d.id
+                          WHERE d.user_id = ? AND d.deleted_at IS NULL AND f.deleted_at IS NULL
+                          ORDER BY f.updated_at DESC
+                          LIMIT 40";
+        if ($csStmt = mysqli_prepare($conn, $cardSearchSql)) {
+            mysqli_stmt_bind_param($csStmt, "i", $user_id);
+            mysqli_stmt_execute($csStmt);
+            mysqli_stmt_bind_result($csStmt, $cId, $cDeckId, $cFront, $cBack, $cDeckTitle);
+            while (mysqli_stmt_fetch($csStmt)) {
+                $headerSearchCards[] = [
+                    'id'        => (int) $cId,
+                    'deckId'    => (int) $cDeckId,
+                    'front'     => mb_substr(trim(strip_tags((string) $cFront)), 0, 100),
+                    'back'      => mb_substr(trim(strip_tags((string) $cBack)), 0, 100),
+                    'deckTitle' => $cDeckTitle,
+                ];
+            }
+            mysqli_stmt_close($csStmt);
+        }
+    } catch (Throwable $e) {
+        // Gracefully ignore if tables are unavailable
     }
 }
 ?>
@@ -111,45 +163,6 @@ if ($user_id && isset($conn)) {
 
     #sidebar.collapsed .sidebar-gap {
         gap: 0 !important;
-    }
-
-    /* Footer controls become a compact vertical stack when collapsed:
-       system settings first, then the profile avatar. */
-    #sidebar-account-controls {
-        min-width: 0;
-    }
-
-    #sidebar.collapsed #sidebar-account-controls {
-        flex-direction: column-reverse !important;
-        justify-content: center !important;
-        align-items: center !important;
-        gap: 8px !important;
-    }
-
-    #sidebar.collapsed #profile-popover-trigger,
-    #sidebar.collapsed #settings-popover-trigger {
-        box-sizing: border-box !important;
-        width: 44px !important;
-        min-width: 44px !important;
-        max-width: 44px !important;
-        height: 44px !important;
-        min-height: 44px !important;
-        padding: 0 !important;
-        justify-content: center !important;
-    }
-
-    #sidebar.collapsed #profile-popover-trigger .material-symbols-outlined {
-        font-size: 28px !important;
-    }
-
-    #sidebar.collapsed #settings-popover-trigger {
-        flex: 0 0 44px !important;
-    }
-
-    #sidebar.collapsed #settings-popover {
-        left: calc(100% + 12px);
-        right: auto;
-        bottom: 0;
     }
 
     /* Floating tooltip lives under document.body, so sidebar overflow and its
@@ -195,31 +208,175 @@ if ($user_id && isset($conn)) {
         border-right-color: transparent;
         border-left-color: #1e293b;
     }
-   @keyframes memory-pulse {
-        /* A soft light blue, but very faint (10% opacity) */
+
+    @keyframes memory-pulse {
         0%, 100% { background-color: rgba(56, 189, 248, 0.10); } 
         50% { background-color: rgba(56, 189, 248, 0); }
     }
+
     .memory-pulse-bg {
         animation: memory-pulse 2.5s ease-in-out infinite;
         border-radius: 50%;
-        /* Add slight padding so the background wraps nicely around the icon */
         padding: 4px;
-        /* Negative margin offsets the padding so the icon doesn't shift out of alignment */
         margin-left: -4px; 
+    }
+
+    /* ---------------------------------------------------------------------
+       Header-aware layout
+       One header height drives the sidebar, drawer overlay, account menu,
+       search dropdown and Settings modal, so nothing slides under the header.
+       --------------------------------------------------------------------- */
+    :root {
+        --app-header-h: 4rem; /* matches h-16 on #app-header */
+    }
+
+    #app-header {
+        height: var(--app-header-h);
+    }
+
+    /* Sidebar starts exactly where the header ends */
+    #sidebar {
+        top: var(--app-header-h);
+        height: calc(100vh - var(--app-header-h));
+        height: calc(100dvh - var(--app-header-h));
+    }
+
+    #mobile-sidebar-overlay {
+        top: var(--app-header-h);
+    }
+
+    /* Account menu opens below the header, aligned to the header's right padding */
+    #settings-popover {
+        position: fixed;
+        top: calc(var(--app-header-h) + 0.5rem);
+        right: 0.75rem;
+    }
+
+    @media (min-width: 640px) {
+        #settings-popover {
+            right: 1.5rem;
+        }
+    }
+
+    /* Search results open at the same offset below the header as the account menu */
+    #header-search-dropdown {
+        top: calc(100% + (var(--app-header-h) - 2.5rem) / 2 + 0.5rem);
+    }
+
+    /* Settings modal sits below the header instead of being centred over it */
+    #settings-dialog {
+        margin: calc(var(--app-header-h) + 1rem) auto 1rem;
+        max-height: calc(100vh - var(--app-header-h) - 2rem);
+        max-height: calc(100dvh - var(--app-header-h) - 2rem);
+    }
+
+    #settings-dialog > div {
+        max-height: inherit;
+    }
+
+    /* Keep the header un-dimmed while the Settings modal is open */
+    #settings-dialog::backdrop {
+        clip-path: inset(4rem 0 0 0); /* = --app-header-h */
     }
 </style>
 
-<!-- Floating Mobile Menu Button -->
-<button id="floating-mobile-toggle" aria-label="Open Sidebar" class="md:hidden fixed top-4 left-4 z-40 p-2.5 rounded-xl bg-surface-container-lowest shadow-md border border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-colors">
-    <span class="material-symbols-outlined text-[24px]">menu</span>
-</button>
+<!-- TOP APPLICATION HEADER -->
+<header id="app-header" class="fixed top-0 left-0 right-0 h-16 bg-surface-container-lowest border-b border-outline-variant/40 z-50 px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-6 shadow-[0_1px_8px_rgba(0,0,0,0.03)]">
 
-<!-- Mobile Overlay -->
-<div id="mobile-sidebar-overlay" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden transition-opacity opacity-0"></div>
+    <!-- Left Section: Mobile Sidebar Button & MemPulse Logo -->
+    <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+        <!-- Mobile Sidebar Trigger (Included in Header on Mobile Width) -->
+        <button id="floating-mobile-toggle" type="button" aria-label="Toggle Sidebar" aria-expanded="false"
+            class="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-colors outline-none">
+            <span id="mobile-toggle-icon" class="material-symbols-outlined text-[24px]">menu</span>
+        </button>
 
-<!-- MAIN SIDEBAR CONTAINER -->
-<aside id="sidebar" class="fixed left-0 top-0 h-full w-72 bg-surface-container-lowest border-r border-outline-variant/40 z-50 flex flex-col transition-all duration-300 ease-in-out transform -translate-x-full md:translate-x-0 shadow-[0_1px_8px_rgba(0,0,0,0.03)]">
+        <!-- MemPulse Brand Logo -->
+        <a href="<?php echo BASE_URL; ?>views/index.php" class="flex items-center gap-2.5 sm:gap-3 h-8 outline-none group">
+            <span class="material-symbols-outlined text-[28px] text-primary memory-pulse-bg">neurology</span>
+            <span class="logo-text font-headline-sm text-lg sm:text-xl font-bold tracking-tight text-on-surface transition-all duration-200">MemPulse</span>
+        </a>
+    </div>
+
+    <!-- Center Section: Search (Ctrl+K) -->
+    <div id="header-search-container" class="relative flex-1 max-w-md lg:max-w-lg mx-1 sm:mx-4">
+        <div class="flex items-center gap-2 h-10 px-3 rounded-xl bg-surface-container-low border border-outline-variant/30 text-on-surface-variant focus-within:border-primary/60 focus-within:bg-surface-container-lowest focus-within:ring-2 focus-within:ring-primary/20 hover:border-primary/40 transition-all">
+            <span class="material-symbols-outlined text-[20px] flex-shrink-0">search</span>
+            <input id="header-search-input" type="text"
+                placeholder="Search decks, cards, pages (Ctrl+K)"
+                autocomplete="off"
+                aria-label="Search decks, flashcards, or pages (Ctrl+K)"
+                aria-keyshortcuts="Control+K"
+                aria-autocomplete="list"
+                aria-controls="header-search-dropdown"
+                aria-expanded="false"
+                class="w-full bg-transparent border-none outline-none font-body-sm text-sm text-on-surface placeholder:text-on-surface-variant min-w-0 truncate">
+            <button type="button" id="header-search-clear" aria-label="Clear search"
+                class="hidden p-0.5 rounded-md text-on-surface-variant hover:text-on-surface transition-colors flex-shrink-0">
+                <span class="material-symbols-outlined text-[16px] block">close</span>
+            </button>
+        </div>
+
+        <!-- Search Results Dropdown (same surface style as the account menu) -->
+        <div id="header-search-dropdown" role="listbox"
+            class="hidden absolute left-0 right-0 bg-surface-container-lowest border border-outline-variant/30 rounded-xl shadow-xl z-[100] overflow-hidden">
+            <div id="header-search-results" class="overflow-y-auto py-1.5 max-h-[60vh]">
+                <!-- Dynamically populated via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Section: User Profile & Account/System/Logout Dropdown -->
+    <div class="relative flex items-center flex-shrink-0">
+        <button type="button" id="profile-popover-trigger"
+            class="flex items-center gap-2.5 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-left group hover:bg-surface-container-low border border-transparent hover:border-outline-variant/30 transition-all outline-none"
+            title="Account menu" aria-label="Open account menu"
+            aria-haspopup="true" aria-controls="settings-popover" aria-expanded="false">
+            <span class="material-symbols-outlined text-[32px] flex-shrink-0 transition-all group-hover:scale-105" style="color: rgb(53, 37, 205);">account_circle</span>
+            <div class="hidden sm:flex flex-col min-w-0 max-w-[140px]">
+                <span data-user-name class="font-label-sm font-semibold text-on-surface leading-tight truncate">
+                    <?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?>
+                </span>
+                <span class="text-[11px] text-on-surface-variant font-medium leading-none tracking-wide mt-1 truncate">
+                    <?php echo htmlspecialchars($displayRole, ENT_QUOTES, 'UTF-8'); ?>
+                </span>
+            </div>
+            <span id="profile-chevron" class="material-symbols-outlined text-[18px] text-on-surface-variant hidden sm:inline-block transition-transform duration-200">expand_more</span>
+        </button>
+
+        <!-- Profile Dropdown Menu: Account Settings, System Settings, and Logout -->
+        <div id="settings-popover"
+            class="hidden w-56 bg-surface-container-lowest border border-outline-variant/30 shadow-xl rounded-xl py-1.5 z-[100]">
+            <div class="px-3.5 py-2 border-b border-outline-variant/20 mb-1">
+                <p data-user-name class="text-xs font-semibold text-on-surface truncate"><?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?></p>
+                <p class="text-[10px] text-on-surface-variant truncate"><?php echo htmlspecialchars($displayRole, ENT_QUOTES, 'UTF-8'); ?></p>
+            </div>
+            <button type="button" data-open-settings="account"
+                class="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors text-left">
+                <span class="material-symbols-outlined text-[18px]">manage_accounts</span>
+                Account Settings
+            </button>
+            <button type="button" data-open-settings="system"
+                class="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors text-left">
+                <span class="material-symbols-outlined text-[18px]">settings</span>
+                System Settings
+            </button>
+            <div class="h-px bg-outline-variant/20 my-1"></div>
+            <button type="button" id="logout-btn"
+                class="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-error hover:bg-rose-50 hover:text-error transition-colors text-left">
+                <span class="material-symbols-outlined text-[18px]">logout</span>
+                Logout
+            </button>
+        </div>
+    </div>
+
+</header>
+
+<!-- Mobile Sidebar Backdrop Overlay (Below Header) -->
+<div id="mobile-sidebar-overlay" class="fixed inset-x-0 top-16 bottom-0 bg-black/50 z-30 hidden md:hidden transition-opacity opacity-0"></div>
+
+<!-- MAIN SIDEBAR CONTAINER (top/height come from --app-header-h in the <style> block above) -->
+<aside id="sidebar" class="fixed left-0 w-72 bg-surface-container-lowest border-r border-outline-variant/40 z-40 flex flex-col transition-all duration-300 ease-in-out transform -translate-x-full md:translate-x-0 shadow-[0_1px_8px_rgba(0,0,0,0.03)]">
     
     <!-- Synchronous script to prevent FOUC -->
     <script>
@@ -229,33 +386,12 @@ if ($user_id && isset($conn)) {
     </script>
 
     <!-- Border Toggle Button (Desktop Only) -->
-    <button id="sidebar-toggle" aria-label="Toggle Sidebar" class="hidden md:flex absolute -right-3.5 top-8 w-7 h-7 bg-surface-container-lowest border border-outline-variant/40 text-on-surface-variant rounded-full items-center justify-center hover:text-primary hover:border-primary shadow-sm transition-colors z-[60]">
+    <button id="sidebar-toggle" aria-label="Toggle Sidebar" class="hidden md:flex absolute -right-3.5 top-6 w-7 h-7 bg-surface-container-lowest border border-outline-variant/40 text-on-surface-variant rounded-full items-center justify-center hover:text-primary hover:border-primary shadow-sm transition-colors z-[60]">
         <span class="material-symbols-outlined text-[16px]">left_panel_close</span>
     </button>
 
-
-
-    <!-- Top Section: Logo & Search -->
-    <div class="flex flex-col gap-4 px-4 pt-6 pb-2 transition-all">
-        <!-- Logo -->
-        <div class="sidebar-row flex items-center gap-3 h-8">
-            <span class="material-symbols-outlined text-[28px] text-primary memory-pulse-bg">neurology</span>
-            <span class="logo-text font-headline-sm text-xl font-bold tracking-tight text-on-surface transition-all duration-200">MemPulse</span>
-        </div>
-                
-
-        <!-- Search Command Palette -->
-        <div data-tooltip="Search (CTRL+K)" class="sidebar-tooltip sidebar-row flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-container-low border border-outline-variant/30 text-on-surface-variant cursor-pointer hover:border-primary/40 hover:text-on-surface transition-colors">
-            <span class="material-symbols-outlined text-[20px] flex-shrink-0">search</span>
-            <span class="font-body-sm flex-1 select-none truncate hide-collapsed">Search...</span>
-        </div>
-    </div>
-
-    <!-- Divider between top section and navigation -->
-    <hr class="mx-4 border-0 border-t border-outline-variant/40">
-
-    <!-- Middle Section: Scrollable Navigation -->
-    <nav class="sidebar-navigation flex-1 overflow-y-auto px-4 py-2 flex flex-col gap-1.5" data-active-classes="bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm">
+    <!-- Scrollable Navigation -->
+    <nav class="sidebar-navigation flex-1 min-h-0 overflow-y-auto px-4 py-4 flex flex-col gap-1.5" data-active-classes="bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm">
         
         <a data-tooltip="Home" aria-current="<?= $currentPage === 'home' ? 'page' : 'false' ?>"
            class="sidebar-tooltip sidebar-row sidebar-gap flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group <?= $currentPage === 'home' ? 'bg-primary-fixed text-on-primary-fixed-variant font-semibold shadow-sm' : 'font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface' ?>"
@@ -305,58 +441,10 @@ if ($user_id && isset($conn)) {
         </a>
 
     </nav>
-
-    <!-- Bottom Section: System Settings, Profile Menu -->
-    <div class="border-t border-outline-variant/30 p-4 relative">
-        <div id="sidebar-account-controls" class="flex items-center gap-2">
-            <!-- Profile opens the account menu (Account Settings + Logout). -->
-            <button type="button" id="profile-popover-trigger"
-                class="sidebar-tooltip sidebar-row flex items-center gap-3 text-left group hover:opacity-80 transition-opacity flex-1 min-w-0 outline-none rounded-xl"
-                data-tooltip="Account menu" title="Account menu" aria-label="Open account menu"
-                aria-haspopup="true" aria-controls="settings-popover" aria-expanded="false">
-                <span class="material-symbols-outlined text-[32px] flex-shrink-0 transition-all group-hover:scale-105" style="color: rgb(53, 37, 205);">account_circle</span>
-                <div class="flex flex-col min-w-0 hide-collapsed">
-                    <span data-user-name class="font-label-sm font-semibold text-on-surface leading-tight truncate">
-                        <?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?>
-                    </span>
-                    <span class="text-[11px] text-on-surface-variant font-medium leading-none tracking-wide mt-1">
-                        <?php echo htmlspecialchars($displayRole, ENT_QUOTES, 'UTF-8'); ?>
-                    </span>
-                </div>
-            </button>
-
-            <!-- System settings opens the settings modal directly. -->
-            <button type="button" id="settings-popover-trigger" data-open-settings="system"
-                class="sidebar-tooltip sidebar-row flex items-center justify-center flex-shrink-0 w-11 h-11 rounded-xl text-on-surface-variant hover:bg-surface-container-low hover:text-primary transition-colors outline-none"
-                data-tooltip="System settings" title="System settings" aria-label="Open system settings">
-                <span class="material-symbols-outlined text-[22px]">settings</span>
-            </button>
-        </div>
-
-        <!-- Account menu: only Account Settings and Logout. -->
-        <div id="settings-popover"
-            class="hidden absolute bottom-[calc(100%+8px)] right-4 w-52 bg-surface-container-lowest border border-outline-variant/30 shadow-xl rounded-xl py-1.5 z-[100] transform origin-bottom-right">
-            <div class="px-3 py-2 border-b border-outline-variant/20 mb-1">
-                <p data-user-name class="text-xs font-semibold text-on-surface truncate"><?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?></p>
-                <p class="text-[10px] text-on-surface-variant truncate"><?php echo htmlspecialchars($displayRole, ENT_QUOTES, 'UTF-8'); ?></p>
-            </div>
-            <button type="button" data-open-settings="account"
-                class="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors text-left">
-                <span class="material-symbols-outlined text-[18px]">manage_accounts</span>
-                Account Settings
-            </button>
-            <div class="h-px bg-outline-variant/20 my-1"></div>
-            <button type="button" id="logout-btn"
-                class="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-error hover:bg-rose-50 hover:text-error transition-colors text-left">
-                <span class="material-symbols-outlined text-[18px]">logout</span>
-                Logout
-            </button>
-        </div>
-    </div>
 </aside>
 
 <!-- Logout Confirmation Dialog -->
-<dialog id="logout-dialog" class="rounded-2xl p-0 w-full max-w-sm bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-2xl backdrop:bg-black/50 backdrop:backdrop-blur-xs transition-all">
+<dialog id="logout-dialog" class="m-auto rounded-2xl p-0 w-full max-w-sm bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-2xl backdrop:bg-black/50 backdrop:backdrop-blur-xs transition-all">
     <div class="p-6 flex flex-col gap-5">
         <h3 class="font-headline-sm text-lg font-bold text-on-surface tracking-tight">Log out?</h3>
         <p class="text-sm text-on-surface-variant font-medium leading-relaxed">
@@ -377,7 +465,7 @@ if ($user_id && isset($conn)) {
 <!-- Settings Modal -->
 <dialog id="settings-dialog"
     aria-labelledby="settings-title"
-    class="w-[calc(100%-2rem)] max-w-2xl max-h-[85vh] p-0 m-auto
+    class="w-[calc(100%-2rem)] max-w-2xl p-0
            rounded-2xl bg-surface-container-lowest text-on-surface
            border border-outline-variant/40 shadow-2xl
            backdrop:bg-black/50 backdrop:backdrop-blur-sm"
@@ -385,7 +473,7 @@ if ($user_id && isset($conn)) {
     data-account-api="<?= htmlspecialchars(BASE_URL . 'api/account-actions.php', ENT_QUOTES, 'UTF-8') ?>"
     data-theme="<?= htmlspecialchars($userTheme, ENT_QUOTES, 'UTF-8') ?>">
 
-    <div class="flex flex-col max-h-[85vh]">
+    <div class="flex flex-col">
 
         <!-- Header -->
         <header class="flex items-start justify-between gap-4 p-6 border-b border-outline-variant/30">
@@ -655,7 +743,7 @@ if ($user_id && isset($conn)) {
         </div>
 
         
-        <p  id="settings-status" class="px-6 pb-2 text-sm"
+        <p id="settings-status" class="px-6 pb-2 text-sm"
             role="status" aria-live="polite"></p>
 
         <!-- Footer -->
@@ -676,25 +764,32 @@ if ($user_id && isset($conn)) {
     </div>
 </dialog>
 
-
 <script>
+    window.MemPulseHeaderSearchData = {
+        baseUrl: <?= json_encode(BASE_URL) ?>,
+        decks: <?= json_encode($headerSearchDecks, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        cards: <?= json_encode($headerSearchCards, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>
+    };
+
     document.addEventListener("DOMContentLoaded", () => {
         const sidebar = document.querySelector("#sidebar");
         const mainContent = document.querySelector("main");
         const toggleBtn = document.querySelector("#sidebar-toggle");
         
-        // Mobile elements
+        // Mobile elements (Trigger inside Header)
         const floatingToggleBtn = document.querySelector("#floating-mobile-toggle");
+        const mobileToggleIcon = document.querySelector("#mobile-toggle-icon");
         const mobileOverlay = document.querySelector("#mobile-sidebar-overlay");
         const reviewDot = document.querySelector("#review-dot");
 
-        // Popover Elements
+        // Header Profile Popover Elements
         const profileTrigger = document.querySelector("#profile-popover-trigger");
+        const profileChevron = document.querySelector("#profile-chevron");
         const settingsPopover = document.querySelector("#settings-popover");
 
         if (!sidebar) return;
 
-        // A body-level fixed tooltip is not clipped by the sidebar/nav scroll area.
+        // Body-level fixed tooltip for collapsed desktop sidebar
         let floatingTooltip = document.getElementById("sidebar-floating-tooltip");
         if (!floatingTooltip) {
             floatingTooltip = document.createElement("div");
@@ -723,7 +818,6 @@ if ($user_id && isset($conn)) {
             const tipRect = floatingTooltip.getBoundingClientRect();
             const gap = 12;
             let left = rect.right + gap;
-            // If there is not enough room to the right, place the tooltip to the left.
             if (left + tipRect.width > window.innerWidth - 8) {
                 left = Math.max(8, rect.left - tipRect.width - gap);
                 floatingTooltip.classList.add("tooltip-left");
@@ -749,7 +843,7 @@ if ($user_id && isset($conn)) {
 
         const toggleIcon = toggleBtn ? toggleBtn.querySelector(".material-symbols-outlined") : null;
 
-        // Apply visual collapsed state
+        // Apply visual collapsed state on desktop
         const sidebarCollapsed = localStorage.getItem("sidebarCollapsed") === "true";
         if (sidebarCollapsed && window.innerWidth >= 768) {
             sidebar.classList.add("collapsed");
@@ -778,44 +872,62 @@ if ($user_id && isset($conn)) {
                 if (reviewDot) {
                     isCollapsed ? reviewDot.classList.remove("hidden") : reviewDot.classList.add("hidden");
                 }
-                // Close popover if sidebar collapses
                 setAccountPopoverOpen(false);
-                
                 localStorage.setItem("sidebarCollapsed", isCollapsed);
             });
         }
 
-        // Mobile Toggle Interactions
+        // Mobile Sidebar Drawer Toggle (Inside Header)
+        function isMobileSidebarOpen() {
+            return !sidebar.classList.contains("-translate-x-full");
+        }
+
         function openMobileSidebar() {
-            sidebar.classList.remove("-translate-x-full", "collapsed"); 
+            sidebar.classList.remove("-translate-x-full", "collapsed");
             mobileOverlay.classList.remove("hidden");
+            if (floatingToggleBtn) floatingToggleBtn.setAttribute("aria-expanded", "true");
+            if (mobileToggleIcon) mobileToggleIcon.textContent = "close";
             setTimeout(() => mobileOverlay.classList.remove("opacity-0"), 10);
         }
 
         function closeMobileSidebar() {
             sidebar.classList.add("-translate-x-full");
             mobileOverlay.classList.add("opacity-0");
+            if (floatingToggleBtn) floatingToggleBtn.setAttribute("aria-expanded", "false");
+            if (mobileToggleIcon) mobileToggleIcon.textContent = "menu";
             setTimeout(() => mobileOverlay.classList.add("hidden"), 300);
         }
 
-        if (floatingToggleBtn) floatingToggleBtn.addEventListener("click", openMobileSidebar);
+        if (floatingToggleBtn) {
+            floatingToggleBtn.addEventListener("click", () => {
+                if (isMobileSidebarOpen()) {
+                    closeMobileSidebar();
+                } else {
+                    openMobileSidebar();
+                }
+            });
+        }
         if (mobileOverlay) mobileOverlay.addEventListener("click", closeMobileSidebar);
 
-        // Popover Toggle Logic
+        // Header Profile Popover Toggle Logic
         function setAccountPopoverOpen(isOpen) {
             if (!settingsPopover || !profileTrigger) return;
             settingsPopover.classList.toggle('hidden', !isOpen);
             profileTrigger.setAttribute('aria-expanded', String(isOpen));
+            if (profileChevron) {
+                profileChevron.classList.toggle('rotate-180', isOpen);
+            }
         }
 
         function togglePopover(e) {
             e.stopPropagation();
+            closeSearchDropdown();
             setAccountPopoverOpen(settingsPopover?.classList.contains('hidden'));
         }
 
         if (profileTrigger) profileTrigger.addEventListener('click', togglePopover);
 
-        // Click outside the avatar/menu closes the account popover.
+        // Click outside closes the account popover
         document.addEventListener('click', (e) => {
             if (
                 settingsPopover &&
@@ -826,8 +938,206 @@ if ($user_id && isset($conn)) {
             }
         });
 
-        
-        // Settings Modal
+        // Esc closes the account popover
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') setAccountPopoverOpen(false);
+        });
+
+        // --- Header Search Dropdown Logic ---
+        const searchContainer = document.getElementById('header-search-container');
+        const searchInput = document.getElementById('header-search-input');
+        const searchClear = document.getElementById('header-search-clear');
+        const searchDropdown = document.getElementById('header-search-dropdown');
+        const searchResults = document.getElementById('header-search-results');
+
+        const searchData = window.MemPulseHeaderSearchData || { baseUrl: '/mempulse/app/', decks: [], cards: [] };
+        const baseUrl = searchData.baseUrl;
+
+        const quickPages = [
+            { title: 'Home Dashboard', subtitle: 'Overview & streak metrics', icon: 'home', href: `${baseUrl}views/index.php` },
+            { title: 'Decks', subtitle: 'Manage your flashcard collections', icon: 'style', href: `${baseUrl}views/decks.php` },
+            { title: 'Create Flashcards', subtitle: 'Add new cards to your decks', icon: 'edit_note', href: `${baseUrl}views/decks.php?add_card=1` },
+            { title: 'Review', subtitle: 'Practice due flashcards now', icon: 'pace', href: `${baseUrl}views/review.php` },
+            { title: 'Reports', subtitle: 'View accuracy & learning analytics', icon: 'monitoring', href: `${baseUrl}views/reports.php` },
+            { title: 'Memory Science', subtitle: 'How spaced repetition works', icon: 'psychology', href: `${baseUrl}views/science.php` },
+            { title: 'Account Settings', subtitle: 'Profile, email & security', icon: 'manage_accounts', action: 'account' },
+            { title: 'System Settings', subtitle: 'SRS intervals & multipliers', icon: 'settings', action: 'system' }
+        ];
+
+        let activeSearchIndex = -1;
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str ?? '';
+            return div.innerHTML;
+        }
+
+        function closeSearchDropdown() {
+            if (!searchDropdown || !searchInput) return;
+            searchDropdown.classList.add('hidden');
+            searchInput.setAttribute('aria-expanded', 'false');
+            activeSearchIndex = -1;
+        }
+
+        function openSearchDropdown() {
+            if (!searchDropdown || !searchInput) return;
+            setAccountPopoverOpen(false);
+            renderSearchResults(searchInput.value.trim());
+            searchDropdown.classList.remove('hidden');
+            searchInput.setAttribute('aria-expanded', 'true');
+        }
+
+        function resultRow({ href, action, icon, title, meta }) {
+            return `
+                <a href="${href ? escapeHtml(href) : '#'}" role="option"
+                   ${action ? `data-search-settings="${escapeHtml(action)}"` : ''}
+                   class="search-result-item flex items-center gap-3 px-4 py-2 text-sm font-medium text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors">
+                    <span class="material-symbols-outlined text-[18px] flex-shrink-0">${escapeHtml(icon)}</span>
+                    <span class="flex-1 min-w-0 truncate">${escapeHtml(title)}</span>
+                    ${meta ? `<span class="text-xs font-normal text-on-surface-variant/80 truncate max-w-[40%] flex-shrink-0">${escapeHtml(meta)}</span>` : ''}
+                </a>
+            `;
+        }
+
+        function resultGroup(label, rows) {
+            if (rows.length === 0) return '';
+            return `
+                <div>
+                    <p class="px-4 pt-1.5 pb-1 text-xs font-semibold text-on-surface-variant/70">${escapeHtml(label)}</p>
+                    ${rows.join('')}
+                </div>
+            `;
+        }
+
+        function renderSearchResults(query) {
+            if (!searchResults) return;
+            const q = query.toLowerCase();
+            activeSearchIndex = -1;
+
+            const matchedPages = q === ''
+                ? quickPages.slice(0, 5)
+                : quickPages.filter(p => p.title.toLowerCase().includes(q) || p.subtitle.toLowerCase().includes(q));
+
+            const matchedDecks = q === ''
+                ? (searchData.decks || []).slice(0, 4)
+                : (searchData.decks || []).filter(d => (d.title || '').toLowerCase().includes(q)).slice(0, 6);
+
+            const matchedCards = q === ''
+                ? []
+                : (searchData.cards || []).filter(c =>
+                    (c.front || '').toLowerCase().includes(q) ||
+                    (c.back || '').toLowerCase().includes(q) ||
+                    (c.deckTitle || '').toLowerCase().includes(q)
+                ).slice(0, 6);
+
+            const groups = [
+                resultGroup(q === '' ? 'Quick links' : 'Pages', matchedPages.map(p => resultRow({
+                    href: p.href, action: p.action, icon: p.icon, title: p.title
+                }))),
+                resultGroup('Decks', matchedDecks.map(d => resultRow({
+                    href: `${baseUrl}views/deck.php?deck_id=${d.id}&id=${d.id}`,
+                    icon: 'style',
+                    title: d.title,
+                    meta: `${d.count} ${d.count === 1 ? 'card' : 'cards'}`
+                }))),
+                resultGroup('Flashcards', matchedCards.map(c => resultRow({
+                    href: `${baseUrl}views/deck.php?deck_id=${c.deckId}&id=${c.deckId}`,
+                    icon: 'quiz',
+                    title: c.front,
+                    meta: c.deckTitle
+                })))
+            ].filter(Boolean);
+
+            if (groups.length === 0) {
+                searchResults.innerHTML = `
+                    <p class="px-4 py-6 text-center text-sm text-on-surface-variant">
+                        No results for "${escapeHtml(query)}"
+                    </p>
+                `;
+                return;
+            }
+
+            searchResults.innerHTML = groups.join('<div class="h-px bg-outline-variant/20 my-1"></div>');
+
+            searchResults.querySelectorAll('[data-search-settings]').forEach(el => {
+                el.addEventListener('click', (ev) => {
+                    ev.preventDefault();
+                    const tab = el.getAttribute('data-search-settings');
+                    closeSearchDropdown();
+                    openSettingsModal(tab);
+                });
+            });
+        }
+
+        function updateSearchHighlight(items) {
+            items.forEach((el, idx) => {
+                if (idx === activeSearchIndex) {
+                    el.classList.add('bg-surface-container-low');
+                    el.scrollIntoView({ block: 'nearest' });
+                } else {
+                    el.classList.remove('bg-surface-container-low');
+                }
+            });
+        }
+
+        if (searchInput) {
+            searchInput.addEventListener('focus', openSearchDropdown);
+            searchInput.addEventListener('input', () => {
+                const val = searchInput.value;
+                searchClear?.classList.toggle('hidden', val.length === 0);
+                openSearchDropdown();
+            });
+
+            searchInput.addEventListener('keydown', (e) => {
+                if (!searchDropdown || searchDropdown.classList.contains('hidden')) return;
+                const items = Array.from(searchResults.querySelectorAll('.search-result-item'));
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    if (items.length > 0) {
+                        activeSearchIndex = (activeSearchIndex + 1) % items.length;
+                        updateSearchHighlight(items);
+                    }
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    if (items.length > 0) {
+                        activeSearchIndex = (activeSearchIndex - 1 + items.length) % items.length;
+                        updateSearchHighlight(items);
+                    }
+                } else if (e.key === 'Enter' && activeSearchIndex >= 0 && items[activeSearchIndex]) {
+                    e.preventDefault();
+                    items[activeSearchIndex].click();
+                } else if (e.key === 'Escape') {
+                    closeSearchDropdown();
+                    searchInput.blur();
+                }
+            });
+        }
+
+        if (searchClear) {
+            searchClear.addEventListener('click', () => {
+                searchInput.value = '';
+                searchClear.classList.add('hidden');
+                searchInput.focus();
+                renderSearchResults('');
+            });
+        }
+
+        // Global CTRL+K / CMD+K shortcut to focus header search
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                searchInput?.focus();
+                searchInput?.select();
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (searchContainer && !searchContainer.contains(e.target)) {
+                closeSearchDropdown();
+            }
+        });
+
+        // --- Settings Modal Logic ---
         const settingsDialog = document.getElementById('settings-dialog');
         const settingsClose = document.getElementById('settings-close');
         const settingsCancel = document.getElementById('settings-cancel');
@@ -836,7 +1146,7 @@ if ($user_id && isset($conn)) {
         const settingsOpeners = document.querySelectorAll('[data-open-settings]');
 
         function switchSettingsTab(tabName) {
-                document.getElementById('settings-save')?.classList.toggle('hidden', tabName !== 'system');
+            document.getElementById('settings-save')?.classList.toggle('hidden', tabName !== 'system');
             settingsTabs.forEach((tab) => {
                 const active = tab.dataset.settingsTab === tabName;
 
@@ -858,7 +1168,6 @@ if ($user_id && isset($conn)) {
             });
         }
 
-        
         const settingsSave = document.getElementById('settings-save');
         const settingsStatus = document.getElementById('settings-status');
 
@@ -958,20 +1267,21 @@ if ($user_id && isset($conn)) {
 
         settingsSave?.addEventListener('click', saveSettings);
 
+        function openSettingsModal(tabName) {
+            setAccountPopoverOpen(false);
+            switchSettingsTab(tabName);
+
+            if (settingsDialog) {
+                if (!settingsDialog.open) {
+                    settingsDialog.showModal();
+                }
+                loadSettings();
+            }
+        }
 
         settingsOpeners.forEach((button) => {
             button.addEventListener('click', () => {
-                const tabName = button.dataset.openSettings;
-
-                setAccountPopoverOpen(false);
-                switchSettingsTab(tabName);
-
-                if (settingsDialog) {
-                    if (!settingsDialog.open) {
-                        settingsDialog.showModal();
-                    }
-                    loadSettings();
-                }
+                openSettingsModal(button.dataset.openSettings);
             });
         });
 
@@ -990,7 +1300,6 @@ if ($user_id && isset($conn)) {
         settingsClose?.addEventListener('click', closeSettings);
         settingsCancel?.addEventListener('click', closeSettings);
 
-        // Close when clicking the backdrop
         settingsDialog?.addEventListener('click', (event) => {
             if (event.target === settingsDialog) {
                 closeSettings();
@@ -1004,7 +1313,7 @@ if ($user_id && isset($conn)) {
 
         if (logoutBtn && logoutDialog) {
             logoutBtn.addEventListener('click', () => {
-                setAccountPopoverOpen(false); // Close account menu
+                setAccountPopoverOpen(false);
                 logoutDialog.showModal();
             });
 

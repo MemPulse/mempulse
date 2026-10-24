@@ -27,6 +27,24 @@
     }
 }
 
+/* In app/assets/css/app.css, add/update inside @layer base or below it: */
+#main-content {
+    padding-top: 4rem !important;
+    /* 64px offset for fixed #app-header across all views */
+}
+
+/* Inside @media (min-width: 768px) in app/assets/css/app.css, update #sidebar-toggle: */
+@media (min-width: 768px) {
+
+    /* Keep the toggle attached to the sidebar edge below the header */
+    #sidebar-toggle {
+        position: absolute !important;
+        right: -14px !important;
+        top: 1.5rem !important;
+        z-index: 60 !important;
+    }
+}
+
 @layer utilities {
 
     /* Premium diffused shadow for structural panels */
