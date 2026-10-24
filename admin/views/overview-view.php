@@ -80,8 +80,8 @@ $heroSlides = [
         'text'  => $pendingCount > 0
             ? $fmt($pendingCount) . ($pendingCount === 1 ? ' new account is' : ' new accounts are') . ' waiting for your decision before they can start studying.'
             : 'Every registered account has been reviewed. New sign-ups that need approval will show up here.',
-        'href'  => ADMIN_URL . 'views/users.php',
-        'cta'   => 'Open Users',
+        'href'  => ADMIN_URL . 'views/users.php' . ($pendingCount > 0 ? '?status=pending' : ''),
+        'cta'   => $pendingCount > 0 ? 'Review Queue' : 'Open Users',
         'dot'   => 'Approvals',
     ],
     [
@@ -98,7 +98,7 @@ $heroSlides = [
 
 // ---- Row 2: "Needs Approval" call-to-action state ---------------------------
 $oldestWait = $pendingUsers[0]['age'] ?? '';
-$ctaHref    = ADMIN_URL . 'views/users.php';
+$ctaHref    = ADMIN_URL . 'views/users.php?status=pending';
 
 // Shared list styling (matches the dashboard's session rows).
 $panel = 'bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 sm:p-5 shadow-xs min-w-0';

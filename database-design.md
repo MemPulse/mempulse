@@ -1,5 +1,3 @@
-Schema
-```sql
 CREATE DATABASE IF NOT EXISTS mempulse_db
 CHARACTER SET utf8mb4
 COLLATE utf8mb4_unicode_ci;
@@ -19,7 +17,7 @@ CREATE TABLE users (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at DATETIME NULL,
-    account_status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT,
+    account_status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'approved',
     INDEX idx_users_active (deleted_at)
 ) ENGINE=InnoDB;
 
@@ -123,4 +121,26 @@ CREATE TABLE review_logs (
         ON DELETE SET NULL,
     INDEX idx_session_logs (session_id)
 ) ENGINE=InnoDB;
-```
+
+-- 7. ADMIN AUDIT LOG TABLE (append-only record of admin actions)
+CREATE TABLE admin_audit_log (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    admin_id BIGINT UNSIGNED NULL,
+    action VARCHAR(50) NOT NULL,
+    target_user_id BIGINT UNSIGNED NULL,
+    target_email VARCHAR(255) NOT NULL,
+    target_name VARCHAR(201) NOT NULL,
+    previous_status VARCHAR(20) NULL,
+    new_status VARCHAR(20) NULL,
+    ip_address VARCHAR(45) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (admin_id)
+        REFERENCES users(id)
+        ON DELETE SET NULL,
+    FOREIGN KEY (target_user_id)
+        REFERENCES users(id)
+        ON DELETE SET NULL,
+    INDEX idx_audit_created (created_at),
+    INDEX idx_audit_target (target_user_id, created_at),
+    INDEX idx_audit_admin (admin_id, created_at)
+) ENGINE=InnoDB;

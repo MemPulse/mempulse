@@ -3,12 +3,13 @@
 $currentPage = $currentPage ?? '';
 
 // One place to define navigation. Set 'ready' => true when the page exists.
+// Inside admin/includes/sidebar.php:
 $adminNav = [
     ['key' => 'overview', 'label' => 'Overview',  'icon' => 'dashboard',     'href' => 'views/index.php',    'ready' => true],
     ['key' => 'users',    'label' => 'Users',     'icon' => 'group',         'href' => 'views/users.php',    'ready' => true],
-    ['key' => 'content',  'label' => 'Content',   'icon' => 'library_books', 'href' => 'views/content.php',  'ready' => false],
-    ['key' => 'activity', 'label' => 'Activity',  'icon' => 'monitoring',    'href' => 'views/activity.php', 'ready' => false],
-    ['key' => 'audit',    'label' => 'Audit log', 'icon' => 'history',       'href' => 'views/audit.php',    'ready' => false],
+    ['key' => 'content',  'label' => 'Content',   'icon' => 'library_books', 'href' => 'views/content.php',  'ready' => true],
+    ['key' => 'activity', 'label' => 'Activity',  'icon' => 'monitoring',    'href' => 'views/activity.php', 'ready' => true],
+    ['key' => 'audit',    'label' => 'Audit log', 'icon' => 'history',       'href' => 'views/audit.php',    'ready' => true],
 ];
 
 $navBase     = 'sidebar-tooltip sidebar-row sidebar-gap flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all group';
@@ -132,12 +133,12 @@ $navInactive = 'font-label-lg text-label-lg text-on-surface-variant hover:bg-sur
 
     <!-- Bottom: back to app + account -->
     <div class="border-t border-outline-variant/30 p-4 relative flex flex-col gap-3">
-        <a data-tooltip="Back to MemPulse app"
+        <!-- <a data-tooltip="Back to MemPulse app"
            href="<?= APP_URL ?>views/index.php"
            class="sidebar-tooltip sidebar-row sidebar-gap flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-label-lg text-label-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors">
             <span class="material-symbols-outlined text-[24px]">arrow_back</span>
             <span class="hide-collapsed">Back to app</span>
-        </a>
+        </a> -->
 
         <div id="sidebar-account-controls" class="flex items-center gap-2">
             <button type="button" id="profile-popover-trigger"

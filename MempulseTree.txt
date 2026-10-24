@@ -6,16 +6,23 @@ C:.
 │   comebine_files.py
 │   database-design.md
 │   generate_mock.py
+│   MempulseTree.txt
 │   tailwind.config.js
 │   test_combine_files.py
 │   
 ├───admin
 │   ├───api
+│   │       AdminActivityService.php
+│   │       AdminAuditService.php
+│   │       AdminContentService.php
 │   │       AdminOverviewService.php
+│   │       AdminUserActionsService.php
 │   │       AdminUsersService.php
+│   │       user-actions.php
 │   │       
 │   ├───assets
 │   │   └───js
+│   │           admin-activity.js
 │   │           admin-overview.js
 │   │           admin-sidebar.js
 │   │           admin-users.js
@@ -26,6 +33,12 @@ C:.
 │   │       sidebar.php
 │   │       
 │   └───views
+│           activity-view.php
+│           activity.php
+│           audit-view.php
+│           audit.php
+│           content-view.php
+│           content.php
 │           index.php
 │           overview-view.php
 │           users-view.php
@@ -131,6 +144,7 @@ C:.
 │       terms.html
 │       
 ├───config
+│       active-user.php
 │       db.php
 │       
 ├───landing-page
@@ -138,7 +152,9 @@ C:.
 │       index.html
 │       landing-page-nav-and-pricing-changes.md
 │       pricing.html
+│       science.html
 │       style.css
 │       
 └───__pycache__
         comebine_files.cpython-314.pyc
+        
