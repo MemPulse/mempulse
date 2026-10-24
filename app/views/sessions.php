@@ -63,7 +63,7 @@ unset($s);
 
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
-    <main id="main-content" class="pl-0 md:pl-72 pt-16 md:pt-6 transition-all duration-300 ease-in-out">
+    <main id="main-content" class="pl-0 md:pl-72 pt-16 transition-all duration-300 ease-in-out">
         <div class="w-full px-2 sm:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
             <div class="flex flex-col w-full gap-4 sm:gap-6">
 

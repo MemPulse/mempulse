@@ -56,7 +56,7 @@ $currentPage = "decks";
 
     <!-- MAIN: Viewport Shell Offset for Mobile/Desktop Navigation Bar -->
     <main id="main-content" 
-    class="pl-0 md:pl-72 pt-16 md:pt-6 transition-all duration-300 ease-in-out">
+    class="pl-0 md:pl-72 pt-16 transition-all duration-300 ease-in-out">
         <?php include __DIR__ . '/deck-view.php'; ?>
     </main>
 

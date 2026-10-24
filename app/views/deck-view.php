@@ -14,9 +14,9 @@
 <style>
 :root{
   --mp-g1:#4f46e5; --mp-g2:#7c3aed; --mp-g3:#d946ef;   /* change these 3 to re-theme */
-  --mp-pane-h:clamp(440px, calc(100vh - 17rem), 780px); /* grid + editor height */
+  --mp-pane-h:clamp(440px, calc(100vh - 19.5rem), 780px); /* grid + editor height */
 }
-@supports (height:100dvh){ :root{ --mp-pane-h:clamp(440px, calc(100dvh - 17rem), 780px); } }
+@supports (height:100dvh){ :root{ --mp-pane-h:clamp(440px, calc(100dvh - 19.5rem), 780px); } }
 
 /* Layout: editor column exists on desktop only */
 .mp-workspace{display:grid;grid-template-columns:minmax(0,1fr);gap:1.5rem;align-items:stretch}
@@ -100,7 +100,7 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
   background:linear-gradient(90deg,rgba(99,102,241,.22),rgba(217,70,239,.10))!important;box-shadow:inset 3px 0 0 var(--mp-g2)}
 
 .mp-check { width: 1.1rem; height: 1.1rem; accent-color: var(--mp-g2); cursor: pointer; }
-.workspace-editing { --mp-pane-h: clamp(380px, calc(100vh - 21rem), 720px); }
+.workspace-editing { --mp-pane-h: clamp(380px, calc(100vh - 23.5rem), 720px); }
 
 #bulk-panel { 
     display: flex; 
