@@ -34,6 +34,25 @@ if ($user_id && isset($conn)) {
     }
 }
 
+// 1b. Current streak for the header chip (reuses the dashboard's value when it is already loaded)
+$headerStreak = 0;
+if (isset($streakData['currentStreak'])) {
+    $headerStreak = (int) $streakData['currentStreak'];
+} elseif ($user_id && isset($conn)) {
+    try {
+        $dashboardServiceFile = __DIR__ . '/../api/DashboardService.php';
+        if (!class_exists('DashboardService') && is_file($dashboardServiceFile)) {
+            require_once $dashboardServiceFile;
+        }
+        if (class_exists('DashboardService')) {
+            $headerStreakData = DashboardService::getStreakAndHeatmapData($conn, (int) $user_id);
+            $headerStreak = (int) ($headerStreakData['currentStreak'] ?? 0);
+        }
+    } catch (Throwable $e) {
+        // streak is decorative: hide silently on failure
+    }
+}
+
 // 2. Fetch User Display Name and Role
 if (!isset($displayName) || !isset($displayRole)) {
     $displayName = 'Active Learner';
@@ -245,20 +264,7 @@ if ($user_id && isset($conn)) {
         top: var(--app-header-h);
     }
 
-    /* Account menu opens below the header, aligned to the header's right padding */
-    #settings-popover {
-        position: fixed;
-        top: calc(var(--app-header-h) + 0.5rem);
-        right: 0.75rem;
-    }
-
-    @media (min-width: 640px) {
-        #settings-popover {
-            right: 1.5rem;
-        }
-    }
-
-    /* Search results open at the same offset below the header as the account menu */
+    /* Search results open just below the header */
     #header-search-dropdown {
         top: calc(100% + (var(--app-header-h) - 2.5rem) / 2 + 0.5rem);
     }
@@ -272,6 +278,190 @@ if ($user_id && isset($conn)) {
 
     #settings-dialog > div {
         max-height: inherit;
+    }
+
+    /* ---------------------------------------------------------------------
+       Frosted glass: header and sidebar share the effect but look different.
+       Header  = neutral, more see-through, stronger blur, floating shadow.
+       Sidebar = primary-tinted, a bit more solid, softer blur, right hairline.
+       Colours come from the theme tokens, so dark mode follows automatically.
+       --------------------------------------------------------------------- */
+    :root {
+        --glass-surface: var(--color-surface-container-lowest, #ffffff);
+        --glass-primary: var(--color-primary, #3525cd);
+    }
+
+    /* Soft ambient glows so the sidebar glass has something to blur */
+    body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        background:
+            radial-gradient(520px circle at 6% 22%, color-mix(in srgb, var(--glass-primary) 14%, transparent), transparent 70%),
+            radial-gradient(480px circle at 4% 88%, rgba(20, 184, 166, 0.12), transparent 70%);
+    }
+
+    #app-header {
+        background-color: color-mix(in srgb, var(--glass-surface) 70%, transparent);
+        -webkit-backdrop-filter: blur(16px) saturate(180%);
+        backdrop-filter: blur(16px) saturate(180%);
+        border-bottom-color: color-mix(in srgb, var(--color-outline-variant, #cbd5e1) 35%, transparent);
+        box-shadow: 0 4px 24px -8px rgba(15, 23, 42, 0.12);
+    }
+
+    #sidebar {
+        background-color: color-mix(in srgb, color-mix(in srgb, var(--glass-primary) 6%, var(--glass-surface)) 82%, transparent);
+        background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0));
+        -webkit-backdrop-filter: blur(10px) saturate(140%);
+        backdrop-filter: blur(10px) saturate(140%);
+        border-right-color: color-mix(in srgb, var(--glass-primary) 14%, transparent);
+        box-shadow: none;
+    }
+
+    @media (max-width: 767px) {
+        /* Drawer sits over content, so keep it readable */
+        #sidebar {
+            background-color: color-mix(in srgb, color-mix(in srgb, var(--glass-primary) 6%, var(--glass-surface)) 94%, transparent);
+        }
+    }
+
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+        #app-header { background-color: var(--glass-surface); }
+        #sidebar { background-color: color-mix(in srgb, var(--glass-primary) 6%, var(--glass-surface)); }
+    }
+
+    /* Sidebar footer links */
+    .sidebar-subtle-link {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.5rem 0.875rem;
+        border-radius: 0.75rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--color-on-surface-variant, #64748b);
+        transition: background-color .15s ease, color .15s ease;
+    }
+
+    .sidebar-subtle-link:hover {
+        background-color: color-mix(in srgb, var(--color-surface-container-low, #f1f5f9) 80%, transparent);
+        color: var(--color-on-surface, #0f172a);
+    }
+
+    /* Streak chip (header, right side) */
+    .header-streak {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        height: 2.25rem;
+        padding: 0 0.75rem;
+        border-radius: 0.75rem;
+        font-size: 0.875rem;
+        font-weight: 700;
+        line-height: 1;
+        color: color-mix(in srgb, #d97706 80%, var(--color-on-surface, #0f172a));
+        background-color: color-mix(in srgb, #f59e0b 12%, transparent);
+        border: 1px solid color-mix(in srgb, #f59e0b 30%, transparent);
+        cursor: default;
+        user-select: none;
+    }
+
+    .header-streak.is-empty {
+        color: var(--color-on-surface-variant, #64748b);
+        background-color: transparent;
+        border-color: color-mix(in srgb, var(--color-outline-variant, #cbd5e1) 40%, transparent);
+    }
+
+    /* ---------------------------------------------------------------------
+       Sidebar account area (bottom)
+       Expanded  : profile card, then Settings | Logout side by side
+       Collapsed : three 44px icon buttons stacked (profile, Settings, Logout)
+       Mobile    : profile card, then Settings and Logout stacked, 44px targets,
+                   padded for the phone's home indicator
+       --------------------------------------------------------------------- */
+    .sidebar-account {
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 0.75rem 1rem;
+        padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+        border-top: 1px solid color-mix(in srgb, var(--color-outline-variant, #cbd5e1) 35%, transparent);
+    }
+
+    .sidebar-profile {
+        min-height: 3rem;
+        padding: 0.5rem 0.625rem;
+        border: 1px solid color-mix(in srgb, var(--color-outline-variant, #cbd5e1) 35%, transparent);
+        background-color: color-mix(in srgb, var(--color-surface-container-low, #f1f5f9) 55%, transparent);
+    }
+
+    .sidebar-profile:hover {
+        border-color: color-mix(in srgb, var(--glass-primary) 35%, transparent);
+    }
+
+    .sidebar-profile .profile-avatar {
+        font-size: 34px;
+        flex-shrink: 0;
+        color: var(--color-primary, #3525cd);
+        font-variation-settings: 'FILL' 1;
+    }
+
+    .sidebar-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .sidebar-actions .sidebar-subtle-link {
+        min-height: 2.75rem;
+    }
+
+    .sidebar-actions .sidebar-logout {
+        color: var(--color-error, #dc2626);
+    }
+
+    .sidebar-actions .sidebar-logout:hover {
+        background-color: color-mix(in srgb, var(--color-error, #dc2626) 10%, transparent);
+        color: var(--color-error, #dc2626);
+    }
+
+    @media (min-width: 768px) {
+        /* Expanded desktop: two equal buttons side by side */
+        #sidebar:not(.collapsed) .sidebar-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+        }
+
+        #sidebar:not(.collapsed) .sidebar-actions .sidebar-subtle-link {
+            justify-content: center;
+            min-height: 2.5rem;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid color-mix(in srgb, var(--color-outline-variant, #cbd5e1) 35%, transparent);
+        }
+
+        #sidebar:not(.collapsed) .sidebar-actions .sidebar-logout:hover {
+            border-color: color-mix(in srgb, var(--color-error, #dc2626) 35%, transparent);
+        }
+
+        /* Collapsed rail: centred icon column */
+        #sidebar.collapsed .sidebar-account {
+            align-items: center;
+            padding-left: 0;
+            padding-right: 0;
+        }
+
+        #sidebar.collapsed .sidebar-profile {
+            border-color: transparent;
+            background-color: transparent;
+        }
+
+        #sidebar.collapsed .sidebar-actions .sidebar-subtle-link {
+            min-height: 44px;
+        }
     }
 
     /* Keep the header un-dimmed while the Settings modal is open */
@@ -326,47 +516,13 @@ if ($user_id && isset($conn)) {
         </div>
     </div>
 
-    <!-- Right Section: User Profile & Account/System/Logout Dropdown -->
-    <div class="relative flex items-center flex-shrink-0">
-        <button type="button" id="profile-popover-trigger"
-            class="flex items-center gap-2.5 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-left group hover:bg-surface-container-low border border-transparent hover:border-outline-variant/30 transition-all outline-none"
-            title="Account menu" aria-label="Open account menu"
-            aria-haspopup="true" aria-controls="settings-popover" aria-expanded="false">
-            <span class="material-symbols-outlined text-[32px] flex-shrink-0 transition-all group-hover:scale-105" style="color: rgb(53, 37, 205);">account_circle</span>
-            <div class="hidden sm:flex flex-col min-w-0 max-w-[140px]">
-                <span data-user-name class="font-label-sm font-semibold text-on-surface leading-tight truncate">
-                    <?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?>
-                </span>
-                <span class="text-[11px] text-on-surface-variant font-medium leading-none tracking-wide mt-1 truncate">
-                    <?php echo htmlspecialchars($displayRole, ENT_QUOTES, 'UTF-8'); ?>
-                </span>
-            </div>
-            <span id="profile-chevron" class="material-symbols-outlined text-[18px] text-on-surface-variant hidden sm:inline-block transition-transform duration-200">expand_more</span>
-        </button>
-
-        <!-- Profile Dropdown Menu: Account Settings, System Settings, and Logout -->
-        <div id="settings-popover"
-            class="hidden w-56 bg-surface-container-lowest border border-outline-variant/30 shadow-xl rounded-xl py-1.5 z-[100]">
-            <div class="px-3.5 py-2 border-b border-outline-variant/20 mb-1">
-                <p data-user-name class="text-xs font-semibold text-on-surface truncate"><?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?></p>
-                <p class="text-[10px] text-on-surface-variant truncate"><?php echo htmlspecialchars($displayRole, ENT_QUOTES, 'UTF-8'); ?></p>
-            </div>
-            <button type="button" data-open-settings="account"
-                class="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors text-left">
-                <span class="material-symbols-outlined text-[18px]">manage_accounts</span>
-                Account Settings
-            </button>
-            <button type="button" data-open-settings="system"
-                class="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors text-left">
-                <span class="material-symbols-outlined text-[18px]">settings</span>
-                System Settings
-            </button>
-            <div class="h-px bg-outline-variant/20 my-1"></div>
-            <button type="button" id="logout-btn"
-                class="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-error hover:bg-rose-50 hover:text-error transition-colors text-left">
-                <span class="material-symbols-outlined text-[18px]">logout</span>
-                Logout
-            </button>
+    <!-- Right Section: Current streak -->
+    <div class="flex items-center flex-shrink-0">
+        <div class="header-streak <?= $headerStreak > 0 ? '' : 'is-empty' ?>" role="status"
+             title="<?= $headerStreak > 0 ? $headerStreak . '-day streak' : 'No active streak. Review a card to start one.' ?>"
+             aria-label="<?= $headerStreak > 0 ? 'Current streak: ' . $headerStreak . ($headerStreak === 1 ? ' day' : ' days') : 'No active streak' ?>">
+            <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+            <span><?= $headerStreak ?><span class="hidden sm:inline font-semibold"> <?= $headerStreak === 1 ? 'day' : 'days' ?></span></span>
         </div>
     </div>
 
@@ -440,7 +596,38 @@ if ($user_id && isset($conn)) {
             </div>
         </a>
 
+
     </nav>
+
+    <!-- Account area: pinned to the bottom of the sidebar -->
+    <div class="sidebar-account">
+        <button type="button" data-open-settings="account" data-tooltip="Account settings"
+            class="sidebar-tooltip sidebar-row sidebar-subtle-link sidebar-profile w-full text-left"
+            title="Account settings" aria-label="Open account settings">
+            <span class="material-symbols-outlined profile-avatar">account_circle</span>
+            <span class="hide-collapsed flex flex-col min-w-0">
+                <span data-user-name class="text-sm font-semibold text-on-surface leading-tight truncate">
+                    <?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?>
+                </span>
+                <span class="text-[11px] font-medium text-on-surface-variant leading-tight mt-0.5 truncate">
+                    <?php echo htmlspecialchars($displayRole, ENT_QUOTES, 'UTF-8'); ?>
+                </span>
+            </span>
+        </button>
+
+        <div class="sidebar-actions">
+            <button type="button" data-open-settings="system" data-tooltip="Settings"
+               class="sidebar-tooltip sidebar-row sidebar-subtle-link text-left">
+                <span class="material-symbols-outlined text-[20px]">settings</span>
+                <span class="hide-collapsed">Settings</span>
+            </button>
+            <button type="button" data-logout data-tooltip="Logout"
+               class="sidebar-tooltip sidebar-row sidebar-subtle-link sidebar-logout text-left">
+                <span class="material-symbols-outlined text-[20px]">logout</span>
+                <span class="hide-collapsed">Logout</span>
+            </button>
+        </div>
+    </div>
 </aside>
 
 <!-- Logout Confirmation Dialog -->
@@ -782,11 +969,6 @@ if ($user_id && isset($conn)) {
         const mobileOverlay = document.querySelector("#mobile-sidebar-overlay");
         const reviewDot = document.querySelector("#review-dot");
 
-        // Header Profile Popover Elements
-        const profileTrigger = document.querySelector("#profile-popover-trigger");
-        const profileChevron = document.querySelector("#profile-chevron");
-        const settingsPopover = document.querySelector("#settings-popover");
-
         if (!sidebar) return;
 
         // Body-level fixed tooltip for collapsed desktop sidebar
@@ -872,7 +1054,6 @@ if ($user_id && isset($conn)) {
                 if (reviewDot) {
                     isCollapsed ? reviewDot.classList.remove("hidden") : reviewDot.classList.add("hidden");
                 }
-                setAccountPopoverOpen(false);
                 localStorage.setItem("sidebarCollapsed", isCollapsed);
             });
         }
@@ -908,40 +1089,6 @@ if ($user_id && isset($conn)) {
             });
         }
         if (mobileOverlay) mobileOverlay.addEventListener("click", closeMobileSidebar);
-
-        // Header Profile Popover Toggle Logic
-        function setAccountPopoverOpen(isOpen) {
-            if (!settingsPopover || !profileTrigger) return;
-            settingsPopover.classList.toggle('hidden', !isOpen);
-            profileTrigger.setAttribute('aria-expanded', String(isOpen));
-            if (profileChevron) {
-                profileChevron.classList.toggle('rotate-180', isOpen);
-            }
-        }
-
-        function togglePopover(e) {
-            e.stopPropagation();
-            closeSearchDropdown();
-            setAccountPopoverOpen(settingsPopover?.classList.contains('hidden'));
-        }
-
-        if (profileTrigger) profileTrigger.addEventListener('click', togglePopover);
-
-        // Click outside closes the account popover
-        document.addEventListener('click', (e) => {
-            if (
-                settingsPopover &&
-                !settingsPopover.contains(e.target) &&
-                !profileTrigger?.contains(e.target)
-            ) {
-                setAccountPopoverOpen(false);
-            }
-        });
-
-        // Esc closes the account popover
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') setAccountPopoverOpen(false);
-        });
 
         // --- Header Search Dropdown Logic ---
         const searchContainer = document.getElementById('header-search-container');
@@ -981,7 +1128,6 @@ if ($user_id && isset($conn)) {
 
         function openSearchDropdown() {
             if (!searchDropdown || !searchInput) return;
-            setAccountPopoverOpen(false);
             renderSearchResults(searchInput.value.trim());
             searchDropdown.classList.remove('hidden');
             searchInput.setAttribute('aria-expanded', 'true');
@@ -1268,7 +1414,6 @@ if ($user_id && isset($conn)) {
         settingsSave?.addEventListener('click', saveSettings);
 
         function openSettingsModal(tabName) {
-            setAccountPopoverOpen(false);
             switchSettingsTab(tabName);
 
             if (settingsDialog) {
@@ -1307,15 +1452,15 @@ if ($user_id && isset($conn)) {
         });
 
         // Logout Dialog Logic
-        const logoutBtn = document.getElementById('logout-btn');
+        const logoutBtns = document.querySelectorAll('[data-logout]');
         const logoutDialog = document.getElementById('logout-dialog');
         const logoutCancel = document.getElementById('logout-cancel');
 
-        if (logoutBtn && logoutDialog) {
-            logoutBtn.addEventListener('click', () => {
-                setAccountPopoverOpen(false);
+        if (logoutBtns.length && logoutDialog) {
+            logoutBtns.forEach((btn) => btn.addEventListener('click', () => {
+                if (window.innerWidth < 768) closeMobileSidebar();
                 logoutDialog.showModal();
-            });
+            }));
 
             if (logoutCancel) {
                 logoutCancel.addEventListener('click', () => logoutDialog.close());
