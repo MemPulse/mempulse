@@ -172,9 +172,7 @@ $currentPage = "review";
                 <?php endif; ?>
 
                 <!-- STATE B: ACTIVE REVIEW INTERFACE -->
-                <div id="active-review-container" class="max-w-[55rem] mx-auto flex flex-col h-full <?= empty($dueCards) ? 'hidden' : '' ?>">
-                    
-                    <!-- Session Header -->
+                <div id="active-review-container" class="max-w-[55rem] mx-auto flex flex-col pt-6 sm:pt-10 min-h-[calc(100dvh-var(--app-header-h)-3rem)] <?= empty($dueCards) ? 'hidden' : '' ?>">                    <!-- Session Header -->
                     <div class="mb-6 sm:px-14">
                         <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                             <button id="end-session-btn" class="justify-self-start p-1 -ml-1 text-on-surface-variant hover:text-rose-600 transition-colors" title="End session">
@@ -276,9 +274,8 @@ $currentPage = "review";
                 </div>
 
                 <!-- STATE C: ZERO CARDS / FINISHED SCREEN -->
-                <div id="review-finished-screen" class="max-w-2xl mx-auto flex-col items-center justify-center text-center h-full pb-12 <?= (empty($dueCards) && !$isPractice) ? 'flex' : 'hidden' ?>">
-                    <div id="finished-icon" class="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-6">
-                        <span class="material-symbols-outlined text-[40px]">task_alt</span>
+                <div id="review-finished-screen" class="max-w-2xl mx-auto flex-col items-center justify-center text-center pt-6 sm:pt-10 min-h-[calc(100dvh-var(--app-header-h)-3rem)] pb-12 <?= (empty($dueCards) && !$isPractice) ? 'flex' : 'hidden' ?>">                    <div id="finished-icon" class="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-6">
+                    <span class="material-symbols-outlined text-[40px]">task_alt</span>
                     </div>
                     <h2 id="finished-headline" class="font-headline-md text-3xl font-extrabold text-on-surface mb-2">Session Complete!</h2>
                     <p class="text-on-surface-variant mb-8">You've finished <span class="font-semibold text-on-surface"><?= htmlspecialchars($deckName, ENT_QUOTES, 'UTF-8') ?></span>. Great work.</p>

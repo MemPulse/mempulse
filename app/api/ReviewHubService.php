@@ -13,6 +13,21 @@ class ReviewHubService
     /** Cards scheduled within this many days count as "upcoming". */
     public const UPCOMING_DAYS = 2;
 
+    /**
+     * Schema-derived card buckets used by the Due Now table.
+     *
+     * The schema has no explicit learning/young/mastered state column, so these
+     * buckets are inferred from review_count and interval_days:
+     * - new: never reviewed
+     * - learning: reviewed and interval_days <= 1
+     * - young: interval_days 2..20
+     * - mastered: interval_days >= 21
+     *
+     * Adjust these thresholds if the application defines different SRS rules.
+     */
+    public const YOUNG_MAX_INTERVAL_DAYS = 20;
+    public const MASTERED_MIN_INTERVAL_DAYS = 21;
+
     // -----------------------------------------------------------------------
     // Queries
     // -----------------------------------------------------------------------
@@ -22,16 +37,26 @@ class ReviewHubService
      *
      * @return array<int, array{
      *   id:int, title:string, totalCards:int, dueCount:int, upcomingCount:int,
+     *   newDueCount:int, learningDueCount:int, youngDueCount:int, masteredDueCount:int,
      *   overdueSeconds:?int, nextDueSeconds:?int
      * }>
      */
     public static function getHubDecks(mysqli $conn, int $userId): array
     {
         $days = (int) self::UPCOMING_DAYS;
+        $youngMax = (int) self::YOUNG_MAX_INTERVAL_DAYS;
+        $masteredMin = (int) self::MASTERED_MIN_INTERVAL_DAYS;
 
         $sql = "SELECT d.id, d.title,
                        COUNT(f.id) AS total_cards,
                        COALESCE(SUM(f.next_review_at <= NOW()), 0) AS due_count,
+                       COALESCE(SUM(f.next_review_at <= NOW() AND f.review_count = 0), 0) AS new_due_count,
+                       COALESCE(SUM(f.next_review_at <= NOW()
+                                    AND f.review_count > 0 AND f.interval_days <= 1), 0) AS learning_due_count,
+                       COALESCE(SUM(f.next_review_at <= NOW()
+                                    AND f.review_count > 0 AND f.interval_days BETWEEN 2 AND $youngMax), 0) AS young_due_count,
+                       COALESCE(SUM(f.next_review_at <= NOW()
+                                    AND f.review_count > 0 AND f.interval_days >= $masteredMin), 0) AS mastered_due_count,
                        COALESCE(SUM(f.next_review_at > NOW()
                                     AND f.next_review_at <= DATE_ADD(NOW(), INTERVAL $days DAY)), 0) AS upcoming_count,
                        TIMESTAMPDIFF(SECOND,
@@ -58,6 +83,10 @@ class ReviewHubService
                     'title'          => (string) $row['title'],
                     'totalCards'     => (int) $row['total_cards'],
                     'dueCount'       => (int) $row['due_count'],
+                    'newDueCount'    => (int) $row['new_due_count'],
+                    'learningDueCount' => (int) $row['learning_due_count'],
+                    'youngDueCount'  => (int) $row['young_due_count'],
+                    'masteredDueCount' => (int) $row['mastered_due_count'],
                     'upcomingCount'  => (int) $row['upcoming_count'],
                     'overdueSeconds' => $row['overdue_seconds'] === null ? null : (int) $row['overdue_seconds'],
                     'nextDueSeconds' => $row['next_due_seconds'] === null ? null : (int) $row['next_due_seconds'],

@@ -1,0 +1,1075 @@
+ReviewHubService.php
+```
+<?php
+/**
+ * ReviewHubService
+ *
+ * Read-only data + formatting helpers for the Review Hub page (review.php, no deck_id).
+ * All "seconds" values are computed in SQL (TIMESTAMPDIFF) so PHP/MySQL timezone
+ * differences cannot skew them.
+ *
+ * Place next to FlashcardService.php (the api/ folder).
+ */
+class ReviewHubService
+{
+    /** Cards scheduled within this many days count as "upcoming". */
+    public const UPCOMING_DAYS = 2;
+
+    /**
+     * Schema-derived card buckets used by the Due Now table.
+     *
+     * The schema has no explicit learning/young/mastered state column, so these
+     * buckets are inferred from review_count and interval_days:
+     * - new: never reviewed
+     * - learning: reviewed and interval_days <= 1
+     * - young: interval_days 2..20
+     * - mastered: interval_days >= 21
+     *
+     * Adjust these thresholds if the application defines different SRS rules.
+     */
+    public const YOUNG_MAX_INTERVAL_DAYS = 20;
+    public const MASTERED_MIN_INTERVAL_DAYS = 21;
+
+    // -----------------------------------------------------------------------
+    // Queries
+    // -----------------------------------------------------------------------
+
+    /**
+     * Every non-archived deck that has cards due now or coming up soon.
+     *
+     * @return array<int, array{
+     *   id:int, title:string, totalCards:int, dueCount:int, upcomingCount:int,
+     *   newDueCount:int, learningDueCount:int, youngDueCount:int, masteredDueCount:int,
+     *   overdueSeconds:?int, nextDueSeconds:?int
+     * }>
+     */
+    public static function getHubDecks(mysqli $conn, int $userId): array
+    {
+        $days = (int) self::UPCOMING_DAYS;
+        $youngMax = (int) self::YOUNG_MAX_INTERVAL_DAYS;
+        $masteredMin = (int) self::MASTERED_MIN_INTERVAL_DAYS;
+
+        $sql = "SELECT d.id, d.title,
+                       COUNT(f.id) AS total_cards,
+                       COALESCE(SUM(f.next_review_at <= NOW()), 0) AS due_count,
+                       COALESCE(SUM(f.next_review_at <= NOW() AND f.review_count = 0), 0) AS new_due_count,
+                       COALESCE(SUM(f.next_review_at <= NOW()
+                                    AND f.review_count > 0 AND f.interval_days <= 1), 0) AS learning_due_count,
+                       COALESCE(SUM(f.next_review_at <= NOW()
+                                    AND f.review_count > 0 AND f.interval_days BETWEEN 2 AND $youngMax), 0) AS young_due_count,
+                       COALESCE(SUM(f.next_review_at <= NOW()
+                                    AND f.review_count > 0 AND f.interval_days >= $masteredMin), 0) AS mastered_due_count,
+                       COALESCE(SUM(f.next_review_at > NOW()
+                                    AND f.next_review_at <= DATE_ADD(NOW(), INTERVAL $days DAY)), 0) AS upcoming_count,
+                       TIMESTAMPDIFF(SECOND,
+                           MIN(CASE WHEN f.next_review_at <= NOW() THEN f.next_review_at END),
+                           NOW()) AS overdue_seconds,
+                       TIMESTAMPDIFF(SECOND, NOW(),
+                           MIN(CASE WHEN f.next_review_at > NOW()
+                                     AND f.next_review_at <= DATE_ADD(NOW(), INTERVAL $days DAY)
+                                    THEN f.next_review_at END)) AS next_due_seconds
+                FROM decks d
+                LEFT JOIN flashcards f ON f.deck_id = d.id AND f.deleted_at IS NULL
+                WHERE d.user_id = ? AND d.deleted_at IS NULL
+                GROUP BY d.id, d.title
+                HAVING due_count > 0 OR upcoming_count > 0";
+
+        $decks = [];
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "i", $userId);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            while ($row = mysqli_fetch_assoc($result)) {
+                $decks[] = [
+                    'id'             => (int) $row['id'],
+                    'title'          => (string) $row['title'],
+                    'totalCards'     => (int) $row['total_cards'],
+                    'dueCount'       => (int) $row['due_count'],
+                    'newDueCount'    => (int) $row['new_due_count'],
+                    'learningDueCount' => (int) $row['learning_due_count'],
+                    'youngDueCount'  => (int) $row['young_due_count'],
+                    'masteredDueCount' => (int) $row['mastered_due_count'],
+                    'upcomingCount'  => (int) $row['upcoming_count'],
+                    'overdueSeconds' => $row['overdue_seconds'] === null ? null : (int) $row['overdue_seconds'],
+                    'nextDueSeconds' => $row['next_due_seconds'] === null ? null : (int) $row['next_due_seconds'],
+                ];
+            }
+            mysqli_stmt_close($stmt);
+        }
+        return $decks;
+    }
+
+    /**
+     * Seconds until the user's next card becomes due (no 48h limit), or null
+     * when there are no scheduled cards at all.
+     */
+    public static function getNextDueSeconds(mysqli $conn, int $userId): ?int
+    {
+        $sql = "SELECT TIMESTAMPDIFF(SECOND, NOW(), MIN(f.next_review_at))
+                FROM flashcards f
+                JOIN decks d ON d.id = f.deck_id
+                WHERE d.user_id = ? AND d.deleted_at IS NULL
+                  AND f.deleted_at IS NULL AND f.next_review_at > NOW()";
+
+        $secs = null;
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "i", $userId);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_bind_result($stmt, $secs);
+            mysqli_stmt_fetch($stmt);
+            mysqli_stmt_close($stmt);
+        }
+        return $secs === null ? null : (int) $secs;
+    }
+
+    /**
+     * Latest completed review sessions.
+     *
+     * @return array<int, array{
+     *   deckId:int, deckTitle:string, cardsReviewed:int, rememberedCount:int,
+     *   accuracy:int, durationSeconds:?int, formattedTime:string
+     * }>
+     */
+    public static function getRecentSessions(mysqli $conn, int $userId, int $limit = 8): array
+    {
+        $limit = max(1, min($limit, 50));
+
+        $sql = "SELECT rs.id AS session_id, rs.deck_id, d.title AS deck_title, rs.total_reviewed, rs.remembered_count,
+                       rs.accuracy_percentage,
+                       TIMESTAMPDIFF(SECOND, rs.started_at, rs.ended_at) AS duration_seconds,
+                       TIMESTAMPDIFF(SECOND, rs.ended_at, NOW()) AS ended_ago_seconds
+                FROM review_sessions rs
+                JOIN decks d ON d.id = rs.deck_id
+                WHERE rs.user_id = ? AND rs.ended_at IS NOT NULL
+                ORDER BY rs.ended_at DESC, rs.id DESC
+                LIMIT ?";
+
+        $sessions = [];
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "ii", $userId, $limit);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            while ($row = mysqli_fetch_assoc($result)) {
+                $sessions[] = [
+                    'sessionID'       => (int) $row['session_id'],
+                    'deckId'          => (int) $row['deck_id'],
+                    'deckTitle'       => (string) $row['deck_title'],
+                    'cardsReviewed'   => (int) $row['total_reviewed'],
+                    'rememberedCount' => (int) $row['remembered_count'],
+                    'accuracy'        => (int) $row['accuracy_percentage'],
+                    'durationSeconds' => $row['duration_seconds'] === null ? null : (int) $row['duration_seconds'],
+                    'formattedTime'   => self::formatAgo((int) $row['ended_ago_seconds']),
+                ];
+            }
+            mysqli_stmt_close($stmt);
+        }
+        return $sessions;
+    }
+
+    /**
+     * Cards reviewed today and the current study-day streak.
+     * Same rules as the dashboard: a day counts when a completed session
+     * reviewed at least one card; the streak is alive if the latest study day
+     * is today or yesterday.
+     *
+     * @return array{reviewedToday:int, currentStreak:int}
+     */
+    public static function getStreakInfo(mysqli $conn, int $userId): array
+    {
+        $sql = "SELECT DATE(started_at) AS study_date, SUM(total_reviewed) AS reviewed
+                FROM review_sessions
+                WHERE user_id = ? AND ended_at IS NOT NULL
+                GROUP BY DATE(started_at)
+                HAVING SUM(total_reviewed) > 0
+                ORDER BY study_date DESC";
+
+        $days = [];
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "i", $userId);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            while ($row = mysqli_fetch_assoc($result)) {
+                $days[$row['study_date']] = (int) $row['reviewed'];
+            }
+            mysqli_stmt_close($stmt);
+        }
+
+        $today     = date('Y-m-d');
+        $yesterday = date('Y-m-d', strtotime('-1 day'));
+
+        $streak = 0;
+        if (isset($days[$today]) || isset($days[$yesterday])) {
+            $cursor = new DateTime(isset($days[$today]) ? $today : $yesterday);
+            while (isset($days[$cursor->format('Y-m-d')])) {
+                $streak++;
+                $cursor->modify('-1 day');
+            }
+        }
+
+        return [
+            'reviewedToday' => $days[$today] ?? 0,
+            'currentStreak' => $streak,
+        ];
+    }
+
+    // -----------------------------------------------------------------------
+    // Table helpers (pure PHP, no DB)
+    // -----------------------------------------------------------------------
+
+    /** Decks with cards due, most due first (oldest overdue breaks ties). */
+    public static function dueDecks(array $hubDecks): array
+    {
+        $due = array_values(array_filter($hubDecks, fn($d) => $d['dueCount'] > 0));
+        usort($due, function ($a, $b) {
+            return [$b['dueCount'], $b['overdueSeconds'] ?? 0]
+               <=> [$a['dueCount'], $a['overdueSeconds'] ?? 0];
+        });
+        return $due;
+    }
+
+    /** Decks with cards coming up soon, soonest first. */
+    public static function upcomingDecks(array $hubDecks): array
+    {
+        $up = array_values(array_filter($hubDecks, fn($d) => $d['upcomingCount'] > 0));
+        usort($up, fn($a, $b) => ($a['nextDueSeconds'] ?? PHP_INT_MAX) <=> ($b['nextDueSeconds'] ?? PHP_INT_MAX));
+        return $up;
+    }
+
+    // -----------------------------------------------------------------------
+    // Formatting
+    // -----------------------------------------------------------------------
+
+    /** "5 min", "3 h", "2 d" (never shows 0). */
+    public static function formatSpan(int $seconds): string
+    {
+        $seconds = max(0, $seconds);
+        if ($seconds < 3600)  return max(1, (int) floor($seconds / 60)) . ' min';
+        if ($seconds < 86400) return (int) floor($seconds / 3600) . ' h';
+        return (int) floor($seconds / 86400) . ' d';
+    }
+
+    /** "just now", "5 mins ago", "1 hour ago", "3 days ago". */
+    public static function formatAgo(int $seconds): string
+    {
+        $seconds = max(0, $seconds);
+        if ($seconds < 60) return 'just now';
+
+        if ($seconds < 3600) {
+            $n = (int) floor($seconds / 60);
+            return $n . ($n === 1 ? ' min ago' : ' mins ago');
+        }
+        if ($seconds < 86400) {
+            $n = (int) floor($seconds / 3600);
+            return $n . ($n === 1 ? ' hour ago' : ' hours ago');
+        }
+        $n = (int) floor($seconds / 86400);
+        return $n . ($n === 1 ? ' day ago' : ' days ago');
+    }
+
+    /** "45s", "4m 12s", "1h 5m", or an em dash when unknown. */
+    public static function formatDuration(?int $seconds): string
+    {
+        if ($seconds === null || $seconds <= 0) return '—';
+        if ($seconds < 60) return $seconds . 's';
+        if ($seconds < 3600) {
+            $m = (int) floor($seconds / 60);
+            $s = $seconds % 60;
+            return $s > 0 ? "{$m}m {$s}s" : "{$m}m";
+        }
+        $h = (int) floor($seconds / 3600);
+        $m = (int) floor(($seconds % 3600) / 60);
+        return $m > 0 ? "{$h}h {$m}m" : "{$h}h";
+    }
+
+    /** Tailwind classes for an accuracy badge (matches the deck grid thresholds). */
+    public static function accuracyBadgeClass(int $accuracy): string
+    {
+        if ($accuracy >= 80) return 'text-emerald-700 bg-emerald-50 border-emerald-200/80';
+        if ($accuracy >= 50) return 'text-amber-700 bg-amber-50 border-amber-200/80';
+        return 'text-rose-700 bg-rose-50 border-rose-200/80';
+    }
+
+    /** Shorthand for htmlspecialchars with the project's flags. */
+    public static function h($value): string
+    {
+        return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+    }
+}
+```
+
+MempulseTree.txt
+```
+PS C:\xampp\htdocs\mempulse> tree /f
+Folder PATH listing
+Volume serial number is 8E4B-9250
+C:.
+│   .gitignore
+│   comebine_files.py
+│   database-design.md
+│   generate_mock.py
+│   MempulseTree.txt
+│   tailwind.config.js
+│   test_combine_files.py
+│   
+├───admin
+│   ├───api
+│   │       AdminActivityService.php
+│   │       AdminAuditService.php
+│   │       AdminContentService.php
+│   │       AdminOverviewService.php
+│   │       AdminUserActionsService.php
+│   │       AdminUsersService.php
+│   │       user-actions.php
+│   │       
+│   ├───assets
+│   │   └───js
+│   │           admin-activity.js
+│   │           admin-overview.js
+│   │           admin-sidebar.js
+│   │           admin-users.js
+│   │           
+│   ├───includes
+│   │       guard.php
+│   │       head.php
+│   │       sidebar.php
+│   │       
+│   └───views
+│           activity-view.php
+│           activity.php
+│           audit-view.php
+│           audit.php
+│           content-view.php
+│           content.php
+│           index.php
+│           overview-view.php
+│           users-view.php
+│           users.php
+│           
+├───app
+│   ├───api
+│   │       account-actions.php
+│   │       ArchiveService.php
+│   │       DashboardService.php
+│   │       deck-actions.php
+│   │       DeckService.php
+│   │       flashcard-actions.php
+│   │       FlashcardService.php
+│   │       PracticeService.php
+│   │       report-export.php
+│   │       ReportsExportService.php
+│   │       ReportsService.php
+│   │       ReviewHubService.php
+│   │       save-session.php
+│   │       SessionService.php
+│   │       settings-actions.php
+│   │       
+│   ├───assets
+│   │   ├───css
+│   │   │       app.css
+│   │   │       reports.css
+│   │   │       tailwind-input.css
+│   │   │       tailwind.css
+│   │   │       theme.css
+│   │   │       
+│   │   ├───images
+│   │   │   │   brain-dark.svg
+│   │   │   │   brain-white.svg
+│   │   │   │   decks-hero-icon.png
+│   │   │   │   flashcards-hero-icon.png
+│   │   │   │   forgetting-curve-hero-image.webp
+│   │   │   │   mempulse-logo.png
+│   │   │   │   profile-picture.webp.jpg
+│   │   │   │   
+│   │   │   └───deck-header-banner
+│   │   │           dh1.jpg
+│   │   │           dh10.jpg
+│   │   │           dh11.jpg
+│   │   │           dh12.jpg
+│   │   │           dh2.jpg
+│   │   │           dh3.jpg
+│   │   │           dh5.webp
+│   │   │           dh6.webp
+│   │   │           dh7.jpg
+│   │   │           dh8.jpg
+│   │   │           dh9.jpg
+│   │   │           
+│   │   └───js
+│   │           account-settings.js
+│   │           archive-ui.js
+│   │           deck.js
+│   │           decks.js
+│   │           hero-carousel.js
+│   │           mp-tables.js
+│   │           reports-cards.js
+│   │           reports-decks.js
+│   │           reports-overview.js
+│   │           reports-sessions.js
+│   │           reports.js
+│   │           review.js
+│   │           
+│   ├───includes
+│   │       head.php
+│   │       sidebar.php
+│   │       srs-preview.php
+│   │       
+│   └───views
+│           dashboard.php
+│           deck-view.php
+│           deck.php
+│           decks-view.php
+│           decks.php
+│           index.php
+│           reports-cards.php
+│           reports-decks.php
+│           reports-overview.php
+│           reports-sessions.php
+│           reports-view.php
+│           reports.php
+│           review-hub-view.php
+│           review.php
+│           science-draft.php
+│           science.php
+│           session-details.php
+│           sessions.php
+│           settings.php
+│           
+├───authentication
+│       confirm-registration.php
+│       login.php
+│       logout.php
+│       privacy-policy.html
+│       register.php
+│       registration-pending.php
+│       script.js
+│       styles.css
+│       terms.html
+│       
+├───config
+│       active-user.php
+│       db.php
+│       
+├───landing-page
+│       about.html
+│       index.html
+│       landing-page-nav-and-pricing-changes.md
+│       pricing.html
+│       science.html
+│       style.css
+│       
+└───__pycache__
+        comebine_files.cpython-314.pyc
+        
+```
+
+review-hub-view.php
+```
+<?php
+/**
+ * Review Hub view (STATE A of review.php)
+ *
+ * Expects these variables from review.php:
+ *   $dueDecks, $upcomingDecks, $recentSessions  (see ReviewHubService)
+ *   $dueTotal, $nextDueSecs, $curStreak, $reviewedToday
+ */
+
+$h = [ReviewHubService::class, 'h'];
+
+// ---- Due Now call-to-action state ----
+$dueDeckCount = count($dueDecks);
+$reviewHref   = $dueDeckCount > 0 ? 'review.php?deck_id=' . (int) $dueDecks[0]['id'] : 'review.php';
+$streakAtRisk = $dueTotal > 0 && $curStreak > 0 && $reviewedToday === 0;
+
+if ($streakAtRisk) {
+    $dueSubtitle = 'Keep your ' . $curStreak . '-day streak alive';
+} elseif ($dueDeckCount === 1) {
+    $dueSubtitle = 'in ' . $dueDecks[0]['title'];
+} elseif ($dueDeckCount > 1) {
+    $dueSubtitle = 'Starting with ' . $dueDecks[0]['title'] . ' (+' . ($dueDeckCount - 1) . ' more)';
+} else {
+    $dueSubtitle = '';
+}
+
+$nextDueLabel = ($nextDueSecs !== null && $nextDueSecs > 0)
+    ? 'Next cards due in ' . ReviewHubService::formatSpan($nextDueSecs)
+    : '';
+?>
+<!-- ========================================================================= -->
+<!-- STATE A: REVIEW HUB (dashboard-style layout, table lists)                 -->
+<!-- ========================================================================= -->
+<div class="w-full px-2 sm:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
+    <div class="flex flex-col w-full gap-4 sm:gap-6">
+
+        <h1 class="font-headline-md text-headline-md font-bold tracking-tight text-on-surface">Review</h1>
+
+        <!-- Unified Header Hero Banner -->
+        <div class="relative w-full rounded-2xl bg-surface-container-lowest border border-outline-variant/30 p-4 sm:p-5 shadow-xs">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+
+                <?php if ($dueTotal > 0): ?>
+                    <!-- A: Cards Due Ready State -->
+                    <div class="flex items-center gap-3.5 min-w-0">
+                        <!-- Simple Compact Icon -->
+                        <!-- <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-[22px] sm:text-[24px]">alarm</span>
+                        </div> -->
+
+                        <!-- Clean Text & Action Overview -->
+                        <div class="flex flex-col min-w-0">
+                            <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-primary">Due Now</span>
+                            <div class="flex items-center gap-2 min-w-0">
+                                <h2 class="text-base sm:text-lg font-extrabold text-on-surface leading-tight truncate m-0">
+                                    <span id="stat-due-cta-count" class="font-extrabold text-primary tabular-nums"><?= (int) $dueTotal ?></span>
+                                    <?= $dueTotal === 1 ? 'card' : 'cards' ?> ready to review
+                                </h2>
+
+                                <?php if ($streakAtRisk): ?>
+                                    <span class="shrink-0 px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200/80 text-[10px] font-bold">
+                                        Streak at risk
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+
+                            <?php if ($dueSubtitle !== ''): ?>
+                                <p class="text-xs text-on-surface-variant/80 font-medium truncate m-0 mt-0.5"><?= $h($dueSubtitle) ?></p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2.5 w-full sm:w-auto justify-end shrink-0">
+                        <!-- Keyboard Shortcuts Popover Trigger (Desktop) -->
+                        <div class="relative hidden lg:block group">
+                            <button type="button" aria-label="View keyboard shortcuts"
+                                    class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-outline-variant/40 bg-surface-container-low text-on-surface-variant text-xs font-semibold hover:text-primary hover:border-primary/40 transition-colors">
+                                <span class="material-symbols-outlined text-[16px]">keyboard</span>
+                                <span>Shortcuts</span>
+                            </button>
+
+                            <!-- Hover/Focus Popover Card -->
+                            <div class="absolute right-0 top-full mt-2 w-64 p-3 rounded-xl bg-surface-container-highest border border-outline-variant/40 shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 group-focus-within:opacity-100 group-hover:pointer-events-auto group-focus-within:pointer-events-auto transition-all z-20">
+                                <span class="text-xs font-bold text-on-surface block mb-2">Review Controls</span>
+                                <ul class="space-y-1.5 text-xs text-on-surface-variant">
+                                    <li class="flex items-center justify-between"><kbd class="px-1.5 py-0.5 bg-surface-container-high rounded border border-outline-variant/50 font-mono text-[10px]">Space</kbd> Show / Remember</li>
+                                    <li class="flex items-center justify-between"><kbd class="px-1.5 py-0.5 bg-surface-container-high rounded border border-outline-variant/50 font-mono text-[10px]">F</kbd> Mark Forgotten</li>
+                                    <li class="flex items-center justify-between"><kbd class="px-1.5 py-0.5 bg-surface-container-high rounded border border-outline-variant/50 font-mono text-[10px]">← / →</kbd> Previous / Next</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Main Review CTA -->
+                        <a href="<?= $h($reviewHref) ?>"
+                           id="stat-due-cta"
+                           aria-label="Review <?= (int) $dueTotal ?> due <?= $dueTotal === 1 ? 'card' : 'cards' ?>"
+                           class="inline-flex items-center justify-center gap-2 px-4 py-2 sm:py-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs sm:text-sm shadow-xs hover:bg-primary-container transition-colors w-full sm:w-auto">
+                            <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+                            <span>Start Review</span>
+                        </a>
+                    </div>
+
+                <?php elseif ($nextDueSecs !== null): ?>
+                    <!-- B: All Caught Up State -->
+                    <div class="flex items-center gap-3.5 min-w-0">
+                        <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-600 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-[22px] sm:text-[24px]">task_alt</span>
+                        </div>
+                        <div class="flex flex-col min-w-0">
+                            <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-emerald-700">Due Now</span>
+                            <h2 class="text-base sm:text-lg font-extrabold text-on-surface leading-tight m-0">All caught up</h2>
+                            <?php if ($nextDueLabel !== ''): ?>
+                                <p class="text-xs text-on-surface-variant/80 font-medium truncate m-0 mt-0.5"><?= $h($nextDueLabel) ?></p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                <?php else: ?>
+                    <!-- C: No Cards Scheduled State -->
+                    <div class="flex items-center gap-3.5 min-w-0">
+                        <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-[22px] sm:text-[24px]">add</span>
+                        </div>
+                        <div class="flex flex-col min-w-0">
+                            <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-primary">Due Now</span>
+                            <h2 class="text-base sm:text-lg font-extrabold text-on-surface leading-tight m-0">No cards found</h2>
+                            <p class="text-xs text-on-surface-variant/80 font-medium truncate m-0 mt-0.5">Create flashcards to start practicing</p>
+                        </div>
+                    </div>
+
+                    <a href="decks.php?add_card=1" id="stat-due-cta"
+                       class="inline-flex items-center justify-center gap-2 px-4 py-2 sm:py-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs sm:text-sm shadow-xs hover:bg-primary-container transition-colors shrink-0 w-full sm:w-auto">
+                        <span class="material-symbols-outlined text-[18px]">add</span>
+                        <span>Create Cards</span>
+                    </a>
+                <?php endif; ?>
+
+            </div>
+        </div>
+
+<?php
+/* ------------------------------------------------------------------------
+ * Table data for Tabulator (read-only). All text is pre-formatted here so the
+ * JS only has to place it; the JS escapes every string before rendering.
+ * ---------------------------------------------------------------------- */
+$dueRows = [];
+foreach ($dueDecks as $d) {
+    $dueRows[] = [
+        'title'      => (string) $d['title'],
+        'deckUrl'    => 'deck.php?deck_id=' . (int) $d['id'],
+        'reviewUrl'  => 'review.php?deck_id=' . (int) $d['id'],
+        'dueCount'   => (int) $d['dueCount'],
+        'oldestText' => $d['overdueSeconds'] === null ? '—' : ReviewHubService::formatSpan($d['overdueSeconds']) . ' ago',
+        'totalCards' => (int) $d['totalCards'],
+    ];
+}
+
+$upcomingRows = [];
+foreach ($upcomingDecks as $d) {
+    $upcomingRows[] = [
+        'title'         => (string) $d['title'],
+        'deckUrl'       => 'deck.php?deck_id=' . (int) $d['id'],
+        'isDueNow'      => $d['dueCount'] > 0,
+        'upcomingCount' => (int) $d['upcomingCount'],
+        'nextText'      => $d['nextDueSeconds'] === null ? '—' : 'in ' . ReviewHubService::formatSpan($d['nextDueSeconds']),
+    ];
+}
+
+$recentRows = [];
+foreach ($recentSessions as $s) {
+    $recentRows[] = [
+        'title'       => (string) $s['deckTitle'],
+        'detailsUrl'  => 'session-details.php?id=' . (int) $s['sessionID'],
+        'practiceUrl' => ((int) $s['cardsReviewed'] > 0)
+            ? 'review.php?mode=practice&from=sessions&session_id=' . (int) $s['sessionID'] : '',
+        'cards'       => (int) $s['cardsReviewed'],
+        'accuracy'    => (int) $s['accuracy'],
+        'accuracyCls' => ReviewHubService::accuracyBadgeClass((int) $s['accuracy']),
+        'duration'    => ReviewHubService::formatDuration($s['durationSeconds']),
+        'when'        => (string) $s['formattedTime'],
+    ];
+}
+
+$jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE;
+
+$badgeCls = 'px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-bold tracking-wide whitespace-nowrap';
+?>
+
+        <!-- Colour probe: lets the table CSS reuse your Tailwind design tokens -->
+        <div id="mp-token-probe" class="hidden" aria-hidden="true">
+            <span data-t="head"    class="bg-surface-container text-on-surface-variant"></span>
+            <span data-t="text"    class="text-on-surface"></span>
+            <span data-t="hover"   class="bg-surface-container-low/50"></span>
+            <span data-t="card"    class="bg-surface-container-lowest"></span>
+            <span data-t="border"  class="border border-outline-variant/30"></span>
+            <span data-t="divider" class="border border-outline-variant/20"></span>
+        </div>
+
+        <!-- ===================================================================== -->
+        <!-- DUE NOW                                                                -->
+        <!-- ===================================================================== -->
+        <section class="flex flex-col gap-3 sm:gap-4 w-full min-w-0" id="due-now-section">
+            <div class="flex items-center justify-between gap-4">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <h2 class="text-base sm:text-lg font-extrabold tracking-tight text-on-surface whitespace-nowrap m-0">Due Now</h2>
+                    <span class="<?= $badgeCls ?>"><?= count($dueRows) ?> <?= count($dueRows) === 1 ? 'Deck' : 'Decks' ?></span>
+                    <span class="hidden sm:block w-px h-4 bg-outline-variant/40 shrink-0" aria-hidden="true"></span>
+                    <p class="hidden sm:block truncate text-xs text-on-surface-variant/80 font-medium m-0">Decks with cards ready to review</p>
+                </div>
+            </div>
+
+            <?php if (empty($dueRows)): ?>
+                <div class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs py-8 px-4 flex flex-col items-center justify-center text-center text-on-surface-variant">
+                    <span class="material-symbols-outlined text-[28px] text-outline/80 mb-1.5">task_alt</span>
+                    <span class="text-sm font-semibold text-on-surface">All caught up!</span>
+                    <span class="text-xs text-on-surface-variant/70 mt-0.5">You have no cards due for review right now.</span>
+                </div>
+            <?php else: ?>
+                <div class="mp-table rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs overflow-x-auto">
+                    <div id="due-now-table"></div>
+                </div>
+            <?php endif; ?>
+        </section>
+
+        <!-- ===================================================================== -->
+        <!-- UPCOMING                                                               -->
+        <!-- ===================================================================== -->
+        <section class="flex flex-col gap-3 sm:gap-4 w-full min-w-0" id="upcoming-section">
+            <div class="flex items-center justify-between gap-4">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <h2 class="text-base sm:text-lg font-extrabold tracking-tight text-on-surface whitespace-nowrap m-0">Upcoming (Next <?= (int) (ReviewHubService::UPCOMING_DAYS * 24) ?>h)</h2>
+                    <span class="<?= $badgeCls ?>"><?= count($upcomingRows) ?> <?= count($upcomingRows) === 1 ? 'Deck' : 'Decks' ?></span>
+                    <span class="hidden sm:block w-px h-4 bg-outline-variant/40 shrink-0" aria-hidden="true"></span>
+                    <p class="hidden sm:block truncate text-xs text-on-surface-variant/80 font-medium m-0">Cards that will be due soon</p>
+                </div>
+            </div>
+
+            <?php if (empty($upcomingRows)): ?>
+                <div class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs py-8 px-4 flex flex-col items-center justify-center text-center text-on-surface-variant">
+                    <span class="material-symbols-outlined text-[28px] text-outline/80 mb-1.5">schedule</span>
+                    <span class="text-sm font-semibold text-on-surface">No upcoming reviews</span>
+                    <span class="text-xs text-on-surface-variant/70 mt-0.5">No cards scheduled for the next <?= (int) (ReviewHubService::UPCOMING_DAYS * 24) ?> hours.</span>
+                </div>
+            <?php else: ?>
+                <div class="mp-table rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs overflow-x-auto">
+                    <div id="upcoming-table"></div>
+                </div>
+            <?php endif; ?>
+        </section>
+
+        <!-- ===================================================================== -->
+        <!-- RECENT REVIEW SESSIONS                                                 -->
+        <!-- ===================================================================== -->
+        <section class="flex flex-col gap-3 sm:gap-4 w-full min-w-0" id="recent-sessions-section">
+            <div class="flex items-center justify-between gap-4">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <h2 class="text-base sm:text-lg font-extrabold tracking-tight text-on-surface whitespace-nowrap m-0">Recent Review Sessions</h2>
+                    <span class="<?= $badgeCls ?>"><?= count($recentRows) ?> <?= count($recentRows) === 1 ? 'Session' : 'Sessions' ?></span>
+                    <span class="hidden sm:block w-px h-4 bg-outline-variant/40 shrink-0" aria-hidden="true"></span>
+                    <p class="hidden sm:block truncate text-xs text-on-surface-variant/80 font-medium m-0">Your latest spaced repetition drills</p>
+                </div>
+                <a href="sessions.php" class="shrink-0 text-xs text-primary hover:underline font-semibold flex items-center gap-1 transition-all whitespace-nowrap">
+                    <span>View History</span>
+                    <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+                </a>
+            </div>
+
+            <?php if (empty($recentRows)): ?>
+                <div class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs py-8 px-4 flex flex-col items-center justify-center text-center text-on-surface-variant">
+                    <span class="material-symbols-outlined text-[28px] text-outline/80 mb-1.5">history_edu</span>
+                    <span class="text-sm font-semibold text-on-surface">No recent review sessions found</span>
+                    <span class="text-xs text-on-surface-variant/70 mt-0.5">Complete a study session to see your history here.</span>
+                </div>
+            <?php else: ?>
+                <div class="mp-table rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs overflow-x-auto">
+                    <div id="recent-sessions-table"></div>
+                </div>
+            <?php endif; ?>
+        </section>
+
+    </div>
+</div>
+
+<!-- Tabulator CSS stylesheet -->
+<link href="https://unpkg.com/tabulator-tables@5.5.0/dist/css/tabulator_simple.min.css" rel="stylesheet">
+
+<!-- Read-only Tabulator styling: structure + responsive mobile rules -->
+<style>
+    .mp-table .tabulator { background: transparent; border: 0; font-family: inherit; font-size: .8125rem; color: var(--mp-text, inherit); }
+    .mp-table .tabulator .tabulator-header { background: var(--mp-head-bg, #f1f1f1) !important; color: var(--mp-head-text, inherit); border-top: 0; border-bottom: 1px solid var(--mp-border, #ddd); }
+    .mp-table .tabulator .tabulator-header .tabulator-col { background: transparent !important; border-right: 0; }
+    .mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-content { padding: .625rem 1rem; }
+    .mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+    .mp-table .tabulator .tabulator-tableholder,
+    .mp-table .tabulator .tabulator-tableholder .tabulator-table { background: transparent; }
+    .mp-table .tabulator .tabulator-row,
+    .mp-table .tabulator .tabulator-row.tabulator-row-even,
+    .mp-table .tabulator .tabulator-row.tabulator-row-odd { background: transparent !important; color: inherit; border-bottom: 1px solid var(--mp-divider, #eee); min-height: 0; }
+    .mp-table .tabulator .tabulator-row:hover { background: var(--mp-hover, rgba(0,0,0,.03)) !important; }
+    .mp-table .tabulator .tabulator-table > .tabulator-row:last-child { border-bottom: 0; }
+    .mp-table .tabulator .tabulator-row .tabulator-cell { padding: .625rem 1rem; border-right: 0; vertical-align: middle; }
+    .mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-resize-handle { display: none; }
+    
+    @media (max-width: 640px) {
+        .mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-content,
+        .mp-table .tabulator .tabulator-row .tabulator-cell { padding: .5rem .625rem; font-size: .75rem; }
+    }
+
+    #due-now-table .tabulator-row,
+    #due-now-table .tabulator-row .tabulator-cell,
+    #upcoming-table .tabulator-row,
+    #upcoming-table .tabulator-row .tabulator-cell { cursor: default !important; }
+
+    #recent-sessions-table .tabulator-row,
+    #recent-sessions-table .tabulator-row .tabulator-cell { cursor: pointer; }
+</style>
+
+<!-- Tabulator tables (readable mode: no sorting, resizing, moving, editing or selection) -->
+<script type="application/json" id="hub-table-data"><?= json_encode(['due' => $dueRows, 'upcoming' => $upcomingRows, 'recent' => $recentRows], $jsonFlags) ?></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var dataEl = document.getElementById('hub-table-data');
+    if (!dataEl) return;
+    var data = JSON.parse(dataEl.textContent);
+
+    var probe = document.getElementById('mp-token-probe');
+    if (probe) {
+        var q = function (t) { return probe.querySelector('[data-t="' + t + '"]'); };
+        var s = document.documentElement.style;
+        s.setProperty('--mp-head-bg',   getComputedStyle(q('head')).backgroundColor);
+        s.setProperty('--mp-head-text', getComputedStyle(q('head')).color);
+        s.setProperty('--mp-text',      getComputedStyle(q('text')).color);
+        s.setProperty('--mp-hover',     getComputedStyle(q('hover')).backgroundColor);
+        s.setProperty('--mp-border',    getComputedStyle(q('border')).borderTopColor);
+        s.setProperty('--mp-divider',   getComputedStyle(q('divider')).borderTopColor);
+    }
+
+    var esc = function (v) {
+        return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    };
+
+    var muted = 'text-xs text-on-surface-variant tabular-nums whitespace-nowrap';
+
+    var base = {
+        layout: 'fitColumns',
+        responsiveLayout: 'hide',
+        movableColumns: false,
+        selectable: false,
+        selectableRows: false,
+        columnDefaults: { headerSort: false, resizable: false }
+    };
+
+    var linkCell = function (urlField, extra) {
+        return function (cell) {
+            var r = cell.getRow().getData();
+            var tag = (extra && extra(r)) || '';
+            return '<div class="flex items-center gap-2 min-w-0">' +
+                   '<a href="' + esc(r[urlField]) + '" title="' + esc(r.title) + '" ' +
+                   'class="block truncate font-semibold text-on-surface hover:text-primary transition-colors">' + esc(r.title) + '</a>' + tag + '</div>';
+        };
+    };
+
+    var make = function (selector, rows, columns, extra) {
+        var el = document.querySelector(selector);
+        if (!el) return;
+        if (typeof Tabulator === 'undefined') {
+            console.error('Tabulator failed to load.');
+            el.innerHTML = '<p class="py-8 text-center text-sm text-on-surface-variant">Table could not be loaded.</p>';
+            return;
+        }
+        var cols = columns.map(function (c) { return Object.assign({ headerSort: false, resizable: false }, c); });
+        new Tabulator(el, Object.assign({}, base, { data: rows, columns: cols }, extra || {}));
+    };
+
+    var ensureTabulator = function (done) {
+        if (window.Tabulator) return done();
+        var sc = document.createElement('script');
+        sc.src = 'https://unpkg.com/tabulator-tables@5.5.0/dist/js/tabulator.min.js';
+        sc.onload = done;
+        sc.onerror = done;
+        document.head.appendChild(sc);
+    };
+
+    function buildTables() {
+        // ---- Due Now ----
+        make('#due-now-table', data.due, [
+            { title: 'Deck', field: 'title', widthGrow: 3, minWidth: 120, responsive: 0, formatter: linkCell('deckUrl') },
+            { title: 'Due', field: 'dueCount', minWidth: 65, hozAlign: 'right', headerHozAlign: 'right', responsive: 1,
+              formatter: function (c) { return '<span class="inline-block text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200/80 px-2 py-0.5 rounded-md tabular-nums">' + esc(c.getValue()) + '</span>'; } },
+            { title: 'Total cards', field: 'totalCards', minWidth: 85, hozAlign: 'right', headerHozAlign: 'right', responsive: 2,
+              formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
+            { title: 'Oldest due', field: 'oldestText', minWidth: 95, hozAlign: 'right', headerHozAlign: 'right', responsive: 3,
+              formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
+            { title: '', field: 'reviewUrl', minWidth: 100, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
+              formatter: function (c) {
+                  var r = c.getRow().getData();
+                  return '<a href="' + esc(r.reviewUrl) + '" aria-label="Review ' + esc(r.title) + '" title="Start reviewing ' + esc(r.title) + '" ' +
+                         'class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary text-on-primary text-xs font-bold hover:bg-primary-container transition-colors whitespace-nowrap">' +
+                         '<span class="material-symbols-outlined text-[15px]">play_arrow</span><span>Review</span></a>';
+              } }
+        ]);
+
+        // ---- Upcoming ----
+        make('#upcoming-table', data.upcoming, [
+            { title: 'Deck', field: 'title', widthGrow: 3, minWidth: 120, responsive: 0,
+              formatter: linkCell('deckUrl', function (r) {
+                  return r.isDueNow ? '<span class="text-[10px] font-bold uppercase tracking-wider text-rose-700 whitespace-nowrap">Due now</span>' : '';
+              }) },
+            { title: 'Cards soon', field: 'upcomingCount', minWidth: 85, hozAlign: 'right', headerHozAlign: 'right', responsive: 1,
+              formatter: function (c) { return '<span class="inline-block text-[11px] font-bold text-on-surface-variant bg-surface-container-high px-2 py-0.5 rounded-md tabular-nums">' + esc(c.getValue()) + '</span>'; } },
+            { title: 'Next due', field: 'nextText', minWidth: 95, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
+              formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } }
+        ]);
+
+        // ---- Recent Review Sessions ----
+        make('#recent-sessions-table', data.recent, [
+            { title: 'Deck', field: 'title', widthGrow: 3, minWidth: 120, responsive: 0, formatter: linkCell('detailsUrl') },
+            { title: 'Cards', field: 'cards', minWidth: 65, hozAlign: 'right', headerHozAlign: 'right', responsive: 2,
+              formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
+            { title: 'Accuracy', field: 'accuracy', minWidth: 80, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
+              formatter: function (c) {
+                  var r = c.getRow().getData();
+                  return '<span class="inline-block text-[11px] font-bold border px-2 py-0.5 rounded-md tabular-nums ' + esc(r.accuracyCls) + '">' + esc(r.accuracy) + '%</span>';
+              } },
+            { title: 'Duration', field: 'duration', minWidth: 75, hozAlign: 'right', headerHozAlign: 'right', responsive: 3,
+              formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
+            { title: 'When', field: 'when', minWidth: 85, hozAlign: 'right', headerHozAlign: 'right', responsive: 1,
+              formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
+            { title: '', field: 'practiceUrl', minWidth: 115, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
+              formatter: function (c) {
+                  var r = c.getRow().getData();
+                  if (!r.practiceUrl) return '';
+                  return '<a href="' + esc(r.practiceUrl) + '" title="Practice these cards again without affecting spaced repetition history" ' +
+                         'class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-outline-variant text-on-surface text-xs font-bold hover:bg-surface-container-low transition-colors whitespace-nowrap">' +
+                         '<span class="material-symbols-outlined text-[15px]">play_arrow</span><span>Again</span></a>';
+              } },
+            { title: 'Action', field: 'detailsUrl', minWidth: 110, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
+              formatter: function (c) {
+                  var r = c.getRow().getData();
+                  return '<a href="' + esc(r.detailsUrl) + '" ' +
+                         'title="View comprehensive review session breakdown, card history, and performance details for ' + esc(r.title) + '" ' +
+                         'aria-label="View session details for ' + esc(r.title) + '" ' +
+                         'class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container-high border border-outline-variant/40 text-on-surface hover:text-primary hover:border-primary/50 text-xs font-bold transition-colors whitespace-nowrap">' +
+                         '<span>View Details</span><span class="material-symbols-outlined text-[15px]">chevron_right</span></a>';
+              } }
+        ], {
+            rowClick: function (e, row) {
+                if (e.target.closest('a')) return;
+                window.location.href = row.getData().detailsUrl;
+            }
+        });
+    }
+
+    ensureTabulator(buildTables);
+});
+</script>
+```
+
+database-design.md
+```
+CREATE DATABASE IF NOT EXISTS mempulse_db
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
+
+USE mempulse_db;
+
+
+-- 1. USERS TABLE
+CREATE TABLE users (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    password_changed_at DATETIME NULL,
+    role ENUM('admin', 'user') NOT NULL DEFAULT 'user',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME NULL,
+    account_status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+    INDEX idx_users_active (deleted_at)
+) ENGINE=InnoDB;
+
+
+-- 2. USER SETTINGS TABLE (SRS Configuration)
+CREATE TABLE user_settings (
+    user_id BIGINT UNSIGNED PRIMARY KEY,
+    remember_multiplier DECIMAL(4,2) NOT NULL DEFAULT 2.00,
+    forgot_multiplier DECIMAL(4,2) NOT NULL DEFAULT 0.50,
+    initial_interval_days INT UNSIGNED NOT NULL DEFAULT 1,
+    maximum_interval_days INT UNSIGNED NOT NULL DEFAULT 365,
+    theme ENUM('light', 'dark', 'system')NOT NULL DEFAULT 'system',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id)
+        REFERENCES users(id)
+        ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+
+-- 3. DECKS TABLE
+CREATE TABLE decks (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL,
+    title VARCHAR(150) NOT NULL,
+    cover_image VARCHAR(255) DEFAULT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME NULL,
+    FOREIGN KEY (user_id)
+        REFERENCES users(id)
+        ON DELETE CASCADE,
+    INDEX idx_decks_user_active (user_id, deleted_at)
+) ENGINE=InnoDB;
+
+
+-- 4. FLASHCARDS TABLE
+CREATE TABLE flashcards (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    deck_id BIGINT UNSIGNED NOT NULL,
+    front TEXT NOT NULL,
+    back TEXT NOT NULL,
+    interval_days INT UNSIGNED NOT NULL DEFAULT 1,
+    next_review_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    review_count INT UNSIGNED NOT NULL DEFAULT 0,
+    lapses INT UNSIGNED NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at DATETIME NULL,
+    FOREIGN KEY (deck_id)
+        REFERENCES decks(id)
+        ON DELETE CASCADE,
+    INDEX idx_cards_deck_due (deck_id, deleted_at, next_review_at)
+) ENGINE=InnoDB;
+
+
+-- 5. REVIEW SESSIONS TABLE
+CREATE TABLE review_sessions (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL,
+    deck_id BIGINT UNSIGNED NOT NULL,
+    started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ended_at DATETIME NULL,
+    total_reviewed INT UNSIGNED NOT NULL DEFAULT 0,
+    remembered_count INT UNSIGNED NOT NULL DEFAULT 0,
+    accuracy_percentage DECIMAL(5,2)
+        GENERATED ALWAYS AS (
+            CASE
+                WHEN total_reviewed > 0
+                    THEN (remembered_count / total_reviewed) * 100
+                ELSE 0.00
+            END
+        ) STORED,
+    FOREIGN KEY (user_id)
+        REFERENCES users(id)
+        ON DELETE CASCADE,
+    FOREIGN KEY (deck_id)
+        REFERENCES decks(id)
+        ON DELETE CASCADE,
+    INDEX idx_user_sessions (user_id, started_at)
+) ENGINE=InnoDB;
+
+
+-- 6. REVIEW LOGS TABLE
+CREATE TABLE review_logs (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    session_id BIGINT UNSIGNED NOT NULL,
+    card_id BIGINT UNSIGNED NULL,
+    rating ENUM('remembered', 'forgot') NOT NULL,
+    previous_interval INT UNSIGNED NOT NULL,
+    new_interval INT UNSIGNED NOT NULL,
+    response_time_ms INT UNSIGNED NULL,
+    reviewed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (session_id)
+        REFERENCES review_sessions(id)
+        ON DELETE CASCADE,
+    FOREIGN KEY (card_id)
+        REFERENCES flashcards(id)
+        ON DELETE SET NULL,
+    INDEX idx_session_logs (session_id)
+) ENGINE=InnoDB;
+
+-- 7. ADMIN AUDIT LOG TABLE (append-only record of admin actions)
+CREATE TABLE admin_audit_log (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    admin_id BIGINT UNSIGNED NULL,
+    action VARCHAR(50) NOT NULL,
+    target_user_id BIGINT UNSIGNED NULL,
+    target_email VARCHAR(255) NOT NULL,
+    target_name VARCHAR(201) NOT NULL,
+    previous_status VARCHAR(20) NULL,
+    new_status VARCHAR(20) NULL,
+    ip_address VARCHAR(45) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (admin_id)
+        REFERENCES users(id)
+        ON DELETE SET NULL,
+    FOREIGN KEY (target_user_id)
+        REFERENCES users(id)
+        ON DELETE SET NULL,
+    INDEX idx_audit_created (created_at),
+    INDEX idx_audit_target (target_user_id, created_at),
+    INDEX idx_audit_admin (admin_id, created_at)
+) ENGINE=InnoDB;
+```
+

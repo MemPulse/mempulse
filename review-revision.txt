@@ -1,0 +1,3988 @@
+review.php
+```
+<?php
+session_start();
+
+if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || !isset($_SESSION['user_id'])) {
+    header("Location: ../authentication/login.php");
+    exit;
+}
+
+require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../api/ReviewHubService.php';
+require_once __DIR__ . '/../api/PracticeService.php';
+
+// Anti-CSRF token, sent along with the batch save in review.js
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+$userId = (int) $_SESSION['user_id'];
+$deckId = isset($_GET['deck_id']) && ctype_digit((string) $_GET['deck_id']) ? (int) $_GET['deck_id'] : null;
+
+$isReviewing = false;
+$dueCards = [];
+$hubDecks = [];
+
+// PRACTICE MODE (read-only): replay chosen cards without touching the schedule.
+//   review.php?deck_id=12&mode=practice&from=deck&cards=5,9,14
+//   review.php?mode=practice&from=sessions&session_id=88
+$isPractice   = (($_GET['mode'] ?? '') === 'practice');
+$practiceSkipped = 0;
+$returnUrl    = 'review.php';
+$practiceSessionId = 0;
+
+if ($isPractice) {
+    $isReviewing = true;
+    $from = (string) ($_GET['from'] ?? '');
+    $practiceSessionId = isset($_GET['session_id']) && ctype_digit((string) $_GET['session_id']) ? (int) $_GET['session_id'] : 0;
+
+    if ($practiceSessionId > 0) {
+        // From session history: all cards of that session, in the order they were reviewed
+        $info = PracticeService::sessionInfo($conn, $userId, $practiceSessionId);
+        if ($info === null) {
+            header("Location: review.php");
+            exit;
+        }
+        $deckId   = $info['deckId'];
+        $deckName = $info['deckTitle'];
+        $dueCards = PracticeService::cardsFromSession($conn, $userId, $practiceSessionId);
+        $practiceSkipped = max(0, $info['requested'] - count($dueCards));
+    } else {
+        // From the deck page: the selected card ids, in grid order
+        $ids = PracticeService::parseIds($_GET['cards'] ?? '');
+        if (!$deckId || !$ids) {
+            header("Location: review.php");
+            exit;
+        }
+        $deckName = null;
+        if ($stmt = mysqli_prepare($conn, "SELECT title FROM decks WHERE id = ? AND user_id = ? AND deleted_at IS NULL")) {
+            mysqli_stmt_bind_param($stmt, "ii", $deckId, $userId);
+            mysqli_stmt_execute($stmt);
+            $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+            $deckName = $row['title'] ?? null;
+            mysqli_stmt_close($stmt);
+        }
+        if ($deckName === null) {
+            header("Location: review.php");
+            exit;
+        }
+        $dueCards = PracticeService::cardsByIds($conn, $userId, $deckId, $ids);
+        $practiceSkipped = max(0, count($ids) - count($dueCards));
+    }
+    $returnUrl = PracticeService::returnUrl($from, $deckId ?? 0, $practiceSessionId);
+
+} elseif ($deckId) {
+    // ACTIVE REVIEW STATE: Fetch due cards for the specific deck
+    $isReviewing = true;
+    // Ownership check: only this user's non-archived decks, non-archived cards
+    $sql = "SELECT f.id, f.front, f.back, f.interval_days, f.next_review_at
+            FROM flashcards f
+            JOIN decks d ON d.id = f.deck_id
+            WHERE f.deck_id = ? AND d.user_id = ? AND d.deleted_at IS NULL
+              AND f.deleted_at IS NULL AND f.next_review_at <= NOW()
+            ORDER BY f.next_review_at ASC";
+    if ($stmt = mysqli_prepare($conn, $sql)) {
+        mysqli_stmt_bind_param($stmt, "ii", $deckId, $userId);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        while ($row = mysqli_fetch_assoc($result)) {
+            $dueCards[] = $row;
+        }
+        mysqli_stmt_close($stmt);
+    }
+    $deckName = null;
+    if ($stmt = mysqli_prepare($conn, "SELECT title FROM decks WHERE id = ? AND user_id = ? AND deleted_at IS NULL")) {
+        mysqli_stmt_bind_param($stmt, "ii", $deckId, $userId);
+        mysqli_stmt_execute($stmt);
+        $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        $deckName = $row['title'] ?? null;
+        mysqli_stmt_close($stmt);
+    }
+    if ($deckName === null) {
+        header("Location: review.php");
+        exit;
+    }
+} else {
+    // HUB STATE: table data + call-to-action data
+    $hubDecks       = ReviewHubService::getHubDecks($conn, $userId);
+    $dueDecks       = ReviewHubService::dueDecks($hubDecks);
+    $upcomingDecks  = ReviewHubService::upcomingDecks($hubDecks);
+    $recentSessions = ReviewHubService::getRecentSessions($conn, $userId, 8);
+
+    $streakInfo     = ReviewHubService::getStreakInfo($conn, $userId);
+    $curStreak      = $streakInfo['currentStreak'];
+    $reviewedToday  = $streakInfo['reviewedToday'];
+
+    $dueTotal       = array_sum(array_column($dueDecks, 'dueCount'));
+    $nextDueSecs    = $dueTotal === 0 ? ReviewHubService::getNextDueSeconds($conn, $userId) : null;
+}
+
+$pageTitle = $isReviewing ? "Active Review" : "Review Hub"; 
+$currentPage = "review";
+?>
+<!DOCTYPE html>
+<html lang="en">
+
+<?php include __DIR__ . '/../includes/head.php'; ?>
+
+<body class="bg-background font-body-md text-on-surface antialiased min-h-screen">
+    <?php if ($isReviewing): ?>
+        <script>
+            // Collapse the sidebar for the live session; remember the user's own preference.
+            if (sessionStorage.getItem('sidebarPrev') === null) {
+                sessionStorage.setItem('sidebarPrev', localStorage.getItem('sidebarCollapsed') ?? 'false');
+            }
+            localStorage.setItem('sidebarCollapsed', 'true');
+        </script>
+    <?php endif; ?>
+    <?php include __DIR__ . '/../includes/sidebar.php'; ?>
+
+    <main id="main-content" class="pl-0 md:pl-72 pt-16 transition-all duration-300 ease-in-out">
+                                
+            <?php if (!$isReviewing): ?>
+                <?php include __DIR__ . '/review-hub-view.php'; ?>
+
+            <?php else: ?>
+                <!-- Practice mode banner (JS also shows it when a finished review switches to practice) -->
+                <div id="practice-banner" class="<?= $isPractice ? '' : 'hidden' ?> max-w-[55rem] mx-auto mb-6 sm:px-14">
+                    <div class="rounded-xl bg-surface-container-low border border-outline-variant/30 px-4 py-2.5 text-sm text-on-surface">
+                        <p class="font-bold flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[18px] text-primary">play_arrow</span>
+                            Practice mode: results are not saved
+                        </p>
+                        <?php if ($isPractice && $practiceSkipped > 0): ?>
+                            <p id="practice-skipped" class="mt-1 text-xs text-on-surface-variant">
+                                <?= $practiceSkipped === 1
+                                    ? '1 card was skipped because it was archived or deleted.'
+                                    : (int) $practiceSkipped . ' cards were skipped because they were archived or deleted.' ?>
+                            </p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <?php if ($isPractice && empty($dueCards)): ?>
+                    <!-- Practice with no cards left -->
+                    <div id="practice-empty" class="max-w-2xl mx-auto flex flex-col items-center justify-center text-center pb-12">
+                        <div class="w-20 h-20 bg-surface-container-high text-on-surface-variant rounded-full flex items-center justify-center mb-6">
+                            <span class="material-symbols-outlined text-[40px]">inventory_2</span>
+                        </div>
+                        <h2 class="font-headline-md text-3xl font-extrabold text-on-surface mb-2">No cards to practice</h2>
+                        <p class="text-on-surface-variant mb-8">These cards have been archived or deleted since the session.</p>
+                        <a href="<?= htmlspecialchars($returnUrl, ENT_QUOTES, 'UTF-8') ?>" class="px-6 py-3 rounded-xl bg-primary text-on-primary font-bold shadow-sm hover:bg-primary-container transition-colors">Back</a>
+                    </div>
+                <?php endif; ?>
+
+                <!-- STATE B: ACTIVE REVIEW INTERFACE -->
+                <div id="active-review-container" class="max-w-[55rem] mx-auto flex flex-col h-full <?= empty($dueCards) ? 'hidden' : '' ?>">
+                    
+                    <!-- Session Header -->
+                    <div class="mb-6 sm:px-14">
+                        <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                            <button id="end-session-btn" class="justify-self-start p-1 -ml-1 text-on-surface-variant hover:text-rose-600 transition-colors" title="End session">
+                                <span class="material-symbols-outlined">close</span>
+                            </button>
+
+                            <div class="text-center min-w-0 max-w-[55vw] sm:max-w-sm">
+                                <p class="text-[11px] font-bold uppercase tracking-wider text-primary truncate"><?= htmlspecialchars($deckName, ENT_QUOTES, 'UTF-8') ?></p>
+                                <p id="progress-text" class="text-xs text-on-surface-variant">Card 1 of <?= count($dueCards) ?></p>
+                            </div>
+
+                            <div class="justify-self-end flex items-center gap-2.5 text-sm font-bold bg-surface-container-lowest border border-outline-variant/30 px-3 py-1.5 rounded-xl">
+                                <span class="text-emerald-600 flex items-center gap-1" title="Remembered">
+                                    <span class="material-symbols-outlined text-[16px]">check_circle</span>
+                                    <span id="tally-remembered" class="inline-block tabular-nums">0</span>
+                                </span>
+                                <span class="text-outline-variant">|</span>
+                                <span class="text-rose-600 flex items-center gap-1" title="Forgotten">
+                                    <span class="material-symbols-outlined text-[16px]">cancel</span>
+                                    <span id="tally-forgotten" class="inline-block tabular-nums">0</span>
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="mt-3 w-full bg-surface-container-high rounded-full h-1 overflow-hidden">
+                            <div id="progress-bar" class="bg-primary h-1 rounded-full transition-[width] duration-300 ease-out" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Flashcard Stage -->
+                    <div class="flex-1 flex flex-col items-center justify-center min-h-[350px]">
+                        <div class="flex items-center gap-2 sm:gap-4 w-full">
+
+                            <!-- Prev: left margin -->
+                            <button id="prev-card-btn" type="button" title="Previous card (←)" aria-label="Previous card"
+                                class="shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-surface-container-lowest border border-outline-variant/40 text-on-surface-variant hover:text-primary hover:border-primary/50 hover:bg-surface-container-low transition disabled:opacity-30 disabled:pointer-events-none">
+                                <span class="material-symbols-outlined text-[22px]">chevron_left</span>
+                            </button>
+
+                            <div id="flashcard-stage" class="flex-1 min-w-0 bg-surface-container-lowest border border-outline-variant/30 shadow-md rounded-2xl p-8 sm:p-12 text-center relative overflow-hidden">
+
+                                <!-- Rating Badge (shows briefly when navigating backwards) -->
+                                <div id="historical-rating-badge" class="hidden absolute top-4 right-4 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider"></div>
+
+                                <!-- Front -->
+                                <div id="card-front-content" class="text-xl sm:text-2xl font-medium text-on-surface"></div>
+
+                                <!-- Divider -->
+                                <hr id="card-divider" class="my-8 border-outline-variant/30 hidden">
+
+                                <!-- Back -->
+                                <div id="card-back-content" class="text-lg sm:text-xl text-on-surface-variant hidden"></div>
+                            </div>
+
+                            <!-- Next: right margin -->
+                            <button id="next-card-btn" type="button" title="Next card (→)" aria-label="Next card"
+                                class="shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-surface-container-lowest border border-outline-variant/40 text-on-surface-variant hover:text-primary hover:border-primary/50 hover:bg-surface-container-low transition disabled:opacity-30 disabled:pointer-events-none">
+                                <span class="material-symbols-outlined text-[22px]">chevron_right</span>
+                            </button>
+
+                        </div>
+                    </div>
+
+                    <!-- Controls -->
+                    <div class="mt-6 flex flex-col items-center gap-3 sm:px-14">
+                        <div class="flex justify-center w-full min-h-[56px]">
+                            <button id="show-answer-btn" class="px-8 py-3 rounded-xl bg-primary text-on-primary font-bold shadow-md hover:bg-primary-container hover:-translate-y-0.5 transition-all w-full max-w-sm">
+                                Show Answer
+                            </button>
+
+                            <div id="rate-actions" class="hidden flex gap-3 w-full max-w-lg">
+                                <button id="rate-again-btn" type="button" class="flex-1 flex flex-col items-center justify-center py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 active:scale-[0.97] transition shadow-sm">
+                                    <span class="font-bold">Again</span>
+                                    <span id="projected-again-date" class="text-[11px] font-medium opacity-80 mt-0.5">this session</span>
+                                </button>
+                                <button id="rate-forgot-btn" class="flex-1 flex flex-col items-center justify-center py-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 active:scale-[0.97] transition shadow-sm">
+                                    <span class="font-bold">Forgot</span>
+                                    <span id="projected-forgot-date" class="text-[11px] font-medium opacity-80 mt-0.5">Again today</span>
+                                </button>
+                                <button id="rate-remember-btn" class="flex-1 flex flex-col items-center justify-center py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 active:scale-[0.97] transition shadow-sm">
+                                    <span class="font-bold">Remember</span>
+                                    <span id="projected-remember-date" class="text-[11px] font-medium opacity-80 mt-0.5">in 2 days</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <p class="hidden md:block text-[11px] text-on-surface-variant/60 select-none">
+                            <span id="hint-reveal"><kbd class="px-1.5 py-0.5 rounded border border-outline-variant/50 bg-surface-container-low font-mono text-[10px]">Space</kbd> reveal</span>
+                            <span id="hint-rate" class="hidden">
+                                <kbd class="px-1.5 py-0.5 rounded border border-outline-variant/50 bg-surface-container-low font-mono text-[10px]">A</kbd> again
+                                <span class="mx-1" aria-hidden="true">·</span>
+                                <kbd class="px-1.5 py-0.5 rounded border border-outline-variant/50 bg-surface-container-low font-mono text-[10px]">F</kbd> forgot
+                                <span class="mx-1" aria-hidden="true">·</span>
+                                <kbd class="px-1.5 py-0.5 rounded border border-outline-variant/50 bg-surface-container-low font-mono text-[10px]">Space</kbd> remember
+                            </span>
+                        </p>
+                    </div>
+
+                </div>
+
+                <!-- STATE C: ZERO CARDS / FINISHED SCREEN -->
+                <div id="review-finished-screen" class="max-w-2xl mx-auto flex-col items-center justify-center text-center h-full pb-12 <?= (empty($dueCards) && !$isPractice) ? 'flex' : 'hidden' ?>">
+                    <div id="finished-icon" class="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-6">
+                        <span class="material-symbols-outlined text-[40px]">task_alt</span>
+                    </div>
+                    <h2 id="finished-headline" class="font-headline-md text-3xl font-extrabold text-on-surface mb-2">Session Complete!</h2>
+                    <p class="text-on-surface-variant mb-8">You've finished <span class="font-semibold text-on-surface"><?= htmlspecialchars($deckName, ENT_QUOTES, 'UTF-8') ?></span>. Great work.</p>
+
+                    <div id="session-summary-stats" class="grid grid-cols-3 gap-3 w-full max-w-md mb-8 hidden">
+                        <div data-stat-tile class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-sm">
+                            <span class="block text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Accuracy</span>
+                            <span id="summary-accuracy" class="block text-4xl font-extrabold text-on-surface mt-1 tabular-nums">0%</span>
+                            <div class="mt-3 h-1 rounded-full bg-surface-container-high overflow-hidden">
+                                <div id="summary-accuracy-bar" class="h-1 rounded-full bg-primary" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div data-stat-tile class="bg-emerald-50 border border-emerald-200/80 rounded-2xl p-4 shadow-sm">
+                            <span class="block text-[11px] font-bold uppercase tracking-wider text-emerald-700">Remembered</span>
+                            <span id="summary-remembered" class="block text-4xl font-extrabold text-emerald-600 mt-1 tabular-nums">0</span>
+                        </div>
+                        <div data-stat-tile class="bg-rose-50 border border-rose-200/80 rounded-2xl p-4 shadow-sm">
+                            <span class="block text-[11px] font-bold uppercase tracking-wider text-rose-700">Forgotten</span>
+                            <span id="summary-forgotten" class="block text-4xl font-extrabold text-rose-600 mt-1 tabular-nums">0</span>
+                        </div>
+                    </div>
+
+                    <div id="finished-actions" class="flex flex-col sm:flex-row items-center justify-center gap-3">
+                        <button id="review-missed-btn" type="button" disabled class="hidden px-6 py-3 rounded-xl bg-primary text-on-primary font-bold shadow-sm hover:bg-primary-container transition-colors disabled:opacity-60 disabled:cursor-wait">
+                            Saving…
+                        </button>
+                        <button id="practice-again-btn" type="button" disabled class="hidden px-6 py-3 rounded-xl font-bold border border-outline-variant text-on-surface hover:bg-surface-container-low transition-colors disabled:opacity-60 disabled:cursor-wait">
+                            Practice again
+                        </button>
+                        <a id="return-hub-link" href="review.php" class="px-6 py-3 rounded-xl bg-primary text-on-primary font-bold shadow-sm hover:bg-primary-container transition-colors">
+                            Return to Review Hub
+                        </a>
+                    </div>
+                </div>
+
+            <?php endif; ?>
+    </main>
+
+    <!-- Data Injection -->
+    <script>
+        window.MemPulseReviewData = {
+            deckId: <?= json_encode($deckId) ?>,
+            dueCards: <?= json_encode($dueCards ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+            csrfToken: <?= json_encode($_SESSION['csrf_token'] ?? '') ?>,
+            mode: <?= json_encode($isPractice ? 'practice' : null) ?>,
+            skipped: <?= (int) $practiceSkipped ?>,
+            returnUrl: <?= json_encode($returnUrl) ?>
+        };
+    </script>
+    <script src="../assets/js/review.js" defer></script>
+</body>
+</html>
+```
+
+review-hub-view.php
+```
+<?php
+/**
+ * Review Hub view (STATE A of review.php)
+ *
+ * Expects these variables from review.php:
+ *   $dueDecks, $upcomingDecks, $recentSessions  (see ReviewHubService)
+ *   $dueTotal, $nextDueSecs, $curStreak, $reviewedToday
+ */
+
+$h = [ReviewHubService::class, 'h'];
+
+// ---- Due Now call-to-action state ----
+$dueDeckCount = count($dueDecks);
+$reviewHref   = $dueDeckCount > 0 ? 'review.php?deck_id=' . (int) $dueDecks[0]['id'] : 'review.php';
+$streakAtRisk = $dueTotal > 0 && $curStreak > 0 && $reviewedToday === 0;
+
+if ($streakAtRisk) {
+    $dueSubtitle = 'Keep your ' . $curStreak . '-day streak alive';
+} elseif ($dueDeckCount === 1) {
+    $dueSubtitle = 'in ' . $dueDecks[0]['title'];
+} elseif ($dueDeckCount > 1) {
+    $dueSubtitle = 'Starting with ' . $dueDecks[0]['title'] . ' (+' . ($dueDeckCount - 1) . ' more)';
+} else {
+    $dueSubtitle = '';
+}
+
+$nextDueLabel = ($nextDueSecs !== null && $nextDueSecs > 0)
+    ? 'Next cards due in ' . ReviewHubService::formatSpan($nextDueSecs)
+    : '';
+?>
+<!-- ========================================================================= -->
+<!-- STATE A: REVIEW HUB (dashboard-style layout, table lists)                 -->
+<!-- ========================================================================= -->
+<div class="w-full px-2 sm:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
+    <div class="flex flex-col w-full gap-4 sm:gap-6">
+
+        <h1 class="font-headline-md text-headline-md font-bold tracking-tight text-on-surface">Review</h1>
+
+        <!-- Unified Header Hero Banner -->
+        <div class="relative w-full rounded-2xl bg-surface-container-lowest border border-outline-variant/30 p-4 sm:p-5 shadow-xs">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+
+                <?php if ($dueTotal > 0): ?>
+                    <!-- A: Cards Due Ready State -->
+                    <div class="flex items-center gap-3.5 min-w-0">
+                        <!-- Simple Compact Icon -->
+                        <!-- <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-[22px] sm:text-[24px]">alarm</span>
+                        </div> -->
+
+                        <!-- Clean Text & Action Overview -->
+                        <div class="flex flex-col min-w-0">
+                            <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-primary">Due Now</span>
+                            <div class="flex items-center gap-2 min-w-0">
+                                <h2 class="text-base sm:text-lg font-extrabold text-on-surface leading-tight truncate m-0">
+                                    <span id="stat-due-cta-count" class="font-extrabold text-primary tabular-nums"><?= (int) $dueTotal ?></span>
+                                    <?= $dueTotal === 1 ? 'card' : 'cards' ?> ready to review
+                                </h2>
+
+                                <?php if ($streakAtRisk): ?>
+                                    <span class="shrink-0 px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200/80 text-[10px] font-bold">
+                                        Streak at risk
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+
+                            <?php if ($dueSubtitle !== ''): ?>
+                                <p class="text-xs text-on-surface-variant/80 font-medium truncate m-0 mt-0.5"><?= $h($dueSubtitle) ?></p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2.5 w-full sm:w-auto justify-end shrink-0">
+                        <!-- Keyboard Shortcuts Popover Trigger (Desktop) -->
+                        <div class="relative hidden lg:block group">
+                            <button type="button" aria-label="View keyboard shortcuts"
+                                    class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-outline-variant/40 bg-surface-container-low text-on-surface-variant text-xs font-semibold hover:text-primary hover:border-primary/40 transition-colors">
+                                <span class="material-symbols-outlined text-[16px]">keyboard</span>
+                                <span>Shortcuts</span>
+                            </button>
+
+                            <!-- Hover/Focus Popover Card -->
+                            <div class="absolute right-0 top-full mt-2 w-64 p-3 rounded-xl bg-surface-container-highest border border-outline-variant/40 shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 group-focus-within:opacity-100 group-hover:pointer-events-auto group-focus-within:pointer-events-auto transition-all z-20">
+                                <span class="text-xs font-bold text-on-surface block mb-2">Review Controls</span>
+                                <ul class="space-y-1.5 text-xs text-on-surface-variant">
+                                    <li class="flex items-center justify-between"><kbd class="px-1.5 py-0.5 bg-surface-container-high rounded border border-outline-variant/50 font-mono text-[10px]">Space</kbd> Show / Remember</li>
+                                    <li class="flex items-center justify-between"><kbd class="px-1.5 py-0.5 bg-surface-container-high rounded border border-outline-variant/50 font-mono text-[10px]">F</kbd> Mark Forgotten</li>
+                                    <li class="flex items-center justify-between"><kbd class="px-1.5 py-0.5 bg-surface-container-high rounded border border-outline-variant/50 font-mono text-[10px]">← / →</kbd> Previous / Next</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Main Review CTA -->
+                        <a href="<?= $h($reviewHref) ?>"
+                           id="stat-due-cta"
+                           aria-label="Review <?= (int) $dueTotal ?> due <?= $dueTotal === 1 ? 'card' : 'cards' ?>"
+                           class="inline-flex items-center justify-center gap-2 px-4 py-2 sm:py-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs sm:text-sm shadow-xs hover:bg-primary-container transition-colors w-full sm:w-auto">
+                            <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+                            <span>Start Review</span>
+                        </a>
+                    </div>
+
+                <?php elseif ($nextDueSecs !== null): ?>
+                    <!-- B: All Caught Up State -->
+                    <div class="flex items-center gap-3.5 min-w-0">
+                        <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-600 flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-[22px] sm:text-[24px]">task_alt</span>
+                        </div>
+                        <div class="flex flex-col min-w-0">
+                            <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-emerald-700">Due Now</span>
+                            <h2 class="text-base sm:text-lg font-extrabold text-on-surface leading-tight m-0">All caught up</h2>
+                            <?php if ($nextDueLabel !== ''): ?>
+                                <p class="text-xs text-on-surface-variant/80 font-medium truncate m-0 mt-0.5"><?= $h($nextDueLabel) ?></p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                <?php else: ?>
+                    <!-- C: No Cards Scheduled State -->
+                    <div class="flex items-center gap-3.5 min-w-0">
+                        <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                            <span class="material-symbols-outlined text-[22px] sm:text-[24px]">add</span>
+                        </div>
+                        <div class="flex flex-col min-w-0">
+                            <span class="font-label-sm text-[10px] font-bold uppercase tracking-wider text-primary">Due Now</span>
+                            <h2 class="text-base sm:text-lg font-extrabold text-on-surface leading-tight m-0">No cards found</h2>
+                            <p class="text-xs text-on-surface-variant/80 font-medium truncate m-0 mt-0.5">Create flashcards to start practicing</p>
+                        </div>
+                    </div>
+
+                    <a href="decks.php?add_card=1" id="stat-due-cta"
+                       class="inline-flex items-center justify-center gap-2 px-4 py-2 sm:py-2.5 rounded-xl bg-primary text-on-primary font-bold text-xs sm:text-sm shadow-xs hover:bg-primary-container transition-colors shrink-0 w-full sm:w-auto">
+                        <span class="material-symbols-outlined text-[18px]">add</span>
+                        <span>Create Cards</span>
+                    </a>
+                <?php endif; ?>
+
+            </div>
+        </div>
+
+<?php
+/* ------------------------------------------------------------------------
+ * Table data for Tabulator (read-only). All text is pre-formatted here so the
+ * JS only has to place it; the JS escapes every string before rendering.
+ * ---------------------------------------------------------------------- */
+$dueRows = [];
+foreach ($dueDecks as $d) {
+    $dueRows[] = [
+        'title'      => (string) $d['title'],
+        'deckUrl'    => 'deck.php?deck_id=' . (int) $d['id'],
+        'reviewUrl'  => 'review.php?deck_id=' . (int) $d['id'],
+        'dueCount'   => (int) $d['dueCount'],
+        'oldestText' => $d['overdueSeconds'] === null ? '—' : ReviewHubService::formatSpan($d['overdueSeconds']) . ' ago',
+        'totalCards' => (int) $d['totalCards'],
+    ];
+}
+
+$upcomingRows = [];
+foreach ($upcomingDecks as $d) {
+    $upcomingRows[] = [
+        'title'         => (string) $d['title'],
+        'deckUrl'       => 'deck.php?deck_id=' . (int) $d['id'],
+        'isDueNow'      => $d['dueCount'] > 0,
+        'upcomingCount' => (int) $d['upcomingCount'],
+        'nextText'      => $d['nextDueSeconds'] === null ? '—' : 'in ' . ReviewHubService::formatSpan($d['nextDueSeconds']),
+    ];
+}
+
+$recentRows = [];
+foreach ($recentSessions as $s) {
+    $recentRows[] = [
+        'title'       => (string) $s['deckTitle'],
+        'detailsUrl'  => 'session-details.php?id=' . (int) $s['sessionID'],
+        'practiceUrl' => ((int) $s['cardsReviewed'] > 0)
+            ? 'review.php?mode=practice&from=sessions&session_id=' . (int) $s['sessionID'] : '',
+        'cards'       => (int) $s['cardsReviewed'],
+        'accuracy'    => (int) $s['accuracy'],
+        'accuracyCls' => ReviewHubService::accuracyBadgeClass((int) $s['accuracy']),
+        'duration'    => ReviewHubService::formatDuration($s['durationSeconds']),
+        'when'        => (string) $s['formattedTime'],
+    ];
+}
+
+$jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE;
+
+$badgeCls = 'px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-bold tracking-wide whitespace-nowrap';
+?>
+
+        <!-- Colour probe: lets the table CSS reuse your Tailwind design tokens -->
+        <div id="mp-token-probe" class="hidden" aria-hidden="true">
+            <span data-t="head"    class="bg-surface-container text-on-surface-variant"></span>
+            <span data-t="text"    class="text-on-surface"></span>
+            <span data-t="hover"   class="bg-surface-container-low/50"></span>
+            <span data-t="card"    class="bg-surface-container-lowest"></span>
+            <span data-t="border"  class="border border-outline-variant/30"></span>
+            <span data-t="divider" class="border border-outline-variant/20"></span>
+        </div>
+
+        <!-- ===================================================================== -->
+        <!-- DUE NOW                                                                -->
+        <!-- ===================================================================== -->
+        <section class="flex flex-col gap-3 sm:gap-4 w-full min-w-0" id="due-now-section">
+            <div class="flex items-center justify-between gap-4">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <h2 class="text-base sm:text-lg font-extrabold tracking-tight text-on-surface whitespace-nowrap m-0">Due Now</h2>
+                    <span class="<?= $badgeCls ?>"><?= count($dueRows) ?> <?= count($dueRows) === 1 ? 'Deck' : 'Decks' ?></span>
+                    <span class="hidden sm:block w-px h-4 bg-outline-variant/40 shrink-0" aria-hidden="true"></span>
+                    <p class="hidden sm:block truncate text-xs text-on-surface-variant/80 font-medium m-0">Decks with cards ready to review</p>
+                </div>
+            </div>
+
+            <?php if (empty($dueRows)): ?>
+                <div class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs py-8 px-4 flex flex-col items-center justify-center text-center text-on-surface-variant">
+                    <span class="material-symbols-outlined text-[28px] text-outline/80 mb-1.5">task_alt</span>
+                    <span class="text-sm font-semibold text-on-surface">All caught up!</span>
+                    <span class="text-xs text-on-surface-variant/70 mt-0.5">You have no cards due for review right now.</span>
+                </div>
+            <?php else: ?>
+                <div class="mp-table rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs overflow-x-auto">
+                    <div id="due-now-table"></div>
+                </div>
+            <?php endif; ?>
+        </section>
+
+        <!-- ===================================================================== -->
+        <!-- UPCOMING                                                               -->
+        <!-- ===================================================================== -->
+        <section class="flex flex-col gap-3 sm:gap-4 w-full min-w-0" id="upcoming-section">
+            <div class="flex items-center justify-between gap-4">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <h2 class="text-base sm:text-lg font-extrabold tracking-tight text-on-surface whitespace-nowrap m-0">Upcoming (Next <?= (int) (ReviewHubService::UPCOMING_DAYS * 24) ?>h)</h2>
+                    <span class="<?= $badgeCls ?>"><?= count($upcomingRows) ?> <?= count($upcomingRows) === 1 ? 'Deck' : 'Decks' ?></span>
+                    <span class="hidden sm:block w-px h-4 bg-outline-variant/40 shrink-0" aria-hidden="true"></span>
+                    <p class="hidden sm:block truncate text-xs text-on-surface-variant/80 font-medium m-0">Cards that will be due soon</p>
+                </div>
+            </div>
+
+            <?php if (empty($upcomingRows)): ?>
+                <div class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs py-8 px-4 flex flex-col items-center justify-center text-center text-on-surface-variant">
+                    <span class="material-symbols-outlined text-[28px] text-outline/80 mb-1.5">schedule</span>
+                    <span class="text-sm font-semibold text-on-surface">No upcoming reviews</span>
+                    <span class="text-xs text-on-surface-variant/70 mt-0.5">No cards scheduled for the next <?= (int) (ReviewHubService::UPCOMING_DAYS * 24) ?> hours.</span>
+                </div>
+            <?php else: ?>
+                <div class="mp-table rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs overflow-x-auto">
+                    <div id="upcoming-table"></div>
+                </div>
+            <?php endif; ?>
+        </section>
+
+        <!-- ===================================================================== -->
+        <!-- RECENT REVIEW SESSIONS                                                 -->
+        <!-- ===================================================================== -->
+        <section class="flex flex-col gap-3 sm:gap-4 w-full min-w-0" id="recent-sessions-section">
+            <div class="flex items-center justify-between gap-4">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <h2 class="text-base sm:text-lg font-extrabold tracking-tight text-on-surface whitespace-nowrap m-0">Recent Review Sessions</h2>
+                    <span class="<?= $badgeCls ?>"><?= count($recentRows) ?> <?= count($recentRows) === 1 ? 'Session' : 'Sessions' ?></span>
+                    <span class="hidden sm:block w-px h-4 bg-outline-variant/40 shrink-0" aria-hidden="true"></span>
+                    <p class="hidden sm:block truncate text-xs text-on-surface-variant/80 font-medium m-0">Your latest spaced repetition drills</p>
+                </div>
+                <a href="sessions.php" class="shrink-0 text-xs text-primary hover:underline font-semibold flex items-center gap-1 transition-all whitespace-nowrap">
+                    <span>View History</span>
+                    <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+                </a>
+            </div>
+
+            <?php if (empty($recentRows)): ?>
+                <div class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs py-8 px-4 flex flex-col items-center justify-center text-center text-on-surface-variant">
+                    <span class="material-symbols-outlined text-[28px] text-outline/80 mb-1.5">history_edu</span>
+                    <span class="text-sm font-semibold text-on-surface">No recent review sessions found</span>
+                    <span class="text-xs text-on-surface-variant/70 mt-0.5">Complete a study session to see your history here.</span>
+                </div>
+            <?php else: ?>
+                <div class="mp-table rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs overflow-x-auto">
+                    <div id="recent-sessions-table"></div>
+                </div>
+            <?php endif; ?>
+        </section>
+
+    </div>
+</div>
+
+<!-- Tabulator CSS stylesheet -->
+<link href="https://unpkg.com/tabulator-tables@5.5.0/dist/css/tabulator_simple.min.css" rel="stylesheet">
+
+<!-- Read-only Tabulator styling: structure + responsive mobile rules -->
+<style>
+    .mp-table .tabulator { background: transparent; border: 0; font-family: inherit; font-size: .8125rem; color: var(--mp-text, inherit); }
+    .mp-table .tabulator .tabulator-header { background: var(--mp-head-bg, #f1f1f1) !important; color: var(--mp-head-text, inherit); border-top: 0; border-bottom: 1px solid var(--mp-border, #ddd); }
+    .mp-table .tabulator .tabulator-header .tabulator-col { background: transparent !important; border-right: 0; }
+    .mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-content { padding: .625rem 1rem; }
+    .mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+    .mp-table .tabulator .tabulator-tableholder,
+    .mp-table .tabulator .tabulator-tableholder .tabulator-table { background: transparent; }
+    .mp-table .tabulator .tabulator-row,
+    .mp-table .tabulator .tabulator-row.tabulator-row-even,
+    .mp-table .tabulator .tabulator-row.tabulator-row-odd { background: transparent !important; color: inherit; border-bottom: 1px solid var(--mp-divider, #eee); min-height: 0; }
+    .mp-table .tabulator .tabulator-row:hover { background: var(--mp-hover, rgba(0,0,0,.03)) !important; }
+    .mp-table .tabulator .tabulator-table > .tabulator-row:last-child { border-bottom: 0; }
+    .mp-table .tabulator .tabulator-row .tabulator-cell { padding: .625rem 1rem; border-right: 0; vertical-align: middle; }
+    .mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-resize-handle { display: none; }
+    
+    @media (max-width: 640px) {
+        .mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-content,
+        .mp-table .tabulator .tabulator-row .tabulator-cell { padding: .5rem .625rem; font-size: .75rem; }
+    }
+
+    #due-now-table .tabulator-row,
+    #due-now-table .tabulator-row .tabulator-cell,
+    #upcoming-table .tabulator-row,
+    #upcoming-table .tabulator-row .tabulator-cell { cursor: default !important; }
+
+    #recent-sessions-table .tabulator-row,
+    #recent-sessions-table .tabulator-row .tabulator-cell { cursor: pointer; }
+</style>
+
+<!-- Tabulator tables (readable mode: no sorting, resizing, moving, editing or selection) -->
+<script type="application/json" id="hub-table-data"><?= json_encode(['due' => $dueRows, 'upcoming' => $upcomingRows, 'recent' => $recentRows], $jsonFlags) ?></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var dataEl = document.getElementById('hub-table-data');
+    if (!dataEl) return;
+    var data = JSON.parse(dataEl.textContent);
+
+    var probe = document.getElementById('mp-token-probe');
+    if (probe) {
+        var q = function (t) { return probe.querySelector('[data-t="' + t + '"]'); };
+        var s = document.documentElement.style;
+        s.setProperty('--mp-head-bg',   getComputedStyle(q('head')).backgroundColor);
+        s.setProperty('--mp-head-text', getComputedStyle(q('head')).color);
+        s.setProperty('--mp-text',      getComputedStyle(q('text')).color);
+        s.setProperty('--mp-hover',     getComputedStyle(q('hover')).backgroundColor);
+        s.setProperty('--mp-border',    getComputedStyle(q('border')).borderTopColor);
+        s.setProperty('--mp-divider',   getComputedStyle(q('divider')).borderTopColor);
+    }
+
+    var esc = function (v) {
+        return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    };
+
+    var muted = 'text-xs text-on-surface-variant tabular-nums whitespace-nowrap';
+
+    var base = {
+        layout: 'fitColumns',
+        responsiveLayout: 'hide',
+        movableColumns: false,
+        selectable: false,
+        selectableRows: false,
+        columnDefaults: { headerSort: false, resizable: false }
+    };
+
+    var linkCell = function (urlField, extra) {
+        return function (cell) {
+            var r = cell.getRow().getData();
+            var tag = (extra && extra(r)) || '';
+            return '<div class="flex items-center gap-2 min-w-0">' +
+                   '<a href="' + esc(r[urlField]) + '" title="' + esc(r.title) + '" ' +
+                   'class="block truncate font-semibold text-on-surface hover:text-primary transition-colors">' + esc(r.title) + '</a>' + tag + '</div>';
+        };
+    };
+
+    var make = function (selector, rows, columns, extra) {
+        var el = document.querySelector(selector);
+        if (!el) return;
+        if (typeof Tabulator === 'undefined') {
+            console.error('Tabulator failed to load.');
+            el.innerHTML = '<p class="py-8 text-center text-sm text-on-surface-variant">Table could not be loaded.</p>';
+            return;
+        }
+        var cols = columns.map(function (c) { return Object.assign({ headerSort: false, resizable: false }, c); });
+        new Tabulator(el, Object.assign({}, base, { data: rows, columns: cols }, extra || {}));
+    };
+
+    var ensureTabulator = function (done) {
+        if (window.Tabulator) return done();
+        var sc = document.createElement('script');
+        sc.src = 'https://unpkg.com/tabulator-tables@5.5.0/dist/js/tabulator.min.js';
+        sc.onload = done;
+        sc.onerror = done;
+        document.head.appendChild(sc);
+    };
+
+    function buildTables() {
+        // ---- Due Now ----
+        make('#due-now-table', data.due, [
+            { title: 'Deck', field: 'title', widthGrow: 3, minWidth: 120, responsive: 0, formatter: linkCell('deckUrl') },
+            { title: 'Due', field: 'dueCount', minWidth: 65, hozAlign: 'right', headerHozAlign: 'right', responsive: 1,
+              formatter: function (c) { return '<span class="inline-block text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200/80 px-2 py-0.5 rounded-md tabular-nums">' + esc(c.getValue()) + '</span>'; } },
+            { title: 'Total cards', field: 'totalCards', minWidth: 85, hozAlign: 'right', headerHozAlign: 'right', responsive: 2,
+              formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
+            { title: 'Oldest due', field: 'oldestText', minWidth: 95, hozAlign: 'right', headerHozAlign: 'right', responsive: 3,
+              formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
+            { title: '', field: 'reviewUrl', minWidth: 100, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
+              formatter: function (c) {
+                  var r = c.getRow().getData();
+                  return '<a href="' + esc(r.reviewUrl) + '" aria-label="Review ' + esc(r.title) + '" title="Start reviewing ' + esc(r.title) + '" ' +
+                         'class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary text-on-primary text-xs font-bold hover:bg-primary-container transition-colors whitespace-nowrap">' +
+                         '<span class="material-symbols-outlined text-[15px]">play_arrow</span><span>Review</span></a>';
+              } }
+        ]);
+
+        // ---- Upcoming ----
+        make('#upcoming-table', data.upcoming, [
+            { title: 'Deck', field: 'title', widthGrow: 3, minWidth: 120, responsive: 0,
+              formatter: linkCell('deckUrl', function (r) {
+                  return r.isDueNow ? '<span class="text-[10px] font-bold uppercase tracking-wider text-rose-700 whitespace-nowrap">Due now</span>' : '';
+              }) },
+            { title: 'Cards soon', field: 'upcomingCount', minWidth: 85, hozAlign: 'right', headerHozAlign: 'right', responsive: 1,
+              formatter: function (c) { return '<span class="inline-block text-[11px] font-bold text-on-surface-variant bg-surface-container-high px-2 py-0.5 rounded-md tabular-nums">' + esc(c.getValue()) + '</span>'; } },
+            { title: 'Next due', field: 'nextText', minWidth: 95, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
+              formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } }
+        ]);
+
+        // ---- Recent Review Sessions ----
+        make('#recent-sessions-table', data.recent, [
+            { title: 'Deck', field: 'title', widthGrow: 3, minWidth: 120, responsive: 0, formatter: linkCell('detailsUrl') },
+            { title: 'Cards', field: 'cards', minWidth: 65, hozAlign: 'right', headerHozAlign: 'right', responsive: 2,
+              formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
+            { title: 'Accuracy', field: 'accuracy', minWidth: 80, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
+              formatter: function (c) {
+                  var r = c.getRow().getData();
+                  return '<span class="inline-block text-[11px] font-bold border px-2 py-0.5 rounded-md tabular-nums ' + esc(r.accuracyCls) + '">' + esc(r.accuracy) + '%</span>';
+              } },
+            { title: 'Duration', field: 'duration', minWidth: 75, hozAlign: 'right', headerHozAlign: 'right', responsive: 3,
+              formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
+            { title: 'When', field: 'when', minWidth: 85, hozAlign: 'right', headerHozAlign: 'right', responsive: 1,
+              formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
+            { title: '', field: 'practiceUrl', minWidth: 115, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
+              formatter: function (c) {
+                  var r = c.getRow().getData();
+                  if (!r.practiceUrl) return '';
+                  return '<a href="' + esc(r.practiceUrl) + '" title="Practice these cards again without affecting spaced repetition history" ' +
+                         'class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-outline-variant text-on-surface text-xs font-bold hover:bg-surface-container-low transition-colors whitespace-nowrap">' +
+                         '<span class="material-symbols-outlined text-[15px]">play_arrow</span><span>Again</span></a>';
+              } },
+            { title: 'Action', field: 'detailsUrl', minWidth: 110, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
+              formatter: function (c) {
+                  var r = c.getRow().getData();
+                  return '<a href="' + esc(r.detailsUrl) + '" ' +
+                         'title="View comprehensive review session breakdown, card history, and performance details for ' + esc(r.title) + '" ' +
+                         'aria-label="View session details for ' + esc(r.title) + '" ' +
+                         'class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container-high border border-outline-variant/40 text-on-surface hover:text-primary hover:border-primary/50 text-xs font-bold transition-colors whitespace-nowrap">' +
+                         '<span>View Details</span><span class="material-symbols-outlined text-[15px]">chevron_right</span></a>';
+              } }
+        ], {
+            rowClick: function (e, row) {
+                if (e.target.closest('a')) return;
+                window.location.href = row.getData().detailsUrl;
+            }
+        });
+    }
+
+    ensureTabulator(buildTables);
+});
+</script>
+```
+
+review.js
+```
+document.addEventListener("DOMContentLoaded", () => {
+    const data = window.MemPulseReviewData;
+    if (!data.deckId || !data.dueCards || data.dueCards.length === 0) return;
+
+    // PRACTICE MODE: replay cards without saving anything. No saveSession(), no
+    // unsaved-changes warning, no endpoint calls. `practice` can also be switched on
+    // client-side from a normal review's finished screen ("Practice again").
+    let practice = data.mode === 'practice';
+    const cleanCard = c => ({ id: c.id, front: c.front, back: c.back, interval_days: c.interval_days, next_review_at: c.next_review_at });
+    let lastSet = data.dueCards.map(cleanCard);   // what "Practice again" replays
+    let finishToken = 0;                          // cancels a running stats animation on restart
+
+    let queue = data.dueCards;
+    let currentIndex = 0;
+
+    // State storage: track how the user rated each card ID
+    // Format: { cardId: 'remembered' | 'forgotten' }
+    let ratings = {};
+    let isAnswerShown = false;
+    let sessionEnded = false;
+
+    const csrfToken = data.csrfToken || '';
+    let sessionStartedAt = Date.now();
+    let sessionDuration = 0;
+    let unsavedRatings = false;
+
+    // "Again" puts the card back into this session's queue a few cards later.
+    // It never writes to `ratings`, so nothing extra is saved for it.
+    const AGAIN_OFFSET = 3;
+    let uniqueTotal = queue.length;   // cards in this session, ignoring repeats
+
+    // Scheduling rules, same as save-session.php. These defaults are replaced
+    // by the user's saved settings as soon as they load (see loadSrsSettings).
+    let srs = {
+        remember_multiplier: 2,
+        forgot_multiplier: 0.5,
+        initial_interval_days: 1,
+        maximum_interval_days: 365
+    };
+
+    function nextInterval(prevDays, status) {
+        const multiplier = status === 'remembered' ? srs.remember_multiplier : srs.forgot_multiplier;
+        const days = Math.round(prevDays * multiplier);
+        return Math.max(srs.initial_interval_days, Math.min(srs.maximum_interval_days, days));
+    }
+
+    const formatDays = (d) => `in ${d} ${d === 1 ? 'day' : 'days'}`;
+
+    function updateProjections() {
+        if (practice) return;   // Forgot / Remember day labels are hidden in practice
+        const card = queue[currentIndex];
+        if (!card) return;
+        const interval = parseInt(card.interval_days, 10) || 0;
+        projForgot.textContent = formatDays(nextInterval(interval, 'forgotten'));
+        projRemember.textContent = formatDays(nextInterval(interval, 'remembered'));
+    }
+
+    async function loadSrsSettings() {
+        try {
+            const res = await fetch('../api/settings-actions.php', { credentials: 'same-origin' });
+            const body = await res.json();
+            if (res.ok && body.success && body.settings) {
+                srs = { ...srs, ...body.settings };
+                updateProjections();
+            }
+        } catch (_) { /* keep the defaults */ }
+    }
+
+    // DOM Elements
+    const elFront = document.getElementById('card-front-content');
+    const elBack = document.getElementById('card-back-content');
+    const elDivider = document.getElementById('card-divider');
+    const btnShow = document.getElementById('show-answer-btn');
+    const boxRates = document.getElementById('rate-actions');
+    const btnForgot = document.getElementById('rate-forgot-btn');
+    const btnRemember = document.getElementById('rate-remember-btn');
+    const btnAgain = document.getElementById('rate-again-btn');
+    const projForgot = document.getElementById('projected-forgot-date');
+    const projRemember = document.getElementById('projected-remember-date');
+
+    const txtProgress = document.getElementById('progress-text');
+    const barProgress = document.getElementById('progress-bar');
+    const txtRem = document.getElementById('tally-remembered');
+    const txtFor = document.getElementById('tally-forgotten');
+    const badgeHist = document.getElementById('historical-rating-badge');
+
+    const viewActive = document.getElementById('active-review-container');
+    const viewFinished = document.getElementById('review-finished-screen');
+
+    const stage = document.getElementById('flashcard-stage');
+    const hintReveal = document.getElementById('hint-reveal');
+    const hintRate = document.getElementById('hint-rate');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let isAnimating = false;
+
+    const btnMissed = document.getElementById('review-missed-btn');
+    const returnLink = document.getElementById('return-hub-link');
+    const btnPracticeAgain = document.getElementById('practice-again-btn');
+    const practiceBanner = document.getElementById('practice-banner');
+    const sumAccuracy = document.getElementById('summary-accuracy');
+    const sumRem = document.getElementById('summary-remembered');
+    const sumFor = document.getElementById('summary-forgotten');
+    let missedCount = 0;
+    let statsDone = Promise.resolve();
+
+    const btnPrev = document.getElementById('prev-card-btn');
+    const btnNext = document.getElementById('next-card-btn');
+
+    // 1. Core Navigation & Display Logic
+    function renderCard() {
+        if (currentIndex >= queue.length) {
+            endSession();
+            return;
+        }
+
+        const card = queue[currentIndex];
+        elFront.innerHTML = escapeHtml(card.front).replace(/\n/g, '<br>');
+        elBack.innerHTML = escapeHtml(card.back).replace(/\n/g, '<br>');
+
+        txtProgress.textContent = `Card ${currentIndex + 1} of ${queue.length}`;
+        barProgress.style.width = `${(Object.keys(ratings).length / uniqueTotal) * 100}%`;
+
+        // Badge: the earlier rating (via Back), or a note on Again / repeated cards
+        const prevRating = ratings[card.id];
+        badgeHist.classList.remove('hidden', 'bg-emerald-100', 'text-emerald-700',
+            'bg-rose-100', 'text-rose-700', 'bg-amber-100', 'text-amber-700');
+        if (prevRating === 'remembered') {
+            badgeHist.textContent = 'Rated: Remembered';
+            badgeHist.classList.add('bg-emerald-100', 'text-emerald-700');
+        } else if (prevRating) {
+            badgeHist.textContent = 'Rated: Forgotten';
+            badgeHist.classList.add('bg-rose-100', 'text-rose-700');
+        } else if (card._again) {
+            badgeHist.textContent = 'Again: comes back later';
+            badgeHist.classList.add('bg-amber-100', 'text-amber-700');
+        } else if (card._repeat) {
+            badgeHist.textContent = 'Repeat';
+            badgeHist.classList.add('bg-amber-100', 'text-amber-700');
+        } else {
+            badgeHist.classList.add('hidden');
+        }
+
+        // Show when this card will come back for each rating
+        updateProjections();
+
+        hideAnswer();
+        updateNavButtons();
+    }
+
+    function showAnswer() {
+        if (sessionEnded || isAnimating || isAnswerShown) return;
+        isAnswerShown = true;
+        elBack.classList.remove('hidden');
+        elDivider.classList.remove('hidden');
+        btnShow.classList.add('hidden');
+        boxRates.classList.remove('hidden');
+        hintReveal.classList.add('hidden');
+        hintRate.classList.remove('hidden');
+        if (!reduceMotion) {
+            elBack.animate(
+                [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'translateY(0)' }],
+                { duration: 200, easing: 'ease-out' });
+        }
+    }
+
+    function hideAnswer() {
+        isAnswerShown = false;
+        elBack.classList.add('hidden');
+        elDivider.classList.add('hidden');
+        btnShow.classList.remove('hidden');
+        boxRates.classList.add('hidden');
+        hintReveal.classList.remove('hidden');
+        hintRate.classList.add('hidden');
+    }
+
+    // 2. Rating & Tally Logic
+    async function rateCard(status) {
+        if (sessionEnded || isAnimating) return;
+        const card = queue[currentIndex];
+        ratings[card.id] = status;
+        unsavedRatings = !practice;
+        updateTally(status);
+
+        const dir = status === 'remembered' ? 1 : -1;
+        const glow = status === 'remembered' ? 'rgba(16,185,129,0.35)' : 'rgba(244,63,94,0.35)';
+        return advanceCard(dir, glow);
+    }
+
+    // Plays the exit animation for the current card, then deals the next one.
+    async function advanceCard(dir, glow) {
+        if (reduceMotion) {
+            currentIndex++;
+            renderCard();
+            return;
+        }
+
+        isAnimating = true;
+        const out = stage.animate([
+            { opacity: 1, transform: 'translateX(0) rotate(0deg)', boxShadow: `0 0 0 0 ${glow}` },
+            { opacity: 0, transform: `translateX(${dir * 64}px) rotate(${dir * 2}deg)`, boxShadow: `0 0 0 6px ${glow}` }
+        ], { duration: 220, easing: 'ease-in', fill: 'forwards' });
+        await out.finished;
+
+        currentIndex++;
+        renderCard();
+        out.cancel();
+
+        if (!sessionEnded) {
+            stage.animate([
+                { opacity: 0, transform: 'translateY(14px) scale(0.98)' },
+                { opacity: 1, transform: 'translateY(0) scale(1)' }
+            ], { duration: 240, easing: 'ease-out' });
+        }
+        isAnimating = false;
+    }
+
+    // Again: no rating is saved; a copy of the card comes back a few cards later.
+    async function againCard() {
+        if (sessionEnded || isAnimating) return;
+        const card = queue[currentIndex];
+
+        if (ratings[card.id]) {              // reached with Back: un-rate it
+            delete ratings[card.id];
+            updateTally();
+            unsavedRatings = !practice && Object.keys(ratings).length > 0;
+        }
+
+        card._again = true;                  // this slot can be skipped with Next
+
+        // Remove any copy already waiting ahead, then insert a fresh one
+        queue = queue.filter((c, i) => i <= currentIndex || c.id !== card.id);
+        const insertAt = Math.min(currentIndex + 1 + AGAIN_OFFSET, queue.length);
+        queue.splice(insertAt, 0, { ...card, _again: false, _repeat: true });
+
+        return advanceCard(0, 'rgba(245, 158, 11, 0.35)');
+    }
+
+    function updateTally(bumpStatus) {
+        let rem = 0, forg = 0;
+        Object.values(ratings).forEach(r => r === 'remembered' ? rem++ : forg++);
+        txtRem.textContent = rem;
+        txtFor.textContent = forg;
+        if (bumpStatus && !reduceMotion) {
+            (bumpStatus === 'remembered' ? txtRem : txtFor).animate(
+                [{ transform: 'scale(1)' }, { transform: 'scale(1.4)' }, { transform: 'scale(1)' }],
+                { duration: 280, easing: 'ease-out' });
+        }
+    }
+
+    // 3. Backward/Forward Queue Navigation
+    function prevCard() {
+        if (sessionEnded || isAnimating || currentIndex === 0) return; {
+            currentIndex--;
+            renderCard();
+            slideIn(-1);
+        }
+    }
+
+    // Back is available after the first card; Next only once the current card has a rating (or was sent to Again)
+    function updateNavButtons() {
+        btnPrev.disabled = currentIndex === 0;
+        const card = queue[currentIndex];
+        btnNext.disabled = !(card && (ratings[card.id] || card._again));
+    }
+
+    function slideIn(dir) {
+        if (reduceMotion) return;
+        stage.animate([
+            { opacity: 0, transform: `translateX(${dir * 28}px)` },
+            { opacity: 1, transform: 'translateX(0)' }
+        ], { duration: 200, easing: 'ease-out' });
+    }
+
+    function skipToNext() {
+        if (sessionEnded || isAnimating) return;
+        const card = queue[currentIndex];
+        if (!card || !(ratings[card.id] || card._again)) return;   // only skip cards already rated or sent to Again
+        currentIndex++;
+        renderCard();
+        if (!sessionEnded) slideIn(1);
+    }
+
+    // 4. Batch Save & Session End
+    async function saveSession() {
+        const res = await fetch('../api/save-session.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                deck_id: data.deckId,
+                results: ratings,
+                csrf_token: csrfToken,
+                duration_seconds: sessionDuration
+            })
+        });
+        let body = {};
+        try { body = await res.json(); } catch (_) { }
+        if (!res.ok || !body.ok) {
+            throw new Error(body.error || `Save failed (HTTP ${res.status}).`);
+        }
+        unsavedRatings = false;
+        return body;
+    }
+
+    function showSaveError(message) {
+        let box = document.getElementById('save-status');
+        if (!box) {
+            box = document.createElement('div');
+            box.id = 'save-status';
+            box.className = 'w-full max-w-sm mb-6 p-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-sm flex flex-col gap-3';
+            viewFinished.insertBefore(box, document.getElementById('finished-actions'));
+        }
+        box.textContent = '';
+
+        const p = document.createElement('p');
+        p.textContent = `Your session wasn't saved: ${message}`;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold';
+        btn.textContent = 'Retry save';
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            try {
+                await saveSession(); box.remove(); armMissedButton();
+            } catch (err) { showSaveError(err.message); }
+        });
+
+        box.append(p, btn);
+    }
+
+    async function endSession() {
+        if (sessionEnded) return;
+        sessionEnded = true;
+        sessionDuration = Math.round((Date.now() - sessionStartedAt) / 1000);
+        viewActive.classList.add('hidden');
+        viewFinished.classList.remove('hidden');
+        viewFinished.classList.add('flex');   // fixes the off-center completion screen
+
+        if (!reduceMotion) {
+            document.getElementById('finished-icon').animate(
+                [{ transform: 'scale(0.6)', opacity: 0 }, { transform: 'scale(1.08)', opacity: 1 }, { transform: 'scale(1)' }],
+                { duration: 450, easing: 'ease-out' });
+        }
+
+        const ratedIds = Object.keys(ratings);
+        if (ratedIds.length === 0) {
+            if (practice) {   // ended early with nothing rated: still allow another go
+                document.getElementById('finished-headline').textContent = 'Practice complete';
+                showPracticeAgain(false);
+                styleFinishedButtons(false);
+            }
+            return;
+        }
+
+        const total = ratedIds.length;
+        const remCount = Object.values(ratings).filter(r => r === 'remembered').length;
+        const forgCount = total - remCount;
+        const accuracy = Math.round((remCount / total) * 100);
+
+        // document.getElementById('finished-headline').textContent = headlineFor(accuracy);
+        document.getElementById('session-summary-stats').classList.remove('hidden');
+
+        if (forgCount > 0) {
+            missedCount = forgCount;
+            btnMissed.classList.remove('hidden');
+            if (practice) {
+                setMissedLabel();            // nothing to wait for: enabled right away
+                btnMissed.disabled = false;
+            } else {
+                btnMissed.disabled = true;
+                btnMissed.textContent = 'Saving…';
+            }
+        }
+        // Practice again: in a real review it unlocks once the save has succeeded
+        showPracticeAgain(!practice);
+        styleFinishedButtons(forgCount > 0);
+
+        // Confetti pop + stats showcase run alongside the save
+        // confettiBurst({ x: 0.5, y: 0.35, count: accuracy >= 80 ? 170 : 120, power: 17 });
+        statsDone = showStats(remCount, forgCount, accuracy);
+
+        if (practice) {
+            armMissedButton();               // practice never saves anything
+            return;
+        }
+
+        try {
+            await saveSession();
+            armMissedButton();
+        } catch (error) {
+            console.error("Failed to save session batch:", error);
+            showSaveError(error.message);
+        }
+    }
+
+    // 5. Event Listeners
+    btnShow.addEventListener('click', showAnswer);
+    btnForgot.addEventListener('click', () => rateCard('forgotten'));
+    btnRemember.addEventListener('click', () => rateCard('remembered'));
+    btnAgain.addEventListener('click', againCard);
+    document.getElementById('end-session-btn').addEventListener('click', endSession);
+    btnPrev.addEventListener('click', e => { prevCard(); e.currentTarget.blur(); });
+    btnNext.addEventListener('click', e => { skipToNext(); e.currentTarget.blur(); });
+
+    document.addEventListener('keydown', (e) => {
+        if (sessionEnded || isAnimating) return;
+
+        switch (e.key) {
+            case ' ':
+                e.preventDefault();
+                if (!isAnswerShown) showAnswer();
+                else rateCard('remembered'); // Second spacebar defaults to remember & advance
+                break;
+            case 'a':
+            case 'A':
+                if (isAnswerShown) againCard();
+                break;
+            case 'f':
+            case 'F':
+                if (isAnswerShown) rateCard('forgotten');
+                break;
+            case 'ArrowLeft':
+                prevCard();
+                break;
+            case 'ArrowRight':
+                skipToNext();
+                break;
+        }
+    });
+
+    window.addEventListener('beforeunload', (e) => {
+        if (unsavedRatings) { e.preventDefault(); e.returnValue = ''; }
+    });
+
+    // -----------------------------------------------------------------------
+    // Finished screen: headline, missed-cards button, stats showcase
+    // -----------------------------------------------------------------------
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    function headlineFor(accuracy) {
+        if (practice) return 'Practice complete';
+        if (accuracy >= 80) return 'Solid session';
+        if (accuracy >= 50) return 'Good progress';
+        return 'Those will come back soon';
+    }
+
+    // Real review: enabled only after the save succeeded, so forgotten cards are due again on reload.
+    // Practice: nothing is saved, so everything is enabled right away.
+    async function armMissedButton() {
+        if (!practice) await statsDone;   // don't let the user jump away mid-stamp
+        btnPracticeAgain.disabled = false;
+        if (missedCount < 1) return;
+        setMissedLabel();
+        btnMissed.disabled = false;
+    }
+
+    function setMissedLabel() {
+        const noun = missedCount === 1 ? 'card' : 'cards';
+        btnMissed.textContent = practice
+            ? `Practice ${missedCount} missed ${noun}`
+            : `Review ${missedCount} missed ${noun}`;
+    }
+
+    const PRIMARY_BTN = ['bg-primary', 'text-on-primary', 'shadow-sm', 'hover:bg-primary-container'];
+    const SECONDARY_BTN = ['border', 'border-outline-variant', 'text-on-surface', 'hover:bg-surface-container-low'];
+    function setPrimary(el, primary) {
+        el.classList.remove(...PRIMARY_BTN, ...SECONDARY_BTN);
+        el.classList.add(...(primary ? PRIMARY_BTN : SECONDARY_BTN));
+    }
+
+    // Missed button is always the main action when shown; otherwise Practice again leads in
+    // practice mode and the Back / Return link leads in a real review.
+    function styleFinishedButtons(hasMissed) {
+        setPrimary(btnPracticeAgain, practice && !hasMissed);
+        setPrimary(returnLink, !practice && !hasMissed);
+    }
+
+    function showPracticeAgain(disabled) {
+        btnPracticeAgain.disabled = disabled;
+        btnPracticeAgain.classList.remove('hidden');
+    }
+
+    function setPracticeMode(on) {
+        practice = on;
+        practiceBanner?.classList.toggle('hidden', !on);
+        projForgot.classList.toggle('hidden', on);
+        projRemember.classList.toggle('hidden', on);
+        if (on) {
+            returnLink.href = data.returnUrl || 'review.php';
+            returnLink.textContent = 'Back';
+        }
+    }
+
+    // Deals a fresh set of cards. Shared by "missed" and "practice" restarts.
+    function resetSession(cards) {
+        queue = cards;
+        uniqueTotal = cards.length;
+        currentIndex = 0;
+        ratings = {};
+        isAnswerShown = false;
+        sessionEnded = false;
+        unsavedRatings = false;
+        sessionStartedAt = Date.now();
+        sessionDuration = 0;
+        missedCount = 0;
+        finishToken++;
+
+        // Reset header tally and finished screen
+        txtRem.textContent = '0';
+        txtFor.textContent = '0';
+        sumAccuracy.textContent = '0%';
+        sumRem.textContent = '0';
+        sumFor.textContent = '0';
+        document.getElementById('summary-accuracy-bar').style.width = '0%';
+        document.getElementById('session-summary-stats').classList.add('hidden');
+        document.getElementById('finished-headline').textContent = practice ? 'Practice complete' : 'Session Complete!';
+        document.getElementById('save-status')?.remove();
+        document.getElementById('practice-skipped')?.classList.add('hidden');   // only about the first set
+        btnMissed.classList.add('hidden');
+        btnPracticeAgain.classList.add('hidden');
+        styleFinishedButtons(false);
+
+        // Swap views and deal the first card
+        viewFinished.classList.add('hidden');
+        viewFinished.classList.remove('flex');
+        viewActive.classList.remove('hidden');
+        renderCard();
+    }
+
+    function startMissedSession() {
+        // A card can sit in the queue twice (Again), so keep one entry per card
+        const seen = new Set();
+        const missed = queue
+            .filter(c => ratings[c.id] === 'forgotten' && !seen.has(c.id) && seen.add(c.id))
+            .map(c => ({ ...c, _again: false, _repeat: false }));
+        if (missed.length === 0) return;
+
+        // Real review: save-session.php just gave these cards their "forgot" interval, so mirror it locally.
+        // Practice: the server never changed anything, so leave the intervals alone.
+        if (!practice) {
+            missed.forEach(c => { c.interval_days = nextInterval(parseInt(c.interval_days, 10) || 0, 'forgotten'); });
+        }
+
+        lastSet = missed.map(cleanCard);
+        resetSession(missed);
+    }
+
+    // Replays a set of cards in practice mode (nothing is saved)
+    function startPractice(cards) {
+        if (!cards.length) return;
+        setPracticeMode(true);
+        lastSet = cards.map(cleanCard);
+        resetSession(lastSet.map(c => ({ ...c })));
+    }
+    btnMissed.addEventListener('click', startMissedSession);
+    btnPracticeAgain.addEventListener('click', () => startPractice(lastSet));
+
+    // function countUp(el, to, { duration = 900, suffix = '' } = {}) {
+    //     if (reduceMotion || to === 0) {
+    //         el.textContent = to + suffix;
+    //         return Promise.resolve();
+    //     }
+    //     return new Promise(resolve => {
+    //         const t0 = performance.now();
+    //         const tick = now => {
+    //             const p = Math.min(1, (now - t0) / duration);
+    //             el.textContent = Math.round(to * (1 - Math.pow(1 - p, 3))) + suffix;
+    //             p < 1 ? requestAnimationFrame(tick) : resolve();
+    //         };
+    //         requestAnimationFrame(tick);
+    //     });
+    // }
+
+    async function showStats(rem, forg, accuracy) {
+        const token = finishToken;
+        const headline = document.getElementById('finished-headline');
+        const bar = document.getElementById('summary-accuracy-bar');
+        const tiles = document.querySelectorAll('#session-summary-stats [data-stat-tile]');
+        const [tileAcc, tileRem, tileFor] = tiles;   // DOM order: Accuracy, Remembered, Forgotten
+
+        sumAccuracy.textContent = accuracy + '%';
+        sumRem.textContent = rem;
+        sumFor.textContent = forg;
+
+        if (reduceMotion) {
+            bar.style.width = accuracy + '%';
+            headline.textContent = headlineFor(accuracy);
+            return;
+        }
+
+        // Empty frames fade in first; each number stays hidden until its stamp lands
+        [sumAccuracy, sumRem, sumFor].forEach(el => { el.style.opacity = '0'; });
+        bar.style.width = '0%';
+        tiles.forEach(tile => tile.animate(
+            [{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'translateY(0)' }],
+            { duration: 350, easing: 'ease-out', fill: 'backwards' }));
+
+        await sleep(500);
+        if (token !== finishToken) return;
+        await stampStat(sumRem, tileRem, 'border-emerald-400', { scale: 3, duration: 520, shakePx: 4 });
+        if (token !== finishToken) return;
+        await sleep(300);
+        if (token !== finishToken) return;
+        await stampStat(sumFor, tileFor, 'border-rose-400', { scale: 3, duration: 520, shakePx: 4 });
+        if (token !== finishToken) return;
+        await sleep(650);   // beat of suspense before the hero number
+        if (token !== finishToken) return;
+        await stampStat(sumAccuracy, tileAcc, 'border-primary', { scale: 4.5, duration: 720, shakePx: 10, hero: true });
+        if (token !== finishToken) return;
+
+        // Climax: bar fills, headline appears, confetti explodes
+        bar.animate([{ width: '0%' }, { width: accuracy + '%' }],
+            { duration: 900, easing: 'cubic-bezier(.2,.8,.2,1)' });
+        bar.style.width = accuracy + '%';
+
+        headline.textContent = headlineFor(accuracy);
+        headline.animate(
+            [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'translateY(0)' }],
+            { duration: 350, easing: 'ease-out' });
+
+        confettiBurst({ x: 0.5, y: 0.3, count: accuracy >= 80 ? 170 : 120, power: 17 });
+        const n = accuracy >= 80 ? 90 : 60;
+        confettiBurst({ x: 0, y: 0.75, count: n, angle: -Math.PI / 3, spread: Math.PI / 3, power: 22 });
+        confettiBurst({ x: 1, y: 0.75, count: n, angle: -2 * Math.PI / 3, spread: Math.PI / 3, power: 22 });
+    }
+
+    // A number slams in from huge and blurry, squashes on impact, then settles.
+    // Resolves at the moment of impact so the caller can chain the next beat.
+    function stampStat(el, tile, ringClass, { scale = 3, duration = 520, shakePx = 5, hero = false } = {}) {
+        return new Promise(resolve => {
+            el.style.opacity = '1';
+            el.animate([
+                { opacity: 0, transform: `scale(${scale}) rotate(-14deg)`, filter: 'blur(6px)', offset: 0, easing: 'cubic-bezier(.5,0,1,.6)' },
+                { opacity: 1, transform: 'scale(0.9) rotate(2deg)', filter: 'blur(0px)', offset: 0.55 },
+                { transform: 'scale(1.06) rotate(-1deg)', offset: 0.75 },
+                { transform: 'scale(1) rotate(0deg)', offset: 1 }
+            ], { duration, easing: 'linear' });
+
+            setTimeout(() => {
+                impactRing(tile, ringClass);
+                if (hero) setTimeout(() => impactRing(tile, ringClass), 130);
+                tile.animate(
+                    [{ transform: 'scale(1)' }, { transform: 'scale(0.96)' }, { transform: 'scale(1)' }],
+                    { duration: 260, easing: 'ease-out' });
+                shake(viewFinished, shakePx);
+                resolve();
+            }, duration * 0.55);
+        });
+    }
+
+    function impactRing(tile, colorClass) {
+        tile.classList.add('relative');
+        const ring = document.createElement('div');
+        ring.className = `absolute inset-0 rounded-2xl border-2 pointer-events-none ${colorClass}`;
+        tile.appendChild(ring);
+        ring.animate(
+            [{ opacity: 0.9, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(1.35)' }],
+            { duration: 520, easing: 'ease-out' }
+        ).finished.then(() => ring.remove());
+    }
+
+    function shake(el, px = 6, duration = 380) {
+        el.animate([
+            { transform: 'translate(0, 0)' },
+            { transform: `translate(${-px}px, ${px * 0.5}px)` },
+            { transform: `translate(${px}px, ${-px * 0.5}px)` },
+            { transform: `translate(${-px * 0.6}px, 0)` },
+            { transform: `translate(${px * 0.4}px, 0)` },
+            { transform: 'translate(0, 0)' }
+        ], { duration, easing: 'ease-out' });
+    }
+
+    // -----------------------------------------------------------------------
+    // Confetti (tiny canvas engine, no dependencies)
+    // -----------------------------------------------------------------------
+    const CONFETTI_COLORS = ['#10b981', '#34d399', '#6366f1', '#f59e0b', '#f43f5e', '#38bdf8'];
+    let confettiCanvas = null, confettiCtx = null, confettiParts = [], confettiRaf = null;
+
+    function confettiBurst({ x = 0.5, y = 0.4, count = 120, angle = -Math.PI / 2, spread = Math.PI * 2, power = 15 } = {}) {
+        if (reduceMotion) return;
+
+        const dpr = window.devicePixelRatio || 1;
+        if (!confettiCanvas) {
+            confettiCanvas = document.createElement('canvas');
+            confettiCanvas.className = 'fixed inset-0 w-full h-full pointer-events-none z-[60]';
+            document.body.appendChild(confettiCanvas);
+            confettiCtx = confettiCanvas.getContext('2d');
+        }
+        if (confettiCanvas.width !== Math.round(innerWidth * dpr)) {
+            confettiCanvas.width = Math.round(innerWidth * dpr);
+            confettiCanvas.height = Math.round(innerHeight * dpr);
+        }
+
+        for (let i = 0; i < count; i++) {
+            const a = angle + (Math.random() - 0.5) * spread;
+            const v = power * (0.5 + Math.random() * 0.7);
+            confettiParts.push({
+                x: x * innerWidth, y: y * innerHeight,
+                vx: Math.cos(a) * v, vy: Math.sin(a) * v,
+                w: 6 + Math.random() * 6, h: 4 + Math.random() * 5,
+                rot: Math.random() * Math.PI * 2, vr: (Math.random() - 0.5) * 0.35,
+                wobble: Math.random() * Math.PI * 2,
+                color: CONFETTI_COLORS[(Math.random() * CONFETTI_COLORS.length) | 0],
+                life: 0, ttl: 110 + Math.random() * 60
+            });
+        }
+        if (!confettiRaf) confettiRaf = requestAnimationFrame(stepConfetti);
+    }
+
+    function stepConfetti() {
+        const dpr = window.devicePixelRatio || 1;
+        confettiCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        confettiCtx.clearRect(0, 0, innerWidth, innerHeight);
+
+        confettiParts = confettiParts.filter(p => p.life < p.ttl && p.y < innerHeight + 40);
+        for (const p of confettiParts) {
+            p.life++;
+            p.vx *= 0.985;
+            p.vy = p.vy * 0.985 + 0.38;                 // drag + gravity
+            p.wobble += 0.12;
+            p.x += p.vx + Math.sin(p.wobble) * 0.6;
+            p.y += p.vy;
+            p.rot += p.vr;
+
+            confettiCtx.save();
+            confettiCtx.globalAlpha = Math.min(1, (p.ttl - p.life) / 30);
+            confettiCtx.translate(p.x, p.y);
+            confettiCtx.rotate(p.rot);
+            confettiCtx.scale(1, Math.abs(Math.cos(p.wobble)));   // flutter
+            confettiCtx.fillStyle = p.color;
+            confettiCtx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+            confettiCtx.restore();
+        }
+
+        if (confettiParts.length) {
+            confettiRaf = requestAnimationFrame(stepConfetti);
+        } else {
+            confettiRaf = null;
+            confettiCanvas.remove();
+            confettiCanvas = null;
+        }
+    }
+
+    // Utilities
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Init
+    if (practice) setPracticeMode(true);
+    else loadSrsSettings();   // practice never needs the interval settings
+    renderCard();
+});
+```
+
+app.css
+```
+@layer base {
+
+    html,
+    body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow-y: auto !important;
+        overscroll-behavior-y: auto;
+    }
+
+    body {
+        overscroll-behavior: none;
+    }
+
+    main {
+        min-height: 100vh;
+        overflow-y: auto !important;
+    }
+
+    main>:first-child {
+        margin-top: 0 !important;
+    }
+
+    main>:last-child {
+        margin-bottom: 0 !important;
+    }
+}
+
+/* In app/assets/css/app.css, add/update inside @layer base or below it: */
+#main-content {
+    padding-top: 4rem !important;
+    /* 64px offset for fixed #app-header across all views */
+}
+
+/* Inside @media (min-width: 768px) in app/assets/css/app.css, update #sidebar-toggle: */
+@media (min-width: 768px) {
+
+    /* Keep the toggle attached to the sidebar edge below the header */
+    #sidebar-toggle {
+        position: absolute !important;
+        right: -14px !important;
+        top: 1.5rem !important;
+        z-index: 60 !important;
+    }
+}
+
+@layer utilities {
+
+    /* Premium diffused shadow for structural panels */
+    .shadow-premium-panel {
+        box-shadow: 0 8px 30px -4px rgba(0, 0, 0, 0.04), 0 4px 10px -2px rgba(0, 0, 0, 0.02);
+    }
+
+    /* Subtle interactive lift for metric cards */
+    .hover-lift {
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+    }
+
+    .hover-lift:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 35px -4px rgba(0, 0, 0, 0.06);
+    }
+
+    /* Elevated backdrop blur for the drawer overlay */
+    .drawer-backdrop {
+        background-color: rgba(15, 23, 42, 0.4);
+        backdrop-filter: blur(4px);
+    }
+}
+
+/* Subtle custom scrollbar for page scrolling */
+html,
+body,
+main {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+main::-webkit-scrollbar {
+    display: block;
+    width: 6px;
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+main::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+main::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.35);
+    border-radius: 9999px;
+}
+
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
+main::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.6);
+}
+
+/* Sidebar section divider */
+#sidebar .sidebar-section-divider {
+    flex-shrink: 0;
+    margin: 0 1rem;
+    border: 0;
+    border-top: 1px solid var(--color-outline-variant, #cbd5e1);
+    opacity: 0.4;
+    transition: margin 0.3s ease;
+}
+
+
+/* Sidebar Toggle */
+/* --- Base Collapsed Sidebar Rules (Desktop Only) --- */
+@media (min-width: 768px) {
+
+    /* Prevent initial main-content layout shift */
+    html.sidebar-collapsed #main-content {
+        padding-left: 80px !important;
+    }
+
+    html.sidebar-collapsed #main-content header {
+        left: 80px !important;
+    }
+
+    #sidebar.collapsed {
+        box-sizing: border-box !important;
+        width: 80px !important;
+        min-width: 80px !important;
+        max-width: 80px !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        /* Allow the desktop toggle to protrude beyond the sidebar edge. */
+        overflow-x: visible !important;
+        overflow-y: visible !important;
+    }
+
+    /* Keep the toggle attached to the sidebar edge in either state. */
+    #sidebar-toggle {
+        position: absolute !important;
+        right: -14px !important;
+        top: 2rem !important;
+        z-index: 60 !important;
+    }
+
+    #sidebar.collapsed .sidebar-section-divider {
+        margin-left: 12px;
+        margin-right: 12px;
+    }
+
+    #sidebar.collapsed>.flex.flex-col.gap-4 {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        align-items: center !important;
+    }
+
+    #sidebar.collapsed .sidebar-navigation {
+        box-sizing: border-box !important;
+        min-width: 0 !important;
+        width: 100% !important;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        scrollbar-width: thin;
+    }
+
+    #sidebar.collapsed .sidebar-navigation>.sidebar-row {
+        width: 44px !important;
+        min-width: 44px !important;
+        max-width: 44px !important;
+        flex: 0 0 44px !important;
+    }
+
+    /* Hide standard layout text elements */
+    #sidebar.collapsed .sidebar-text {
+        opacity: 0 !important;
+        display: none !important;
+    }
+
+    /* Hide the logo name text string when collapsed */
+    #sidebar.collapsed .logo-text {
+        opacity: 0 !important;
+        width: 0 !important;
+        display: none !important;
+    }
+
+    /* Change header layout structure from a row grid to vertical stack */
+    #sidebar.collapsed #sidebar-header {
+        flex-direction: column !important;
+        gap: 16px !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        align-items: center !important;
+    }
+
+    #sidebar.collapsed #sidebar-header>div {
+        order: 1 !important;
+    }
+
+    #sidebar.collapsed #sidebar-toggle {
+        order: 2 !important;
+    }
+
+    /* ─── NEW: FORCE MAIN CONTENT AND FIXED HEADER TO SHIFT LEFT ─── */
+    main.collapsed {
+        padding-left: 80px !important;
+        /* Shakes off the pl-72 padding */
+    }
+
+    main.collapsed header {
+        left: 80px !important;
+        /* Shakes off the left-72 fixed offset */
+    }
+}
+
+/* --- Streak Heatmap Tooltip Styles (Pure CSS Absolute Positioning) --- */
+#heatmap-scroll {
+    position: relative;
+    overflow-x: auto;
+}
+
+#heatmap-scroll .heatmap-cell {
+    position: relative;
+    cursor: pointer;
+    outline: none !important;
+    -webkit-tap-highlight-color: transparent;
+}
+
+#heatmap-scroll .heatmap-cell:hover {
+    z-index: 100;
+}
+
+/* Tooltip box */
+#heatmap-scroll .heatmap-cell::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e293b;
+    color: #ffffff;
+    font-size: 11px;
+    line-height: 1.3;
+    padding: 6px 10px;
+    border-radius: 8px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    z-index: 9999;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+/* Tooltip arrow */
+#heatmap-scroll .heatmap-cell::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 2px);
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: #1e293b;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+    z-index: 101;
+}
+
+#heatmap-scroll .heatmap-cell:hover::after,
+#heatmap-scroll .heatmap-cell:hover::before {
+    opacity: 1;
+}
+
+/* --- Universal Heatmap Scrollbar Rules (Visible in All Views) --- */
+#heatmap-scroll {
+    overflow-x: auto !important;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
+}
+
+#heatmap-scroll::-webkit-scrollbar {
+    display: block !important;
+    height: 6px;
+}
+
+#heatmap-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#heatmap-scroll::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.35);
+    border-radius: 999px;
+}
+
+#heatmap-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 116, 139, 0.6);
+}
+
+/* --- Archived Decks Button Pulse Animation --- */
+@keyframes archivePulse {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(var(--color-primary, 59, 130, 246), 0.7);
+    }
+
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 12px 4px rgba(var(--color-primary, 59, 130, 246), 0.5);
+    }
+
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(var(--color-primary, 59, 130, 246), 0);
+    }
+}
+
+.animate-archive-pulse {
+    animation: archivePulse 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) 2;
+    color: currentColor !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* ==========================================================================
+   Flashcard Table & Resizable Columns
+   ========================================================================== */
+
+/* Resizable Header Cell Handle */
+.resizable-col {
+    position: relative;
+    user-select: none;
+}
+
+.resizer {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    cursor: col-resize;
+    user-select: none;
+    touch-action: none;
+    z-index: 10;
+    transition: background-color 0.15s ease;
+}
+
+.resizer:hover,
+.resizer.resizing {
+    background-color: var(--color-primary, #3b82f6);
+}
+
+/* Selected Row Highlighting */
+#flashcards-table-body tr.selected-row {
+    background-color: rgba(var(--color-primary-rgb, 59, 130, 246), 0.08) !important;
+    border-left: 3px solid var(--color-primary, #3b82f6);
+}
+
+/* Custom Scrollbars for Table Header & Body Cells */
+#flashcard-table-scroll-container {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
+}
+
+#flashcard-table-scroll-container::-webkit-scrollbar {
+    height: 6px;
+}
+
+#flashcard-table-scroll-container::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.35);
+    border-radius: 999px;
+}
+
+/* ==========================================================================
+   Card Editor Panel Drawer
+   ========================================================================== */
+
+#card-editor-panel {
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+        margin 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+        width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform, opacity;
+}
+
+#card-editor-panel.collapsed {
+    display: none !important;
+}
+
+/* ==========================================================================
+   Tabulator Grid - MemPulse Custom Styling
+   ========================================================================== */
+
+/* Main Table Container Override */
+.tabulator {
+    background-color: transparent !important;
+    border: none !important;
+    font-family: inherit !important;
+    font-size: 0.875rem !important;
+    /* 14px */
+}
+
+/* Header Styling */
+.tabulator .tabulator-header {
+    background-color: var(--color-surface-container-low, #f1f5f9) !important;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.25) !important;
+    color: var(--color-on-surface-variant, #64748b) !important;
+    font-weight: 700 !important;
+    font-size: 0.75rem !important;
+    /* 12px */
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+}
+
+.tabulator .tabulator-header .tabulator-col {
+    background-color: transparent !important;
+    border-right: 1px solid rgba(148, 163, 184, 0.15) !important;
+    padding: 8px 12px !important;
+}
+
+.tabulator .tabulator-header .tabulator-col-content {
+    padding: 0 !important;
+}
+
+/* Header Resizer Drag Handles */
+.tabulator .tabulator-header .tabulator-col .tabulator-col-resize-handle {
+    width: 6px !important;
+    right: 0 !important;
+    opacity: 0;
+    transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.tabulator .tabulator-header .tabulator-col:hover .tabulator-col-resize-handle,
+.tabulator .tabulator-header .tabulator-col .tabulator-col-resize-handle:hover {
+    opacity: 1;
+    background-color: var(--color-primary, #3b82f6) !important;
+}
+
+/* Row Styling (Non-Compact Readable Format) */
+.tabulator .tabulator-tableholder .tabulator-table .tabulator-row {
+    background-color: var(--color-surface-container-lowest, #ffffff) !important;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2) !important;
+    color: var(--color-on-surface, #0f172a) !important;
+    transition: background-color 0.15s ease;
+    min-height: 36px !important;
+}
+
+/* Alternate Row Hover */
+.tabulator .tabulator-tableholder .tabulator-table .tabulator-row:hover {
+    background-color: rgba(241, 245, 249, 0.6) !important;
+    cursor: pointer;
+}
+
+/* Selected Row Highlight */
+.tabulator .tabulator-tableholder .tabulator-table .tabulator-row.tabulator-selected {
+    background-color: rgba(59, 130, 246, 0.08) !important;
+    border-left: 3px solid var(--color-primary, #3b82f6) !important;
+}
+
+/* Cell Padding & Alignment */
+.tabulator .tabulator-cell {
+    padding: 6px 12px !important;
+    border-right: 1px solid rgba(148, 163, 184, 0.12) !important;
+    display: inline-block !important;
+    vertical-align: middle !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    line-height: 24px !important;
+}
+
+/* Cell Editing Focus State */
+.tabulator .tabulator-cell.tabulator-editing {
+    outline: 2px solid var(--color-primary, #3b82f6) !important;
+    outline-offset: -2px !important;
+    padding: 8px !important;
+    background-color: #ffffff !important;
+}
+
+.tabulator .tabulator-cell.tabulator-editing textarea,
+.tabulator .tabulator-cell.tabulator-editing input {
+    font-family: inherit !important;
+    font-size: 0.875rem !important;
+    color: #0f172a !important;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    width: 100% !important;
+    resize: vertical !important;
+}
+
+/* Frozen Actions column: opaque, so scrolled content never shows through */
+.tabulator .tabulator-cell.tabulator-frozen {
+    background-color: #ffffff !important;
+    box-shadow: 2px 0 6px rgba(0, 0, 0, 0.06) !important;
+    z-index: 2;
+}
+
+.tabulator .tabulator-row:hover .tabulator-cell.tabulator-frozen {
+    background-color: #f6f8fb !important;
+}
+
+.tabulator .tabulator-row.tabulator-selected .tabulator-cell.tabulator-frozen {
+    background-color: #eff5fe !important;
+}
+
+.tabulator .tabulator-header .tabulator-col.tabulator-frozen {
+    background-color: #f1f5f9 !important;
+    /* same as the header background */
+    box-shadow: 2px 0 6px rgba(0, 0, 0, 0.06) !important;
+    z-index: 3;
+}
+
+/* Custom Scrollbar for Grid Container */
+.tabulator .tabulator-tableholder {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
+}
+
+.tabulator .tabulator-tableholder::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+}
+
+.tabulator .tabulator-tableholder::-webkit-scrollbar-thumb {
+    background: rgba(100, 116, 139, 0.35);
+    /* border-radius: 999px; */
+}
+
+
+/* ==========================================================================
+   Sidebar Card Editor Collapse State
+   ========================================================================== */
+#card-editor-sidebar.collapsed #sidebar-content-wrapper {
+    display: none !important;
+}
+```
+
+ReviewHubService.php
+```
+<?php
+/**
+ * ReviewHubService
+ *
+ * Read-only data + formatting helpers for the Review Hub page (review.php, no deck_id).
+ * All "seconds" values are computed in SQL (TIMESTAMPDIFF) so PHP/MySQL timezone
+ * differences cannot skew them.
+ *
+ * Place next to FlashcardService.php (the api/ folder).
+ */
+class ReviewHubService
+{
+    /** Cards scheduled within this many days count as "upcoming". */
+    public const UPCOMING_DAYS = 2;
+
+    // -----------------------------------------------------------------------
+    // Queries
+    // -----------------------------------------------------------------------
+
+    /**
+     * Every non-archived deck that has cards due now or coming up soon.
+     *
+     * @return array<int, array{
+     *   id:int, title:string, totalCards:int, dueCount:int, upcomingCount:int,
+     *   overdueSeconds:?int, nextDueSeconds:?int
+     * }>
+     */
+    public static function getHubDecks(mysqli $conn, int $userId): array
+    {
+        $days = (int) self::UPCOMING_DAYS;
+
+        $sql = "SELECT d.id, d.title,
+                       COUNT(f.id) AS total_cards,
+                       COALESCE(SUM(f.next_review_at <= NOW()), 0) AS due_count,
+                       COALESCE(SUM(f.next_review_at > NOW()
+                                    AND f.next_review_at <= DATE_ADD(NOW(), INTERVAL $days DAY)), 0) AS upcoming_count,
+                       TIMESTAMPDIFF(SECOND,
+                           MIN(CASE WHEN f.next_review_at <= NOW() THEN f.next_review_at END),
+                           NOW()) AS overdue_seconds,
+                       TIMESTAMPDIFF(SECOND, NOW(),
+                           MIN(CASE WHEN f.next_review_at > NOW()
+                                     AND f.next_review_at <= DATE_ADD(NOW(), INTERVAL $days DAY)
+                                    THEN f.next_review_at END)) AS next_due_seconds
+                FROM decks d
+                LEFT JOIN flashcards f ON f.deck_id = d.id AND f.deleted_at IS NULL
+                WHERE d.user_id = ? AND d.deleted_at IS NULL
+                GROUP BY d.id, d.title
+                HAVING due_count > 0 OR upcoming_count > 0";
+
+        $decks = [];
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "i", $userId);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            while ($row = mysqli_fetch_assoc($result)) {
+                $decks[] = [
+                    'id'             => (int) $row['id'],
+                    'title'          => (string) $row['title'],
+                    'totalCards'     => (int) $row['total_cards'],
+                    'dueCount'       => (int) $row['due_count'],
+                    'upcomingCount'  => (int) $row['upcoming_count'],
+                    'overdueSeconds' => $row['overdue_seconds'] === null ? null : (int) $row['overdue_seconds'],
+                    'nextDueSeconds' => $row['next_due_seconds'] === null ? null : (int) $row['next_due_seconds'],
+                ];
+            }
+            mysqli_stmt_close($stmt);
+        }
+        return $decks;
+    }
+
+    /**
+     * Seconds until the user's next card becomes due (no 48h limit), or null
+     * when there are no scheduled cards at all.
+     */
+    public static function getNextDueSeconds(mysqli $conn, int $userId): ?int
+    {
+        $sql = "SELECT TIMESTAMPDIFF(SECOND, NOW(), MIN(f.next_review_at))
+                FROM flashcards f
+                JOIN decks d ON d.id = f.deck_id
+                WHERE d.user_id = ? AND d.deleted_at IS NULL
+                  AND f.deleted_at IS NULL AND f.next_review_at > NOW()";
+
+        $secs = null;
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "i", $userId);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_bind_result($stmt, $secs);
+            mysqli_stmt_fetch($stmt);
+            mysqli_stmt_close($stmt);
+        }
+        return $secs === null ? null : (int) $secs;
+    }
+
+    /**
+     * Latest completed review sessions.
+     *
+     * @return array<int, array{
+     *   deckId:int, deckTitle:string, cardsReviewed:int, rememberedCount:int,
+     *   accuracy:int, durationSeconds:?int, formattedTime:string
+     * }>
+     */
+    public static function getRecentSessions(mysqli $conn, int $userId, int $limit = 8): array
+    {
+        $limit = max(1, min($limit, 50));
+
+        $sql = "SELECT rs.id AS session_id, rs.deck_id, d.title AS deck_title, rs.total_reviewed, rs.remembered_count,
+                       rs.accuracy_percentage,
+                       TIMESTAMPDIFF(SECOND, rs.started_at, rs.ended_at) AS duration_seconds,
+                       TIMESTAMPDIFF(SECOND, rs.ended_at, NOW()) AS ended_ago_seconds
+                FROM review_sessions rs
+                JOIN decks d ON d.id = rs.deck_id
+                WHERE rs.user_id = ? AND rs.ended_at IS NOT NULL
+                ORDER BY rs.ended_at DESC, rs.id DESC
+                LIMIT ?";
+
+        $sessions = [];
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "ii", $userId, $limit);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            while ($row = mysqli_fetch_assoc($result)) {
+                $sessions[] = [
+                    'sessionID'       => (int) $row['session_id'],
+                    'deckId'          => (int) $row['deck_id'],
+                    'deckTitle'       => (string) $row['deck_title'],
+                    'cardsReviewed'   => (int) $row['total_reviewed'],
+                    'rememberedCount' => (int) $row['remembered_count'],
+                    'accuracy'        => (int) $row['accuracy_percentage'],
+                    'durationSeconds' => $row['duration_seconds'] === null ? null : (int) $row['duration_seconds'],
+                    'formattedTime'   => self::formatAgo((int) $row['ended_ago_seconds']),
+                ];
+            }
+            mysqli_stmt_close($stmt);
+        }
+        return $sessions;
+    }
+
+    /**
+     * Cards reviewed today and the current study-day streak.
+     * Same rules as the dashboard: a day counts when a completed session
+     * reviewed at least one card; the streak is alive if the latest study day
+     * is today or yesterday.
+     *
+     * @return array{reviewedToday:int, currentStreak:int}
+     */
+    public static function getStreakInfo(mysqli $conn, int $userId): array
+    {
+        $sql = "SELECT DATE(started_at) AS study_date, SUM(total_reviewed) AS reviewed
+                FROM review_sessions
+                WHERE user_id = ? AND ended_at IS NOT NULL
+                GROUP BY DATE(started_at)
+                HAVING SUM(total_reviewed) > 0
+                ORDER BY study_date DESC";
+
+        $days = [];
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "i", $userId);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            while ($row = mysqli_fetch_assoc($result)) {
+                $days[$row['study_date']] = (int) $row['reviewed'];
+            }
+            mysqli_stmt_close($stmt);
+        }
+
+        $today     = date('Y-m-d');
+        $yesterday = date('Y-m-d', strtotime('-1 day'));
+
+        $streak = 0;
+        if (isset($days[$today]) || isset($days[$yesterday])) {
+            $cursor = new DateTime(isset($days[$today]) ? $today : $yesterday);
+            while (isset($days[$cursor->format('Y-m-d')])) {
+                $streak++;
+                $cursor->modify('-1 day');
+            }
+        }
+
+        return [
+            'reviewedToday' => $days[$today] ?? 0,
+            'currentStreak' => $streak,
+        ];
+    }
+
+    // -----------------------------------------------------------------------
+    // Table helpers (pure PHP, no DB)
+    // -----------------------------------------------------------------------
+
+    /** Decks with cards due, most due first (oldest overdue breaks ties). */
+    public static function dueDecks(array $hubDecks): array
+    {
+        $due = array_values(array_filter($hubDecks, fn($d) => $d['dueCount'] > 0));
+        usort($due, function ($a, $b) {
+            return [$b['dueCount'], $b['overdueSeconds'] ?? 0]
+               <=> [$a['dueCount'], $a['overdueSeconds'] ?? 0];
+        });
+        return $due;
+    }
+
+    /** Decks with cards coming up soon, soonest first. */
+    public static function upcomingDecks(array $hubDecks): array
+    {
+        $up = array_values(array_filter($hubDecks, fn($d) => $d['upcomingCount'] > 0));
+        usort($up, fn($a, $b) => ($a['nextDueSeconds'] ?? PHP_INT_MAX) <=> ($b['nextDueSeconds'] ?? PHP_INT_MAX));
+        return $up;
+    }
+
+    // -----------------------------------------------------------------------
+    // Formatting
+    // -----------------------------------------------------------------------
+
+    /** "5 min", "3 h", "2 d" (never shows 0). */
+    public static function formatSpan(int $seconds): string
+    {
+        $seconds = max(0, $seconds);
+        if ($seconds < 3600)  return max(1, (int) floor($seconds / 60)) . ' min';
+        if ($seconds < 86400) return (int) floor($seconds / 3600) . ' h';
+        return (int) floor($seconds / 86400) . ' d';
+    }
+
+    /** "just now", "5 mins ago", "1 hour ago", "3 days ago". */
+    public static function formatAgo(int $seconds): string
+    {
+        $seconds = max(0, $seconds);
+        if ($seconds < 60) return 'just now';
+
+        if ($seconds < 3600) {
+            $n = (int) floor($seconds / 60);
+            return $n . ($n === 1 ? ' min ago' : ' mins ago');
+        }
+        if ($seconds < 86400) {
+            $n = (int) floor($seconds / 3600);
+            return $n . ($n === 1 ? ' hour ago' : ' hours ago');
+        }
+        $n = (int) floor($seconds / 86400);
+        return $n . ($n === 1 ? ' day ago' : ' days ago');
+    }
+
+    /** "45s", "4m 12s", "1h 5m", or an em dash when unknown. */
+    public static function formatDuration(?int $seconds): string
+    {
+        if ($seconds === null || $seconds <= 0) return '—';
+        if ($seconds < 60) return $seconds . 's';
+        if ($seconds < 3600) {
+            $m = (int) floor($seconds / 60);
+            $s = $seconds % 60;
+            return $s > 0 ? "{$m}m {$s}s" : "{$m}m";
+        }
+        $h = (int) floor($seconds / 3600);
+        $m = (int) floor(($seconds % 3600) / 60);
+        return $m > 0 ? "{$h}h {$m}m" : "{$h}h";
+    }
+
+    /** Tailwind classes for an accuracy badge (matches the deck grid thresholds). */
+    public static function accuracyBadgeClass(int $accuracy): string
+    {
+        if ($accuracy >= 80) return 'text-emerald-700 bg-emerald-50 border-emerald-200/80';
+        if ($accuracy >= 50) return 'text-amber-700 bg-amber-50 border-amber-200/80';
+        return 'text-rose-700 bg-rose-50 border-rose-200/80';
+    }
+
+    /** Shorthand for htmlspecialchars with the project's flags. */
+    public static function h($value): string
+    {
+        return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+    }
+}
+```
+
+save-session.php
+```
+<?php
+session_start();
+header('Content-Type: application/json; charset=utf-8');
+
+// Make every failed query throw, no matter how config/db.php set things up.
+// Without this, a failed INSERT INTO review_logs is silently ignored.
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['error' => 'Method not allowed.']);
+    exit;
+}
+
+if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || !isset($_SESSION['user_id'])) {
+    http_response_code(401);
+    echo json_encode(['error' => 'Unauthorized']);
+    exit;
+}
+
+require_once __DIR__ . '/../../config/db.php';
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT); // db.php may have switched it off
+
+$userId = (int) $_SESSION['user_id'];
+$input = json_decode(file_get_contents('php://input'), true);
+
+if (!is_array($input)) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid request.']);
+    exit;
+}
+
+$token = $input['csrf_token'] ?? '';
+if (empty($_SESSION['csrf_token']) || !is_string($token) || !hash_equals($_SESSION['csrf_token'], $token)) {
+    http_response_code(403);
+    echo json_encode(['error' => 'Security check failed. Refresh the page and try again.']);
+    exit;
+}
+
+/**
+ * Load the user's SRS settings, falling back to the same defaults
+ * used by settings-actions.php / the user_settings table.
+ */
+function loadSrsSettings(mysqli $conn, int $userId): array {
+    $defaults = [
+        'remember_multiplier'   => 2.00,
+        'forgot_multiplier'     => 0.50,
+        'initial_interval_days' => 1,
+        'maximum_interval_days' => 365,
+    ];
+
+    $stmt = mysqli_prepare($conn, "SELECT remember_multiplier, forgot_multiplier,
+                                          initial_interval_days, maximum_interval_days
+                                   FROM user_settings WHERE user_id = ?");
+    mysqli_stmt_bind_param($stmt, 'i', $userId);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_bind_result($stmt, $remember, $forgot, $initial, $maximum);
+
+    if (!mysqli_stmt_fetch($stmt)) {
+        mysqli_stmt_close($stmt);
+        return $defaults;
+    }
+    mysqli_stmt_close($stmt);
+
+    $initial = max(1, (int) $initial);
+    return [
+        'remember_multiplier'   => (float) $remember,
+        'forgot_multiplier'     => (float) $forgot,
+        'initial_interval_days' => $initial,
+        'maximum_interval_days' => max($initial, (int) $maximum),
+    ];
+}
+
+$deckId = filter_var($input['deck_id'] ?? null, FILTER_VALIDATE_INT);
+$results = $input['results'] ?? null;
+$durationSeconds = filter_var($input['duration_seconds'] ?? 0, FILTER_VALIDATE_INT);
+$durationSeconds = ($durationSeconds === false) ? 0 : max(0, min($durationSeconds, 6 * 3600));
+
+if (!$deckId || $deckId < 1 || !is_array($results) || empty($results)) {
+    echo json_encode(['ok' => true, 'saved' => 0, 'msg' => 'No data to save or invalid deck.']);
+    exit;
+}
+if (count($results) > 1000) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Batch size limited to 1000.']);
+    exit;
+}
+
+try {
+    // Verify ownership
+    $ownStmt = mysqli_prepare($conn, "SELECT id FROM decks WHERE id = ? AND user_id = ? AND deleted_at IS NULL");
+    mysqli_stmt_bind_param($ownStmt, "ii", $deckId, $userId);
+    mysqli_stmt_execute($ownStmt);
+    mysqli_stmt_store_result($ownStmt);
+    $ownsDeck = mysqli_stmt_num_rows($ownStmt) === 1;
+    mysqli_stmt_close($ownStmt);
+
+    if (!$ownsDeck) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Deck not found or access denied.']);
+        exit;
+    }
+
+    $settings = loadSrsSettings($conn, $userId);
+    $rememberMult = $settings['remember_multiplier'];
+    $forgotMult   = $settings['forgot_multiplier'];
+    $minInterval  = $settings['initial_interval_days'];
+    $maxInterval  = $settings['maximum_interval_days'];
+
+    // 1. Sanitize IDs
+    $requested = [];
+    foreach ($results as $cardId => $status) {
+        $cid = filter_var($cardId, FILTER_VALIDATE_INT);
+        if ($cid && ($status === 'remembered' || $status === 'forgotten')) {
+            $requested[$cid] = $status;
+        }
+    }
+    if (empty($requested)) {
+        echo json_encode(['ok' => true, 'saved' => 0, 'msg' => 'No valid cards to save.']);
+        exit;
+    }
+
+    // 2. Keep only cards that really belong to this deck (and fetch their intervals)
+    $idString = implode(',', array_map('intval', array_keys($requested)));
+    $cardData = [];
+    $res = mysqli_query($conn, "SELECT id, interval_days FROM flashcards
+                                WHERE id IN ($idString) AND deck_id = " . (int) $deckId . " AND deleted_at IS NULL");
+    while ($row = mysqli_fetch_assoc($res)) {
+        $cardData[(int) $row['id']] = (int) $row['interval_days'];
+    }
+
+    $toSave = array_intersect_key($requested, $cardData);
+    if (empty($toSave)) {
+        echo json_encode(['ok' => true, 'saved' => 0, 'msg' => 'No matching cards found in this deck.']);
+        exit;
+    }
+
+    // Totals come from what will actually be saved (not from what the browser sent)
+    $savedCount      = count($toSave);
+    $rememberedCount = count(array_filter($toSave, fn($s) => $s === 'remembered'));
+    $accuracy        = (int) round(($rememberedCount / $savedCount) * 100);
+
+    mysqli_begin_transaction($conn);
+
+    // 3. Insert session record
+    $sessStmt = mysqli_prepare($conn, "INSERT INTO review_sessions
+        (user_id, deck_id, total_reviewed, remembered_count, started_at, ended_at)
+        VALUES (?, ?, ?, ?, DATE_SUB(NOW(), INTERVAL ? SECOND), NOW())");
+    mysqli_stmt_bind_param($sessStmt, "iiiii", $userId, $deckId, $savedCount, $rememberedCount, $durationSeconds);
+    mysqli_stmt_execute($sessStmt);
+    $sessionId = mysqli_insert_id($conn);
+    mysqli_stmt_close($sessStmt);
+
+    // 4. Update each card + write its log row
+    $stmtCard = mysqli_prepare($conn, "UPDATE flashcards
+        SET review_count = review_count + 1, lapses = lapses + ?, interval_days = ?,
+            next_review_at = DATE_ADD(NOW(), INTERVAL ? DAY), updated_at = NOW()
+        WHERE id = ? AND deck_id = ?");
+
+    $stmtLog = mysqli_prepare($conn, "INSERT INTO review_logs
+        (session_id, card_id, rating, previous_interval, new_interval)
+        VALUES (?, ?, ?, ?, ?)");
+
+    foreach ($toSave as $cid => $status) {
+        $prevInterval = $cardData[$cid];
+        $isLapse      = ($status === 'forgotten') ? 1 : 0;
+
+        $multiplier  = ($status === 'remembered') ? $rememberMult : $forgotMult;
+        $newInterval = (int) round($prevInterval * $multiplier);
+
+        // Never below the initial interval, never above the maximum.
+        $newInterval = max($minInterval, min($maxInterval, $newInterval));
+
+        // The review_logs.rating ENUM is ('remembered', 'forgot'), NOT 'forgotten'
+        $dbRating = ($status === 'remembered') ? 'remembered' : 'forgot';
+        
+        mysqli_stmt_bind_param($stmtCard, "iiiii", $isLapse, $newInterval, $newInterval, $cid, $deckId);
+        mysqli_stmt_execute($stmtCard);
+
+        mysqli_stmt_bind_param($stmtLog, "iisii", $sessionId, $cid, $dbRating, $prevInterval, $newInterval);
+        mysqli_stmt_execute($stmtLog);
+    }
+
+    mysqli_stmt_close($stmtCard);
+    mysqli_stmt_close($stmtLog);
+
+    mysqli_commit($conn);
+    echo json_encode(['ok' => true, 'saved' => $savedCount, 'session_id' => $sessionId]);
+
+} catch (Throwable $e) {
+    // Only roll back if a transaction was started; harmless otherwise
+    try { mysqli_rollback($conn); } catch (Throwable $ignored) {}
+    error_log('save-session.php error: ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['error' => 'Database exception occurred']);
+}
+```
+
+SessionService.php
+```
+<?php
+class SessionService
+{
+    /**
+     * Get metadata for a specific session.
+     */
+    public static function getSessionDetails(mysqli $conn, int $sessionId, int $userId): ?array
+    {
+        $sql = "SELECT rs.*, d.title AS deck_title,
+                       TIMESTAMPDIFF(SECOND, rs.started_at, rs.ended_at) AS duration_seconds
+                FROM review_sessions rs
+                JOIN decks d ON rs.deck_id = d.id
+                WHERE rs.id = ? AND rs.user_id = ?";
+
+        $session = null;
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "ii", $sessionId, $userId);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            if ($row = mysqli_fetch_assoc($result)) {
+                $session = [
+                    'id'               => (int) $row['id'],
+                    'deckId'           => (int) $row['deck_id'],
+                    'deckTitle'        => (string) $row['deck_title'],
+                    'startedAt'        => $row['started_at'],
+                    'totalReviewed'    => (int) $row['total_reviewed'],
+                    'rememberedCount'  => (int) $row['remembered_count'],
+                    // int, because ReviewHubService::accuracyBadgeClass() expects an int
+                    'accuracy'         => (int) round((float) $row['accuracy_percentage']),
+                    'durationSeconds'  => $row['duration_seconds'] === null ? null : (int) $row['duration_seconds'],
+                ];
+            }
+            mysqli_stmt_close($stmt);
+        }
+        return $session;
+    }
+
+    /**
+     * Get the individual card logs for a session.
+     */
+    public static function getSessionLogs(mysqli $conn, int $sessionId): array
+    {
+        $sql = "SELECT rl.rating, rl.previous_interval, rl.new_interval, rl.reviewed_at,
+                       f.front, f.back, f.next_review_at, f.deleted_at,
+                       TIMESTAMPDIFF(SECOND, NOW(), f.next_review_at) AS next_due_seconds
+                FROM review_logs rl
+                LEFT JOIN flashcards f ON rl.card_id = f.id
+                WHERE rl.session_id = ?
+                ORDER BY rl.reviewed_at ASC";
+
+        $logs = [];
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "i", $sessionId);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            while ($row = mysqli_fetch_assoc($result)) {
+                $logs[] = [
+                    'front'             => (string) $row['front'],
+                    'back'              => (string) $row['back'],
+                    'rating'            => (string) $row['rating'],
+                    'previousInterval'  => (int) $row['previous_interval'],
+                    'newInterval'       => (int) $row['new_interval'],
+                    'nextDueSeconds'    => $row['next_due_seconds'] !== null ? (int) $row['next_due_seconds'] : null,
+                    'isDeleted'         => $row['deleted_at'] !== null
+                ];
+            }
+            mysqli_stmt_close($stmt);
+        }
+        return $logs;
+    }
+
+    // -----------------------------------------------------------------------
+    // NEW: Session History (list page)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Number of completed sessions for a user (used for pagination).
+     * Uses the same "completed" rule as the Review Hub (ended_at IS NOT NULL).
+     */
+    public static function countCompletedSessions(mysqli $conn, int $userId): int
+    {
+        $sql = "SELECT COUNT(*) FROM review_sessions WHERE user_id = ? AND ended_at IS NOT NULL";
+
+        $total = 0;
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "i", $userId);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_bind_result($stmt, $total);
+            mysqli_stmt_fetch($stmt);
+            mysqli_stmt_close($stmt);
+        }
+        return (int) $total;
+    }
+
+    /**
+     * One page of completed sessions, newest first.
+     *
+     * @return array<int, array{
+     *   id:int, deckId:int, deckTitle:string, startedAt:string,
+     *   totalReviewed:int, rememberedCount:int, accuracy:int, durationSeconds:?int
+     * }>
+     */
+    public static function getSessionHistory(mysqli $conn, int $userId, int $limit = 15, int $offset = 0): array
+    {
+        $limit  = max(1, min($limit, 100));
+        $offset = max(0, $offset);
+
+        $sql = "SELECT rs.id, rs.deck_id, d.title AS deck_title, rs.started_at,
+                       rs.total_reviewed, rs.remembered_count, rs.accuracy_percentage,
+                       TIMESTAMPDIFF(SECOND, rs.started_at, rs.ended_at) AS duration_seconds
+                FROM review_sessions rs
+                JOIN decks d ON d.id = rs.deck_id
+                WHERE rs.user_id = ? AND rs.ended_at IS NOT NULL
+                ORDER BY rs.ended_at DESC, rs.id DESC
+                LIMIT ? OFFSET ?";
+
+        $sessions = [];
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "iii", $userId, $limit, $offset);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            while ($row = mysqli_fetch_assoc($result)) {
+                $sessions[] = [
+                    'id'              => (int) $row['id'],
+                    'deckId'          => (int) $row['deck_id'],
+                    'deckTitle'       => (string) $row['deck_title'],
+                    'startedAt'       => (string) $row['started_at'],
+                    'totalReviewed'   => (int) $row['total_reviewed'],
+                    'rememberedCount' => (int) $row['remembered_count'],
+                    'accuracy'        => (int) round((float) $row['accuracy_percentage']),
+                    'durationSeconds' => $row['duration_seconds'] === null ? null : (int) $row['duration_seconds'],
+                ];
+            }
+            mysqli_stmt_close($stmt);
+        }
+        return $sessions;
+    }
+}
+```
+
+review.js
+```
+document.addEventListener("DOMContentLoaded", () => {
+    const data = window.MemPulseReviewData;
+    if (!data.deckId || !data.dueCards || data.dueCards.length === 0) return;
+
+    // PRACTICE MODE: replay cards without saving anything. No saveSession(), no
+    // unsaved-changes warning, no endpoint calls. `practice` can also be switched on
+    // client-side from a normal review's finished screen ("Practice again").
+    let practice = data.mode === 'practice';
+    const cleanCard = c => ({ id: c.id, front: c.front, back: c.back, interval_days: c.interval_days, next_review_at: c.next_review_at });
+    let lastSet = data.dueCards.map(cleanCard);   // what "Practice again" replays
+    let finishToken = 0;                          // cancels a running stats animation on restart
+
+    let queue = data.dueCards;
+    let currentIndex = 0;
+
+    // State storage: track how the user rated each card ID
+    // Format: { cardId: 'remembered' | 'forgotten' }
+    let ratings = {};
+    let isAnswerShown = false;
+    let sessionEnded = false;
+
+    const csrfToken = data.csrfToken || '';
+    let sessionStartedAt = Date.now();
+    let sessionDuration = 0;
+    let unsavedRatings = false;
+
+    // "Again" puts the card back into this session's queue a few cards later.
+    // It never writes to `ratings`, so nothing extra is saved for it.
+    const AGAIN_OFFSET = 3;
+    let uniqueTotal = queue.length;   // cards in this session, ignoring repeats
+
+    // Scheduling rules, same as save-session.php. These defaults are replaced
+    // by the user's saved settings as soon as they load (see loadSrsSettings).
+    let srs = {
+        remember_multiplier: 2,
+        forgot_multiplier: 0.5,
+        initial_interval_days: 1,
+        maximum_interval_days: 365
+    };
+
+    function nextInterval(prevDays, status) {
+        const multiplier = status === 'remembered' ? srs.remember_multiplier : srs.forgot_multiplier;
+        const days = Math.round(prevDays * multiplier);
+        return Math.max(srs.initial_interval_days, Math.min(srs.maximum_interval_days, days));
+    }
+
+    const formatDays = (d) => `in ${d} ${d === 1 ? 'day' : 'days'}`;
+
+    function updateProjections() {
+        if (practice) return;   // Forgot / Remember day labels are hidden in practice
+        const card = queue[currentIndex];
+        if (!card) return;
+        const interval = parseInt(card.interval_days, 10) || 0;
+        projForgot.textContent = formatDays(nextInterval(interval, 'forgotten'));
+        projRemember.textContent = formatDays(nextInterval(interval, 'remembered'));
+    }
+
+    async function loadSrsSettings() {
+        try {
+            const res = await fetch('../api/settings-actions.php', { credentials: 'same-origin' });
+            const body = await res.json();
+            if (res.ok && body.success && body.settings) {
+                srs = { ...srs, ...body.settings };
+                updateProjections();
+            }
+        } catch (_) { /* keep the defaults */ }
+    }
+
+    // DOM Elements
+    const elFront = document.getElementById('card-front-content');
+    const elBack = document.getElementById('card-back-content');
+    const elDivider = document.getElementById('card-divider');
+    const btnShow = document.getElementById('show-answer-btn');
+    const boxRates = document.getElementById('rate-actions');
+    const btnForgot = document.getElementById('rate-forgot-btn');
+    const btnRemember = document.getElementById('rate-remember-btn');
+    const btnAgain = document.getElementById('rate-again-btn');
+    const projForgot = document.getElementById('projected-forgot-date');
+    const projRemember = document.getElementById('projected-remember-date');
+
+    const txtProgress = document.getElementById('progress-text');
+    const barProgress = document.getElementById('progress-bar');
+    const txtRem = document.getElementById('tally-remembered');
+    const txtFor = document.getElementById('tally-forgotten');
+    const badgeHist = document.getElementById('historical-rating-badge');
+
+    const viewActive = document.getElementById('active-review-container');
+    const viewFinished = document.getElementById('review-finished-screen');
+
+    const stage = document.getElementById('flashcard-stage');
+    const hintReveal = document.getElementById('hint-reveal');
+    const hintRate = document.getElementById('hint-rate');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let isAnimating = false;
+
+    const btnMissed = document.getElementById('review-missed-btn');
+    const returnLink = document.getElementById('return-hub-link');
+    const btnPracticeAgain = document.getElementById('practice-again-btn');
+    const practiceBanner = document.getElementById('practice-banner');
+    const sumAccuracy = document.getElementById('summary-accuracy');
+    const sumRem = document.getElementById('summary-remembered');
+    const sumFor = document.getElementById('summary-forgotten');
+    let missedCount = 0;
+    let statsDone = Promise.resolve();
+
+    const btnPrev = document.getElementById('prev-card-btn');
+    const btnNext = document.getElementById('next-card-btn');
+
+    // 1. Core Navigation & Display Logic
+    function renderCard() {
+        if (currentIndex >= queue.length) {
+            endSession();
+            return;
+        }
+
+        const card = queue[currentIndex];
+        elFront.innerHTML = escapeHtml(card.front).replace(/\n/g, '<br>');
+        elBack.innerHTML = escapeHtml(card.back).replace(/\n/g, '<br>');
+
+        txtProgress.textContent = `Card ${currentIndex + 1} of ${queue.length}`;
+        barProgress.style.width = `${(Object.keys(ratings).length / uniqueTotal) * 100}%`;
+
+        // Badge: the earlier rating (via Back), or a note on Again / repeated cards
+        const prevRating = ratings[card.id];
+        badgeHist.classList.remove('hidden', 'bg-emerald-100', 'text-emerald-700',
+            'bg-rose-100', 'text-rose-700', 'bg-amber-100', 'text-amber-700');
+        if (prevRating === 'remembered') {
+            badgeHist.textContent = 'Rated: Remembered';
+            badgeHist.classList.add('bg-emerald-100', 'text-emerald-700');
+        } else if (prevRating) {
+            badgeHist.textContent = 'Rated: Forgotten';
+            badgeHist.classList.add('bg-rose-100', 'text-rose-700');
+        } else if (card._again) {
+            badgeHist.textContent = 'Again: comes back later';
+            badgeHist.classList.add('bg-amber-100', 'text-amber-700');
+        } else if (card._repeat) {
+            badgeHist.textContent = 'Repeat';
+            badgeHist.classList.add('bg-amber-100', 'text-amber-700');
+        } else {
+            badgeHist.classList.add('hidden');
+        }
+
+        // Show when this card will come back for each rating
+        updateProjections();
+
+        hideAnswer();
+        updateNavButtons();
+    }
+
+    function showAnswer() {
+        if (sessionEnded || isAnimating || isAnswerShown) return;
+        isAnswerShown = true;
+        elBack.classList.remove('hidden');
+        elDivider.classList.remove('hidden');
+        btnShow.classList.add('hidden');
+        boxRates.classList.remove('hidden');
+        hintReveal.classList.add('hidden');
+        hintRate.classList.remove('hidden');
+        if (!reduceMotion) {
+            elBack.animate(
+                [{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'translateY(0)' }],
+                { duration: 200, easing: 'ease-out' });
+        }
+    }
+
+    function hideAnswer() {
+        isAnswerShown = false;
+        elBack.classList.add('hidden');
+        elDivider.classList.add('hidden');
+        btnShow.classList.remove('hidden');
+        boxRates.classList.add('hidden');
+        hintReveal.classList.remove('hidden');
+        hintRate.classList.add('hidden');
+    }
+
+    // 2. Rating & Tally Logic
+    async function rateCard(status) {
+        if (sessionEnded || isAnimating) return;
+        const card = queue[currentIndex];
+        ratings[card.id] = status;
+        unsavedRatings = !practice;
+        updateTally(status);
+
+        const dir = status === 'remembered' ? 1 : -1;
+        const glow = status === 'remembered' ? 'rgba(16,185,129,0.35)' : 'rgba(244,63,94,0.35)';
+        return advanceCard(dir, glow);
+    }
+
+    // Plays the exit animation for the current card, then deals the next one.
+    async function advanceCard(dir, glow) {
+        if (reduceMotion) {
+            currentIndex++;
+            renderCard();
+            return;
+        }
+
+        isAnimating = true;
+        const out = stage.animate([
+            { opacity: 1, transform: 'translateX(0) rotate(0deg)', boxShadow: `0 0 0 0 ${glow}` },
+            { opacity: 0, transform: `translateX(${dir * 64}px) rotate(${dir * 2}deg)`, boxShadow: `0 0 0 6px ${glow}` }
+        ], { duration: 220, easing: 'ease-in', fill: 'forwards' });
+        await out.finished;
+
+        currentIndex++;
+        renderCard();
+        out.cancel();
+
+        if (!sessionEnded) {
+            stage.animate([
+                { opacity: 0, transform: 'translateY(14px) scale(0.98)' },
+                { opacity: 1, transform: 'translateY(0) scale(1)' }
+            ], { duration: 240, easing: 'ease-out' });
+        }
+        isAnimating = false;
+    }
+
+    // Again: no rating is saved; a copy of the card comes back a few cards later.
+    async function againCard() {
+        if (sessionEnded || isAnimating) return;
+        const card = queue[currentIndex];
+
+        if (ratings[card.id]) {              // reached with Back: un-rate it
+            delete ratings[card.id];
+            updateTally();
+            unsavedRatings = !practice && Object.keys(ratings).length > 0;
+        }
+
+        card._again = true;                  // this slot can be skipped with Next
+
+        // Remove any copy already waiting ahead, then insert a fresh one
+        queue = queue.filter((c, i) => i <= currentIndex || c.id !== card.id);
+        const insertAt = Math.min(currentIndex + 1 + AGAIN_OFFSET, queue.length);
+        queue.splice(insertAt, 0, { ...card, _again: false, _repeat: true });
+
+        return advanceCard(0, 'rgba(245, 158, 11, 0.35)');
+    }
+
+    function updateTally(bumpStatus) {
+        let rem = 0, forg = 0;
+        Object.values(ratings).forEach(r => r === 'remembered' ? rem++ : forg++);
+        txtRem.textContent = rem;
+        txtFor.textContent = forg;
+        if (bumpStatus && !reduceMotion) {
+            (bumpStatus === 'remembered' ? txtRem : txtFor).animate(
+                [{ transform: 'scale(1)' }, { transform: 'scale(1.4)' }, { transform: 'scale(1)' }],
+                { duration: 280, easing: 'ease-out' });
+        }
+    }
+
+    // 3. Backward/Forward Queue Navigation
+    function prevCard() {
+        if (sessionEnded || isAnimating || currentIndex === 0) return; {
+            currentIndex--;
+            renderCard();
+            slideIn(-1);
+        }
+    }
+
+    // Back is available after the first card; Next only once the current card has a rating (or was sent to Again)
+    function updateNavButtons() {
+        btnPrev.disabled = currentIndex === 0;
+        const card = queue[currentIndex];
+        btnNext.disabled = !(card && (ratings[card.id] || card._again));
+    }
+
+    function slideIn(dir) {
+        if (reduceMotion) return;
+        stage.animate([
+            { opacity: 0, transform: `translateX(${dir * 28}px)` },
+            { opacity: 1, transform: 'translateX(0)' }
+        ], { duration: 200, easing: 'ease-out' });
+    }
+
+    function skipToNext() {
+        if (sessionEnded || isAnimating) return;
+        const card = queue[currentIndex];
+        if (!card || !(ratings[card.id] || card._again)) return;   // only skip cards already rated or sent to Again
+        currentIndex++;
+        renderCard();
+        if (!sessionEnded) slideIn(1);
+    }
+
+    // 4. Batch Save & Session End
+    async function saveSession() {
+        const res = await fetch('../api/save-session.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                deck_id: data.deckId,
+                results: ratings,
+                csrf_token: csrfToken,
+                duration_seconds: sessionDuration
+            })
+        });
+        let body = {};
+        try { body = await res.json(); } catch (_) { }
+        if (!res.ok || !body.ok) {
+            throw new Error(body.error || `Save failed (HTTP ${res.status}).`);
+        }
+        unsavedRatings = false;
+        return body;
+    }
+
+    function showSaveError(message) {
+        let box = document.getElementById('save-status');
+        if (!box) {
+            box = document.createElement('div');
+            box.id = 'save-status';
+            box.className = 'w-full max-w-sm mb-6 p-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-sm flex flex-col gap-3';
+            viewFinished.insertBefore(box, document.getElementById('finished-actions'));
+        }
+        box.textContent = '';
+
+        const p = document.createElement('p');
+        p.textContent = `Your session wasn't saved: ${message}`;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold';
+        btn.textContent = 'Retry save';
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            try {
+                await saveSession(); box.remove(); armMissedButton();
+            } catch (err) { showSaveError(err.message); }
+        });
+
+        box.append(p, btn);
+    }
+
+    async function endSession() {
+        if (sessionEnded) return;
+        sessionEnded = true;
+        sessionDuration = Math.round((Date.now() - sessionStartedAt) / 1000);
+        viewActive.classList.add('hidden');
+        viewFinished.classList.remove('hidden');
+        viewFinished.classList.add('flex');   // fixes the off-center completion screen
+
+        if (!reduceMotion) {
+            document.getElementById('finished-icon').animate(
+                [{ transform: 'scale(0.6)', opacity: 0 }, { transform: 'scale(1.08)', opacity: 1 }, { transform: 'scale(1)' }],
+                { duration: 450, easing: 'ease-out' });
+        }
+
+        const ratedIds = Object.keys(ratings);
+        if (ratedIds.length === 0) {
+            if (practice) {   // ended early with nothing rated: still allow another go
+                document.getElementById('finished-headline').textContent = 'Practice complete';
+                showPracticeAgain(false);
+                styleFinishedButtons(false);
+            }
+            return;
+        }
+
+        const total = ratedIds.length;
+        const remCount = Object.values(ratings).filter(r => r === 'remembered').length;
+        const forgCount = total - remCount;
+        const accuracy = Math.round((remCount / total) * 100);
+
+        // document.getElementById('finished-headline').textContent = headlineFor(accuracy);
+        document.getElementById('session-summary-stats').classList.remove('hidden');
+
+        if (forgCount > 0) {
+            missedCount = forgCount;
+            btnMissed.classList.remove('hidden');
+            if (practice) {
+                setMissedLabel();            // nothing to wait for: enabled right away
+                btnMissed.disabled = false;
+            } else {
+                btnMissed.disabled = true;
+                btnMissed.textContent = 'Saving…';
+            }
+        }
+        // Practice again: in a real review it unlocks once the save has succeeded
+        showPracticeAgain(!practice);
+        styleFinishedButtons(forgCount > 0);
+
+        // Confetti pop + stats showcase run alongside the save
+        // confettiBurst({ x: 0.5, y: 0.35, count: accuracy >= 80 ? 170 : 120, power: 17 });
+        statsDone = showStats(remCount, forgCount, accuracy);
+
+        if (practice) {
+            armMissedButton();               // practice never saves anything
+            return;
+        }
+
+        try {
+            await saveSession();
+            armMissedButton();
+        } catch (error) {
+            console.error("Failed to save session batch:", error);
+            showSaveError(error.message);
+        }
+    }
+
+    // 5. Event Listeners
+    btnShow.addEventListener('click', showAnswer);
+    btnForgot.addEventListener('click', () => rateCard('forgotten'));
+    btnRemember.addEventListener('click', () => rateCard('remembered'));
+    btnAgain.addEventListener('click', againCard);
+    document.getElementById('end-session-btn').addEventListener('click', endSession);
+    btnPrev.addEventListener('click', e => { prevCard(); e.currentTarget.blur(); });
+    btnNext.addEventListener('click', e => { skipToNext(); e.currentTarget.blur(); });
+
+    document.addEventListener('keydown', (e) => {
+        if (sessionEnded || isAnimating) return;
+
+        switch (e.key) {
+            case ' ':
+                e.preventDefault();
+                if (!isAnswerShown) showAnswer();
+                else rateCard('remembered'); // Second spacebar defaults to remember & advance
+                break;
+            case 'a':
+            case 'A':
+                if (isAnswerShown) againCard();
+                break;
+            case 'f':
+            case 'F':
+                if (isAnswerShown) rateCard('forgotten');
+                break;
+            case 'ArrowLeft':
+                prevCard();
+                break;
+            case 'ArrowRight':
+                skipToNext();
+                break;
+        }
+    });
+
+    window.addEventListener('beforeunload', (e) => {
+        if (unsavedRatings) { e.preventDefault(); e.returnValue = ''; }
+    });
+
+    // -----------------------------------------------------------------------
+    // Finished screen: headline, missed-cards button, stats showcase
+    // -----------------------------------------------------------------------
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    function headlineFor(accuracy) {
+        if (practice) return 'Practice complete';
+        if (accuracy >= 80) return 'Solid session';
+        if (accuracy >= 50) return 'Good progress';
+        return 'Those will come back soon';
+    }
+
+    // Real review: enabled only after the save succeeded, so forgotten cards are due again on reload.
+    // Practice: nothing is saved, so everything is enabled right away.
+    async function armMissedButton() {
+        if (!practice) await statsDone;   // don't let the user jump away mid-stamp
+        btnPracticeAgain.disabled = false;
+        if (missedCount < 1) return;
+        setMissedLabel();
+        btnMissed.disabled = false;
+    }
+
+    function setMissedLabel() {
+        const noun = missedCount === 1 ? 'card' : 'cards';
+        btnMissed.textContent = practice
+            ? `Practice ${missedCount} missed ${noun}`
+            : `Review ${missedCount} missed ${noun}`;
+    }
+
+    const PRIMARY_BTN = ['bg-primary', 'text-on-primary', 'shadow-sm', 'hover:bg-primary-container'];
+    const SECONDARY_BTN = ['border', 'border-outline-variant', 'text-on-surface', 'hover:bg-surface-container-low'];
+    function setPrimary(el, primary) {
+        el.classList.remove(...PRIMARY_BTN, ...SECONDARY_BTN);
+        el.classList.add(...(primary ? PRIMARY_BTN : SECONDARY_BTN));
+    }
+
+    // Missed button is always the main action when shown; otherwise Practice again leads in
+    // practice mode and the Back / Return link leads in a real review.
+    function styleFinishedButtons(hasMissed) {
+        setPrimary(btnPracticeAgain, practice && !hasMissed);
+        setPrimary(returnLink, !practice && !hasMissed);
+    }
+
+    function showPracticeAgain(disabled) {
+        btnPracticeAgain.disabled = disabled;
+        btnPracticeAgain.classList.remove('hidden');
+    }
+
+    function setPracticeMode(on) {
+        practice = on;
+        practiceBanner?.classList.toggle('hidden', !on);
+        projForgot.classList.toggle('hidden', on);
+        projRemember.classList.toggle('hidden', on);
+        if (on) {
+            returnLink.href = data.returnUrl || 'review.php';
+            returnLink.textContent = 'Back';
+        }
+    }
+
+    // Deals a fresh set of cards. Shared by "missed" and "practice" restarts.
+    function resetSession(cards) {
+        queue = cards;
+        uniqueTotal = cards.length;
+        currentIndex = 0;
+        ratings = {};
+        isAnswerShown = false;
+        sessionEnded = false;
+        unsavedRatings = false;
+        sessionStartedAt = Date.now();
+        sessionDuration = 0;
+        missedCount = 0;
+        finishToken++;
+
+        // Reset header tally and finished screen
+        txtRem.textContent = '0';
+        txtFor.textContent = '0';
+        sumAccuracy.textContent = '0%';
+        sumRem.textContent = '0';
+        sumFor.textContent = '0';
+        document.getElementById('summary-accuracy-bar').style.width = '0%';
+        document.getElementById('session-summary-stats').classList.add('hidden');
+        document.getElementById('finished-headline').textContent = practice ? 'Practice complete' : 'Session Complete!';
+        document.getElementById('save-status')?.remove();
+        document.getElementById('practice-skipped')?.classList.add('hidden');   // only about the first set
+        btnMissed.classList.add('hidden');
+        btnPracticeAgain.classList.add('hidden');
+        styleFinishedButtons(false);
+
+        // Swap views and deal the first card
+        viewFinished.classList.add('hidden');
+        viewFinished.classList.remove('flex');
+        viewActive.classList.remove('hidden');
+        renderCard();
+    }
+
+    function startMissedSession() {
+        // A card can sit in the queue twice (Again), so keep one entry per card
+        const seen = new Set();
+        const missed = queue
+            .filter(c => ratings[c.id] === 'forgotten' && !seen.has(c.id) && seen.add(c.id))
+            .map(c => ({ ...c, _again: false, _repeat: false }));
+        if (missed.length === 0) return;
+
+        // Real review: save-session.php just gave these cards their "forgot" interval, so mirror it locally.
+        // Practice: the server never changed anything, so leave the intervals alone.
+        if (!practice) {
+            missed.forEach(c => { c.interval_days = nextInterval(parseInt(c.interval_days, 10) || 0, 'forgotten'); });
+        }
+
+        lastSet = missed.map(cleanCard);
+        resetSession(missed);
+    }
+
+    // Replays a set of cards in practice mode (nothing is saved)
+    function startPractice(cards) {
+        if (!cards.length) return;
+        setPracticeMode(true);
+        lastSet = cards.map(cleanCard);
+        resetSession(lastSet.map(c => ({ ...c })));
+    }
+    btnMissed.addEventListener('click', startMissedSession);
+    btnPracticeAgain.addEventListener('click', () => startPractice(lastSet));
+
+    // function countUp(el, to, { duration = 900, suffix = '' } = {}) {
+    //     if (reduceMotion || to === 0) {
+    //         el.textContent = to + suffix;
+    //         return Promise.resolve();
+    //     }
+    //     return new Promise(resolve => {
+    //         const t0 = performance.now();
+    //         const tick = now => {
+    //             const p = Math.min(1, (now - t0) / duration);
+    //             el.textContent = Math.round(to * (1 - Math.pow(1 - p, 3))) + suffix;
+    //             p < 1 ? requestAnimationFrame(tick) : resolve();
+    //         };
+    //         requestAnimationFrame(tick);
+    //     });
+    // }
+
+    async function showStats(rem, forg, accuracy) {
+        const token = finishToken;
+        const headline = document.getElementById('finished-headline');
+        const bar = document.getElementById('summary-accuracy-bar');
+        const tiles = document.querySelectorAll('#session-summary-stats [data-stat-tile]');
+        const [tileAcc, tileRem, tileFor] = tiles;   // DOM order: Accuracy, Remembered, Forgotten
+
+        sumAccuracy.textContent = accuracy + '%';
+        sumRem.textContent = rem;
+        sumFor.textContent = forg;
+
+        if (reduceMotion) {
+            bar.style.width = accuracy + '%';
+            headline.textContent = headlineFor(accuracy);
+            return;
+        }
+
+        // Empty frames fade in first; each number stays hidden until its stamp lands
+        [sumAccuracy, sumRem, sumFor].forEach(el => { el.style.opacity = '0'; });
+        bar.style.width = '0%';
+        tiles.forEach(tile => tile.animate(
+            [{ opacity: 0, transform: 'translateY(12px)' }, { opacity: 1, transform: 'translateY(0)' }],
+            { duration: 350, easing: 'ease-out', fill: 'backwards' }));
+
+        await sleep(500);
+        if (token !== finishToken) return;
+        await stampStat(sumRem, tileRem, 'border-emerald-400', { scale: 3, duration: 520, shakePx: 4 });
+        if (token !== finishToken) return;
+        await sleep(300);
+        if (token !== finishToken) return;
+        await stampStat(sumFor, tileFor, 'border-rose-400', { scale: 3, duration: 520, shakePx: 4 });
+        if (token !== finishToken) return;
+        await sleep(650);   // beat of suspense before the hero number
+        if (token !== finishToken) return;
+        await stampStat(sumAccuracy, tileAcc, 'border-primary', { scale: 4.5, duration: 720, shakePx: 10, hero: true });
+        if (token !== finishToken) return;
+
+        // Climax: bar fills, headline appears, confetti explodes
+        bar.animate([{ width: '0%' }, { width: accuracy + '%' }],
+            { duration: 900, easing: 'cubic-bezier(.2,.8,.2,1)' });
+        bar.style.width = accuracy + '%';
+
+        headline.textContent = headlineFor(accuracy);
+        headline.animate(
+            [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'translateY(0)' }],
+            { duration: 350, easing: 'ease-out' });
+
+        confettiBurst({ x: 0.5, y: 0.3, count: accuracy >= 80 ? 170 : 120, power: 17 });
+        const n = accuracy >= 80 ? 90 : 60;
+        confettiBurst({ x: 0, y: 0.75, count: n, angle: -Math.PI / 3, spread: Math.PI / 3, power: 22 });
+        confettiBurst({ x: 1, y: 0.75, count: n, angle: -2 * Math.PI / 3, spread: Math.PI / 3, power: 22 });
+    }
+
+    // A number slams in from huge and blurry, squashes on impact, then settles.
+    // Resolves at the moment of impact so the caller can chain the next beat.
+    function stampStat(el, tile, ringClass, { scale = 3, duration = 520, shakePx = 5, hero = false } = {}) {
+        return new Promise(resolve => {
+            el.style.opacity = '1';
+            el.animate([
+                { opacity: 0, transform: `scale(${scale}) rotate(-14deg)`, filter: 'blur(6px)', offset: 0, easing: 'cubic-bezier(.5,0,1,.6)' },
+                { opacity: 1, transform: 'scale(0.9) rotate(2deg)', filter: 'blur(0px)', offset: 0.55 },
+                { transform: 'scale(1.06) rotate(-1deg)', offset: 0.75 },
+                { transform: 'scale(1) rotate(0deg)', offset: 1 }
+            ], { duration, easing: 'linear' });
+
+            setTimeout(() => {
+                impactRing(tile, ringClass);
+                if (hero) setTimeout(() => impactRing(tile, ringClass), 130);
+                tile.animate(
+                    [{ transform: 'scale(1)' }, { transform: 'scale(0.96)' }, { transform: 'scale(1)' }],
+                    { duration: 260, easing: 'ease-out' });
+                shake(viewFinished, shakePx);
+                resolve();
+            }, duration * 0.55);
+        });
+    }
+
+    function impactRing(tile, colorClass) {
+        tile.classList.add('relative');
+        const ring = document.createElement('div');
+        ring.className = `absolute inset-0 rounded-2xl border-2 pointer-events-none ${colorClass}`;
+        tile.appendChild(ring);
+        ring.animate(
+            [{ opacity: 0.9, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(1.35)' }],
+            { duration: 520, easing: 'ease-out' }
+        ).finished.then(() => ring.remove());
+    }
+
+    function shake(el, px = 6, duration = 380) {
+        el.animate([
+            { transform: 'translate(0, 0)' },
+            { transform: `translate(${-px}px, ${px * 0.5}px)` },
+            { transform: `translate(${px}px, ${-px * 0.5}px)` },
+            { transform: `translate(${-px * 0.6}px, 0)` },
+            { transform: `translate(${px * 0.4}px, 0)` },
+            { transform: 'translate(0, 0)' }
+        ], { duration, easing: 'ease-out' });
+    }
+
+    // -----------------------------------------------------------------------
+    // Confetti (tiny canvas engine, no dependencies)
+    // -----------------------------------------------------------------------
+    const CONFETTI_COLORS = ['#10b981', '#34d399', '#6366f1', '#f59e0b', '#f43f5e', '#38bdf8'];
+    let confettiCanvas = null, confettiCtx = null, confettiParts = [], confettiRaf = null;
+
+    function confettiBurst({ x = 0.5, y = 0.4, count = 120, angle = -Math.PI / 2, spread = Math.PI * 2, power = 15 } = {}) {
+        if (reduceMotion) return;
+
+        const dpr = window.devicePixelRatio || 1;
+        if (!confettiCanvas) {
+            confettiCanvas = document.createElement('canvas');
+            confettiCanvas.className = 'fixed inset-0 w-full h-full pointer-events-none z-[60]';
+            document.body.appendChild(confettiCanvas);
+            confettiCtx = confettiCanvas.getContext('2d');
+        }
+        if (confettiCanvas.width !== Math.round(innerWidth * dpr)) {
+            confettiCanvas.width = Math.round(innerWidth * dpr);
+            confettiCanvas.height = Math.round(innerHeight * dpr);
+        }
+
+        for (let i = 0; i < count; i++) {
+            const a = angle + (Math.random() - 0.5) * spread;
+            const v = power * (0.5 + Math.random() * 0.7);
+            confettiParts.push({
+                x: x * innerWidth, y: y * innerHeight,
+                vx: Math.cos(a) * v, vy: Math.sin(a) * v,
+                w: 6 + Math.random() * 6, h: 4 + Math.random() * 5,
+                rot: Math.random() * Math.PI * 2, vr: (Math.random() - 0.5) * 0.35,
+                wobble: Math.random() * Math.PI * 2,
+                color: CONFETTI_COLORS[(Math.random() * CONFETTI_COLORS.length) | 0],
+                life: 0, ttl: 110 + Math.random() * 60
+            });
+        }
+        if (!confettiRaf) confettiRaf = requestAnimationFrame(stepConfetti);
+    }
+
+    function stepConfetti() {
+        const dpr = window.devicePixelRatio || 1;
+        confettiCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        confettiCtx.clearRect(0, 0, innerWidth, innerHeight);
+
+        confettiParts = confettiParts.filter(p => p.life < p.ttl && p.y < innerHeight + 40);
+        for (const p of confettiParts) {
+            p.life++;
+            p.vx *= 0.985;
+            p.vy = p.vy * 0.985 + 0.38;                 // drag + gravity
+            p.wobble += 0.12;
+            p.x += p.vx + Math.sin(p.wobble) * 0.6;
+            p.y += p.vy;
+            p.rot += p.vr;
+
+            confettiCtx.save();
+            confettiCtx.globalAlpha = Math.min(1, (p.ttl - p.life) / 30);
+            confettiCtx.translate(p.x, p.y);
+            confettiCtx.rotate(p.rot);
+            confettiCtx.scale(1, Math.abs(Math.cos(p.wobble)));   // flutter
+            confettiCtx.fillStyle = p.color;
+            confettiCtx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+            confettiCtx.restore();
+        }
+
+        if (confettiParts.length) {
+            confettiRaf = requestAnimationFrame(stepConfetti);
+        } else {
+            confettiRaf = null;
+            confettiCanvas.remove();
+            confettiCanvas = null;
+        }
+    }
+
+    // Utilities
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Init
+    if (practice) setPracticeMode(true);
+    else loadSrsSettings();   // practice never needs the interval settings
+    renderCard();
+});
+```
+
+sessions.php
+```
+<?php
+/**
+ * Session History (list of all completed review sessions)
+ * Subpage of Review Hub:  Review Hub > Session History
+ * Each row links to session-details.php?id=X
+ */
+session_start();
+
+if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || !isset($_SESSION['user_id'])) {
+    header("Location: ../../authentication/login.php");
+    exit;
+}
+
+require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../api/SessionService.php';
+require_once __DIR__ . '/../api/ReviewHubService.php';
+
+$userId = (int) $_SESSION['user_id'];
+
+// ---- Pagination ----
+$perPage    = 15;
+$totalCount = SessionService::countCompletedSessions($conn, $userId);
+$totalPages = max(1, (int) ceil($totalCount / $perPage));
+$page       = isset($_GET['page']) && ctype_digit((string) $_GET['page']) ? (int) $_GET['page'] : 1;
+$page       = min(max(1, $page), $totalPages);
+$offset     = ($page - 1) * $perPage;
+
+$sessions = SessionService::getSessionHistory($conn, $userId, $perPage, $offset);
+
+$pageTitle   = "Session History";
+$currentPage = "review"; // keep sidebar highlight on Review Hub
+$h = [ReviewHubService::class, 'h'];
+
+// Page-number window (current page +/- 2)
+$firstShown = max(1, $page - 2);
+$lastShown  = min($totalPages, $page + 2);
+
+// ---- Rows for the Tabulator grid (text is pre-formatted here; JS escapes it) ----
+$sessionRows = [];
+foreach ($sessions as $s) {
+    $sessionRows[] = [
+        'title'       => (string) $s['deckTitle'],
+        'detailsUrl'  => 'session-details.php?id=' . (int) $s['id'],
+        // Practice again (read-only replay); sessions with no cards have nothing to replay
+        'practiceUrl' => ((int) $s['totalReviewed'] > 0)
+            ? 'review.php?mode=practice&from=sessions&session_id=' . (int) $s['id'] : '',
+        'date'        => date('M j, Y, g:i A', strtotime($s['startedAt'])),
+        'cards'       => (int) $s['totalReviewed'],
+        'remembered'  => (int) $s['rememberedCount'],
+        'accuracy'    => (int) $s['accuracy'],
+        'accuracyCls' => ReviewHubService::accuracyBadgeClass((int) $s['accuracy']),
+        'duration'    => ReviewHubService::formatDuration($s['durationSeconds']),
+    ];
+}
+unset($s);
+?>
+<!DOCTYPE html>
+<html lang="en">
+
+<?php include __DIR__ . '/../includes/head.php'; ?>
+
+<body class="bg-background font-body-md text-on-surface antialiased min-h-screen">
+
+    <?php include __DIR__ . '/../includes/sidebar.php'; ?>
+
+    <main id="main-content" class="pl-0 md:pl-72 pt-16 transition-all duration-300 ease-in-out">
+        <div class="w-full px-2 sm:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
+            <div class="flex flex-col w-full gap-4 sm:gap-6">
+
+                <!-- Breadcrumb -->
+                <nav class="flex items-center gap-2 text-sm font-medium text-on-surface-variant mb-2" aria-label="Breadcrumb">
+                    <a href="review.php" class="hover:text-primary transition-colors flex items-center gap-1">
+                        Review
+                    </a>
+                    <span class="material-symbols-outlined text-[16px] opacity-50">chevron_right</span>
+                    <span class="text-on-surface" aria-current="page">Session History</span>
+                </nav>
+
+                <!-- Page header -->
+                <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-6 shadow-sm flex items-center justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="material-symbols-outlined text-[28px] text-primary">history</span>
+                            <h1 class="font-headline-md text-2xl font-bold text-on-surface m-0">Session History</h1>
+                        </div>
+                        <p class="text-sm text-on-surface-variant">
+                            <?= (int) $totalCount ?> completed <?= $totalCount === 1 ? 'session' : 'sessions' ?>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Sessions table -->
+                <div class="mp-table bg-surface-container-lowest border border-outline-variant/30 rounded-2xl shadow-xs overflow-x-auto">
+
+                    <?php if (empty($sessions)): ?>
+                        <div class="flex flex-col items-center justify-center p-10 text-center text-on-surface-variant">
+                            <span class="material-symbols-outlined text-[36px] text-outline mb-2">history_edu</span>
+                            <span class="text-sm font-medium">No review sessions yet.</span>
+                            <span class="text-xs mt-1 text-on-surface-variant">Finish a review session and it will show up here.</span>
+                            <a href="review.php" class="mt-4 px-4 py-2 rounded-xl bg-primary text-on-primary text-sm font-bold hover:bg-primary-container transition-colors">Go to Review Hub</a>
+                        </div>
+                    <?php else: ?>
+                        <div id="sessions-table"></div>
+
+                        <?php if ($totalPages > 1): ?>
+                            <!-- Pagination -->
+                            <nav class="flex items-center justify-between gap-3 px-5 py-3 border-t border-outline-variant/30 bg-surface-container-lowest" aria-label="Pagination">
+                                <p class="text-xs text-on-surface-variant">
+                                    Page <?= (int) $page ?> of <?= (int) $totalPages ?>
+                                </p>
+                                <div class="flex items-center gap-1">
+                                    <?php if ($page > 1): ?>
+                                        <a href="sessions.php?page=<?= $page - 1 ?>" aria-label="Previous page"
+                                           class="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors">
+                                            <span class="material-symbols-outlined text-[20px]">chevron_left</span>
+                                        </a>
+                                    <?php endif; ?>
+
+                                    <?php for ($p = $firstShown; $p <= $lastShown; $p++): ?>
+                                        <?php if ($p === $page): ?>
+                                            <span aria-current="page" class="min-w-8 h-8 px-2 rounded-lg flex items-center justify-center bg-primary text-on-primary text-xs font-bold tabular-nums"><?= $p ?></span>
+                                        <?php else: ?>
+                                            <a href="sessions.php?page=<?= $p ?>"
+                                               class="min-w-8 h-8 px-2 rounded-lg flex items-center justify-center text-xs font-semibold text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors tabular-nums"><?= $p ?></a>
+                                        <?php endif; ?>
+                                    <?php endfor; ?>
+
+                                    <?php if ($page < $totalPages): ?>
+                                        <a href="sessions.php?page=<?= $page + 1 ?>" aria-label="Next page"
+                                           class="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors">
+                                            <span class="material-symbols-outlined text-[20px]">chevron_right</span>
+                                        </a>
+                                    <?php endif; ?>
+                                </div>
+                            </nav>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Colour probe: lets the table CSS reuse your Tailwind design tokens -->
+    <div id="mp-token-probe" class="hidden" aria-hidden="true">
+        <span data-t="head"    class="bg-surface-container text-on-surface-variant"></span>
+        <span data-t="text"    class="text-on-surface"></span>
+        <span data-t="hover"   class="bg-surface-container-low/50"></span>
+        <span data-t="border"  class="border border-outline-variant/30"></span>
+        <span data-t="divider" class="border border-outline-variant/20"></span>
+    </div>
+
+    <!-- Same Tabulator build + theme as deck-view.php -->
+    <link href="https://unpkg.com/tabulator-tables@5.5.0/dist/css/tabulator_simple.min.css" rel="stylesheet">
+    <style>
+        /* Rows open the session, so they look clickable */
+        #sessions-table .tabulator-row,
+        #sessions-table .tabulator-row .tabulator-cell { cursor: pointer; }
+    </style>
+
+    <script type="application/json" id="sessions-table-data"><?= json_encode($sessionRows, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?></script>
+    <script src="../assets/js/mp-tables.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var dataEl = document.getElementById('sessions-table-data');
+        if (!dataEl || !document.getElementById('sessions-table')) return;
+        var rows = JSON.parse(dataEl.textContent);
+        var esc = MPTable.esc;
+        var muted = 'text-on-surface-variant tabular-nums whitespace-nowrap';
+        var right = { hozAlign: 'right', headerHozAlign: 'right' };
+        var mutedCell = function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; };
+
+        MPTable.applyTokens(document.getElementById('mp-token-probe'));
+        MPTable.ensure(function () {
+            MPTable.make('#sessions-table', rows, [
+                { title: 'Deck', field: 'title', widthGrow: 3, minWidth: 120, responsive: 0,
+                  formatter: function (c) {
+                      var r = c.getRow().getData();
+                      return '<a href="' + esc(r.detailsUrl) + '" title="' + esc(r.title) + '" class="block truncate font-semibold text-on-surface hover:text-primary transition-colors">' + esc(r.title) + '</a>';
+                  } },
+                { title: 'Date', field: 'date', minWidth: 130, responsive: 1, formatter: mutedCell },
+                Object.assign({ title: 'Cards', field: 'cards', minWidth: 65, responsive: 2, formatter: mutedCell }, right),
+                Object.assign({ title: 'Remembered', field: 'remembered', minWidth: 95, responsive: 4, formatter: mutedCell }, right),
+                Object.assign({ title: 'Accuracy', field: 'accuracy', minWidth: 80, responsive: 0,
+                  formatter: function (c) {
+                      var r = c.getRow().getData();
+                      return '<span class="inline-block text-xs font-bold border px-2 py-0.5 rounded-md tabular-nums ' + esc(r.accuracyCls) + '">' + esc(r.accuracy) + '%</span>';
+                  } }, right),
+                Object.assign({ title: 'Duration', field: 'duration', minWidth: 75, responsive: 3, formatter: mutedCell }, right),
+                Object.assign({ title: '', field: 'practiceUrl', minWidth: 115, responsive: 0, formatter: function (c) {
+                      var r = c.getRow().getData();
+                      if (!r.practiceUrl) return '';
+                      return '<a href="' + esc(r.practiceUrl) + '" title="Practice these cards again without affecting spaced repetition history" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-outline-variant text-on-surface text-xs font-bold hover:bg-surface-container-low transition-colors whitespace-nowrap"><span class="material-symbols-outlined text-[15px]">play_arrow</span><span>Again</span></a>';
+                  } }, right),
+                Object.assign({ title: 'Action', field: 'detailsUrl', minWidth: 110, responsive: 0,
+                  formatter: function (c) {
+                      var r = c.getRow().getData();
+                      return '<a href="' + esc(r.detailsUrl) + '" ' +
+                             'title="View comprehensive review session breakdown, card history, and performance details for ' + esc(r.title) + '" ' +
+                             'aria-label="View session details for ' + esc(r.title) + '" ' +
+                             'class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container-high border border-outline-variant/40 text-on-surface hover:text-primary hover:border-primary/50 text-xs font-bold transition-colors whitespace-nowrap">' +
+                             '<span>View Details</span><span class="material-symbols-outlined text-[15px]">chevron_right</span></a>';
+                  } }, right)
+            ], {
+                rowClick: function (e, row) {
+                    if (e.target.closest('a')) return;
+                    window.location.href = row.getData().detailsUrl;
+                }
+            });
+        });
+    });
+    </script>
+</body>
+</html>
+```
+
+session-details.php
+```
+<?php
+/**
+ * Session Details (single session)
+ * Subpage of Session History:  Review Hub > Session History > Session Details
+ * This is the OLD sessions.php, renamed.
+ */
+session_start();
+
+if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || !isset($_SESSION['user_id'])) {
+    header("Location: ../../authentication/login.php");
+    exit;
+}
+
+require_once __DIR__ . '/../../config/db.php';
+require_once __DIR__ . '/../api/SessionService.php';
+require_once __DIR__ . '/../api/ReviewHubService.php';
+
+$userId    = (int) $_SESSION['user_id'];
+$sessionId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+
+$session = SessionService::getSessionDetails($conn, $sessionId, $userId);
+if (!$session) {
+    header("Location: sessions.php"); // invalid id or belongs to someone else -> back to the history list
+    exit;
+}
+
+$logs = SessionService::getSessionLogs($conn, $sessionId);
+
+$pageTitle   = "Session Details";
+$currentPage = "review"; // Keep navigation active on Review Hub
+$h = [ReviewHubService::class, 'h'];
+
+// ---- Rows for the Tabulator grid (text is pre-formatted here; JS escapes it) ----
+$logRows = [];
+foreach ($logs as $log) {
+    $secs = $log['nextDueSeconds'];
+    $logRows[] = [
+        'front'     => (string) $log['front'],
+        'back'      => (string) $log['back'],
+        'isDeleted' => (bool) $log['isDeleted'],
+        'remembered'=> $log['rating'] === 'remembered',
+        'isDueNow'  => $secs !== null && $secs <= 0,
+        'nextText'  => $secs === null ? '—' : ($secs <= 0 ? 'Due Now' : 'in ' . ReviewHubService::formatSpan($secs)),
+    ];
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+
+<?php include __DIR__ . '/../includes/head.php'; ?>
+
+<body class="bg-background font-body-md text-on-surface antialiased min-h-screen">
+
+    <?php include __DIR__ . '/../includes/sidebar.php'; ?>
+
+    <main id="main-content" class="pl-0 md:pl-72 pt-16 transition-all duration-300 ease-in-out">
+        <div class="w-full px-2 sm:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
+            <div class="flex flex-col w-full gap-4 sm:gap-6">                <!-- Breadcrumb -->
+                <nav class="flex items-center gap-2 text-sm font-medium text-on-surface-variant mb-2" aria-label="Breadcrumb">
+                    <a href="review.php" class="hover:text-primary transition-colors flex items-center gap-1">
+                        <!-- <span class="material-symbols-outlined text-[18px]">home</span> -->
+                        Review
+                    </a>
+                    <span class="material-symbols-outlined text-[16px] opacity-50">chevron_right</span>
+                    <a href="sessions.php" class="hover:text-primary transition-colors">Session History</a>
+                    <span class="material-symbols-outlined text-[16px] opacity-50">chevron_right</span>
+                    <span class="text-on-surface" aria-current="page">Session Details</span>
+                </nav>
+
+                <!-- Session Metadata Header -->
+                <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                    <div>
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="material-symbols-outlined text-[28px] text-primary">history_edu</span>
+                            <h1 class="font-headline-md text-2xl font-bold text-on-surface m-0">Session Details</h1>
+                        </div>
+                        <p class="text-sm text-on-surface-variant">
+                            Deck: <a href="deck.php?deck_id=<?= (int) $session['deckId'] ?>" class="font-semibold text-on-surface hover:text-primary hover:underline transition-colors"><?= $h($session['deckTitle']) ?></a>
+                            <span class="mx-2">•</span>
+                            <?= $h(date('M j, Y, g:i A', strtotime($session['startedAt']))) ?>
+                        </p>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="bg-surface-container-high px-4 py-2.5 rounded-xl border border-outline-variant/30 flex flex-col items-center min-w-[80px]">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Duration</span>
+                            <span class="text-lg font-extrabold text-on-surface mt-0.5 tabular-nums"><?= $h(ReviewHubService::formatDuration($session['durationSeconds'])) ?></span>
+                        </div>
+                        <div class="bg-surface-container-high px-4 py-2.5 rounded-xl border border-outline-variant/30 flex flex-col items-center min-w-[80px]">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Cards</span>
+                            <span class="text-lg font-extrabold text-on-surface mt-0.5 tabular-nums"><?= (int) $session['totalReviewed'] ?></span>
+                        </div>
+                        <div class="<?= ReviewHubService::accuracyBadgeClass($session['accuracy']) ?> px-4 py-2.5 rounded-xl border flex flex-col items-center min-w-[80px]">
+                            <span class="text-[10px] font-bold uppercase tracking-wider opacity-80">Accuracy</span>
+                            <span class="text-lg font-extrabold mt-0.5 tabular-nums"><?= (int) $session['accuracy'] ?>%</span>
+                        </div>
+                        <?php if (!empty($logRows)): ?>
+                            <!-- Practice again: read-only replay of this session's cards -->
+                            <a href="review.php?mode=practice&amp;from=session&amp;session_id=<?= (int) $sessionId ?>"
+                               title="Practice these cards again (nothing is saved)"
+                               class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-sm hover:bg-primary-container transition-colors whitespace-nowrap">
+                                <span class="material-symbols-outlined text-[18px]">play_arrow</span>
+                                Practice again
+                            </a>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <!-- Cards Reviewed: title above the table, table below -->
+                <section class="flex flex-col gap-4 w-full min-w-0" id="cards-reviewed-section">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <h2 class="font-headline-md text-headline-md font-bold tracking-tight text-on-surface whitespace-nowrap">Cards Reviewed</h2>
+                        <span class="px-2.5 py-0.5 rounded-full bg-primary-container text-on-primary font-label-sm text-label-sm font-semibold tracking-wide shadow-xs whitespace-nowrap">
+                            <?= count($logRows) ?> <?= count($logRows) === 1 ? 'Card' : 'Cards' ?>
+                        </span>
+                    </div>
+
+                    <?php if (empty($logRows)): ?>
+                        <div class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs py-10 text-center text-on-surface-variant text-sm">
+                            No card records were saved for this session.
+                        </div>
+                    <?php else: ?>
+                        <div class="mp-table rounded-2xl border border-outline-variant/30 bg-surface-container-lowest shadow-xs overflow-hidden">
+                            <div id="session-cards-table"></div>
+                        </div>
+                    <?php endif; ?>
+                </section>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Colour probe: lets the table CSS reuse your Tailwind design tokens -->
+    <div id="mp-token-probe" class="hidden" aria-hidden="true">
+        <span data-t="head"    class="bg-surface-container text-on-surface-variant"></span>
+        <span data-t="text"    class="text-on-surface"></span>
+        <span data-t="hover"   class="bg-surface-container-low/50"></span>
+        <span data-t="border"  class="border border-outline-variant/30"></span>
+        <span data-t="divider" class="border border-outline-variant/20"></span>
+    </div>
+
+    <!-- Same Tabulator build + theme as deck-view.php -->
+    <link href="https://unpkg.com/tabulator-tables@5.5.0/dist/css/tabulator_simple.min.css" rel="stylesheet">
+    <style>
+        /* Read-only records: plain cursor */
+        #session-cards-table .tabulator-row,
+        #session-cards-table .tabulator-row .tabulator-cell { cursor: default; }
+    </style>
+
+    <script type="application/json" id="session-cards-data"><?= json_encode($logRows, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?></script>
+    <script src="../assets/js/mp-tables.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var dataEl = document.getElementById('session-cards-data');
+        if (!dataEl || !document.getElementById('session-cards-table')) return;
+        var rows = JSON.parse(dataEl.textContent);
+        var esc = MPTable.esc;
+
+        // Card text: keep line breaks, show at most 2 lines, full text on hover
+        var textCell = function (key, extraCls) {
+            return function (c) {
+                var r = c.getRow().getData();
+                var badge = (key === 'front' && r.isDeleted)
+                    ? '<span class="inline-block mb-1 text-[10px] font-bold uppercase text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">Deleted</span>'
+                    : '';
+                return badge + '<div class="line-clamp-2 whitespace-pre-line break-words ' + extraCls + '" title="' + esc(r[key]) + '">' + esc(r[key]) + '</div>';
+            };
+        };
+
+        MPTable.applyTokens(document.getElementById('mp-token-probe'));
+        MPTable.ensure(function () {
+            MPTable.make('#session-cards-table', rows, [
+                { title: 'Front', field: 'front', widthGrow: 3, minWidth: 160, responsive: 0, formatter: textCell('front', '') },
+                { title: 'Back',  field: 'back',  widthGrow: 3, minWidth: 160, responsive: 1, formatter: textCell('back', 'text-on-surface-variant') },
+                { title: 'Result', field: 'remembered', width: 160, responsive: 0,
+                  formatter: function (c) {
+                      return c.getValue()
+                          ? '<span class="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-md"><span class="material-symbols-outlined text-[14px]">check_circle</span>Remembered</span>'
+                          : '<span class="inline-flex items-center gap-1 text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-1 rounded-md"><span class="material-symbols-outlined text-[14px]">cancel</span>Forgotten</span>';
+                  } },
+                { title: 'Next Due', field: 'nextText', width: 140, hozAlign: 'right', headerHozAlign: 'right', responsive: 2,
+                  formatter: function (c) {
+                      var r = c.getRow().getData();
+                      return r.isDueNow
+                          ? '<span class="text-rose-600 font-medium">Due Now</span>'
+                          : '<span class="text-on-surface-variant tabular-nums whitespace-nowrap">' + esc(r.nextText) + '</span>';
+                  } }
+            ]);
+        });
+    });
+    </script>
+</body>
+</html>
+```
+
+mp-tables.js
+```
+/**
+ * MemPulse read-only Tabulator helper (Tabulator 5.5.0, same build as deck-view.php).
+ * Shared by sessions.php and session-details.php.
+ *
+ * Contains NO Tailwind classes on purpose: every class used in a table cell lives in the
+ * PHP view that renders it, so Tailwind always sees it.
+ *
+ * Usage (from a view, on DOMContentLoaded):
+ *   MPTable.applyTokens(document.getElementById('mp-token-probe'));
+ *   MPTable.ensure(function () { MPTable.make('#my-table', rows, columns, { rowClick: ... }); });
+ */
+(function () {
+    if (window.MPTable) return;
+
+    var TABULATOR_JS = 'https://unpkg.com/tabulator-tables@5.5.0/dist/js/tabulator.min.js';
+
+    // Structure + responsive layout adjustments
+    var CSS = [
+        '.mp-table .tabulator { background: transparent; border: 0; font-family: inherit; font-size: .875rem; color: var(--mp-text, inherit); }',
+        '.mp-table .tabulator .tabulator-header { background: var(--mp-head-bg, #f1f1f1) !important; color: var(--mp-head-text, inherit); border-top: 0; border-bottom: 1px solid var(--mp-border, #ddd); }',
+        '.mp-table .tabulator .tabulator-header .tabulator-col { background: transparent !important; border-right: 0; }',
+        '.mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-content { padding: .75rem 1rem; }',
+        '.mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }',
+        '.mp-table .tabulator .tabulator-tableholder, .mp-table .tabulator .tabulator-tableholder .tabulator-table { background: transparent; }',
+        '.mp-table .tabulator .tabulator-row, .mp-table .tabulator .tabulator-row.tabulator-row-even, .mp-table .tabulator .tabulator-row.tabulator-row-odd { background: transparent !important; color: inherit; border-bottom: 1px solid var(--mp-divider, #eee); min-height: 0; }',
+        '.mp-table .tabulator .tabulator-row:hover { background: var(--mp-hover, rgba(0,0,0,.03)) !important; }',
+        '.mp-table .tabulator .tabulator-table > .tabulator-row:last-child { border-bottom: 0; }',
+        '.mp-table .tabulator .tabulator-row .tabulator-cell { padding: .75rem 1rem; border-right: 0; vertical-align: middle; }',
+        '.mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-resize-handle { display: none; }',
+        '@media (max-width: 640px) {',
+        '  .mp-table .tabulator .tabulator-header .tabulator-col .tabulator-col-content,',
+        '  .mp-table .tabulator .tabulator-row .tabulator-cell { padding: .5rem .625rem; font-size: .8125rem; }',
+        '}'
+    ].join('\n');
+
+    var styleEl = document.createElement('style');
+    styleEl.id = 'mp-table-styles';
+    styleEl.textContent = CSS;
+    document.head.appendChild(styleEl);
+
+    // Read the Tailwind design tokens from the probe element and expose them as CSS variables
+    function applyTokens(probe) {
+        if (!probe) return;
+        var q = function (t) { return probe.querySelector('[data-t="' + t + '"]'); };
+        var s = document.documentElement.style;
+        s.setProperty('--mp-head-bg', getComputedStyle(q('head')).backgroundColor);
+        s.setProperty('--mp-head-text', getComputedStyle(q('head')).color);
+        s.setProperty('--mp-text', getComputedStyle(q('text')).color);
+        s.setProperty('--mp-hover', getComputedStyle(q('hover')).backgroundColor);
+        s.setProperty('--mp-border', getComputedStyle(q('border')).borderTopColor);
+        s.setProperty('--mp-divider', getComputedStyle(q('divider')).borderTopColor);
+    }
+
+    function esc(v) {
+        return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+
+    // Load Tabulator only if the page doesn't already have it
+    function ensure(done) {
+        if (window.Tabulator) return done();
+        var sc = document.createElement('script');
+        sc.src = TABULATOR_JS;
+        sc.onload = done;
+        sc.onerror = done;
+        document.head.appendChild(sc);
+    }
+
+    // Read-only responsive defaults
+    var base = {
+        layout: 'fitColumns',
+        responsiveLayout: 'hide',
+        movableColumns: false,
+        selectable: false,
+        selectableRows: false,
+        columnDefaults: { headerSort: false, resizable: false }
+    };
+
+    function make(selector, rows, columns, extra) {
+        var el = document.querySelector(selector);
+        if (!el) return null;
+        if (typeof Tabulator === 'undefined') {
+            console.error('Tabulator failed to load.');
+            el.innerHTML = '<p style="padding:2rem;text-align:center;font-size:.875rem;opacity:.7">Table could not be loaded.</p>';
+            return null;
+        }
+        var cols = columns.map(function (c) { return Object.assign({ headerSort: false, resizable: false }, c); });
+        return new Tabulator(el, Object.assign({}, base, { data: rows, columns: cols }, extra || {}));
+    }
+
+    window.MPTable = { applyTokens: applyTokens, esc: esc, ensure: ensure, make: make };
+})();
+```
+

@@ -146,12 +146,12 @@ $nextDueLabel = ($nextDueSecs !== null && $nextDueSecs > 0)
 $dueRows = [];
 foreach ($dueDecks as $d) {
     $dueRows[] = [
-        'title'      => (string) $d['title'],
-        'deckUrl'    => 'deck.php?deck_id=' . (int) $d['id'],
-        'reviewUrl'  => 'review.php?deck_id=' . (int) $d['id'],
-        'dueCount'   => (int) $d['dueCount'],
-        'oldestText' => $d['overdueSeconds'] === null ? '—' : ReviewHubService::formatSpan($d['overdueSeconds']) . ' ago',
-        'totalCards' => (int) $d['totalCards'],
+        'title'         => (string) $d['title'],
+        'reviewUrl'     => 'review.php?deck_id=' . (int) $d['id'],
+        'newCount'      => (int) $d['newDueCount'],
+        'learningCount' => (int) $d['learningDueCount'],
+        'youngCount'    => (int) $d['youngDueCount'],
+        'masteredCount' => (int) $d['masteredDueCount'],
     ];
 }
 
@@ -306,13 +306,21 @@ $badgeCls = 'px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] fon
         .mp-table .tabulator .tabulator-row .tabulator-cell { padding: .5rem .625rem; font-size: .75rem; }
     }
 
-    #due-now-table .tabulator-row,
-    #due-now-table .tabulator-row .tabulator-cell,
     #upcoming-table .tabulator-row,
     #upcoming-table .tabulator-row .tabulator-cell { cursor: default !important; }
 
+    #due-now-table .tabulator-row,
+    #due-now-table .tabulator-row .tabulator-cell,
     #recent-sessions-table .tabulator-row,
     #recent-sessions-table .tabulator-row .tabulator-cell { cursor: pointer; }
+
+    /* Due Now: keep all five columns readable; the wrapper scrolls sideways on narrow screens */
+    #due-now-table .tabulator { min-width: 420px; }
+    #due-now-table .tabulator-cell a:hover { text-decoration: underline; }
+    @media (max-width: 640px) {
+        #due-now-table .tabulator-header .tabulator-col .tabulator-col-content,
+        #due-now-table .tabulator-row .tabulator-cell { padding: .5rem .375rem; }
+    }
 </style>
 
 <!-- Tabulator tables (readable mode: no sorting, resizing, moving, editing or selection) -->
@@ -385,22 +393,44 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function buildTables() {
         // ---- Due Now ----
+        var stateStyles = {
+            newCount:      'text-sky-700 bg-sky-50 border-sky-200/80',
+            learningCount: 'text-amber-700 bg-amber-50 border-amber-200/80',
+            youngCount:    'text-emerald-700 bg-emerald-50 border-emerald-200/80',
+            masteredCount: 'text-violet-700 bg-violet-50 border-violet-200/80'
+        };
+        var stateCol = function (title, field, minWidth) {
+            return { title: title, field: field, minWidth: minWidth, hozAlign: 'center', headerHozAlign: 'center',
+                formatter: function (c) {
+                    var n = Number(c.getValue()) || 0;
+                    var cls = n > 0
+                        ? stateStyles[field]
+                        : 'text-on-surface-variant/50 bg-transparent border-transparent';
+                    return '<span class="inline-block min-w-[2rem] text-center text-[11px] font-bold border px-2 py-0.5 rounded-md tabular-nums ' + cls + '">' + esc(n) + '</span>';
+                } };
+        };
+
         make('#due-now-table', data.due, [
-            { title: 'Deck', field: 'title', widthGrow: 3, minWidth: 120, responsive: 0, formatter: linkCell('deckUrl') },
-            { title: 'Due', field: 'dueCount', minWidth: 65, hozAlign: 'right', headerHozAlign: 'right', responsive: 1,
-              formatter: function (c) { return '<span class="inline-block text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200/80 px-2 py-0.5 rounded-md tabular-nums">' + esc(c.getValue()) + '</span>'; } },
-            { title: 'Total cards', field: 'totalCards', minWidth: 85, hozAlign: 'right', headerHozAlign: 'right', responsive: 2,
-              formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
-            { title: 'Oldest due', field: 'oldestText', minWidth: 95, hozAlign: 'right', headerHozAlign: 'right', responsive: 3,
-              formatter: function (c) { return '<span class="' + muted + '">' + esc(c.getValue()) + '</span>'; } },
-            { title: '', field: 'reviewUrl', minWidth: 100, hozAlign: 'right', headerHozAlign: 'right', responsive: 0,
-              formatter: function (c) {
-                  var r = c.getRow().getData();
-                  return '<a href="' + esc(r.reviewUrl) + '" aria-label="Review ' + esc(r.title) + '" title="Start reviewing ' + esc(r.title) + '" ' +
-                         'class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary text-on-primary text-xs font-bold hover:bg-primary-container transition-colors whitespace-nowrap">' +
-                         '<span class="material-symbols-outlined text-[15px]">play_arrow</span><span>Review</span></a>';
-              } }
-        ]);
+            { title: 'Deck Name', field: 'title', widthGrow: 3, minWidth: 120,
+              formatter: function (cell) {
+                  var r = cell.getRow().getData();
+                  return '<a href="' + esc(r.reviewUrl) + '" title="Review due cards in ' + esc(r.title) + '" ' +
+                         'class="block truncate font-semibold text-primary transition-colors">' + esc(r.title) + '</a>';
+              } },
+            stateCol('New',      'newCount',      65),
+            stateCol('Learning', 'learningCount', 85),
+            stateCol('Young',    'youngCount',    75),
+            stateCol('Mastered', 'masteredCount', 90)
+        ], {
+            responsiveLayout: false,   // scroll horizontally instead of hiding columns
+            rowClick: function (e, row) {
+                // A click on the deck link is handled natively by the browser (one navigation only).
+                if (e.target.closest('a')) return;
+                var url = row.getData().reviewUrl;
+                if (e.ctrlKey || e.metaKey) { window.open(url, '_blank', 'noopener'); return; }
+                window.location.href = url;
+            }
+        });
 
         // ---- Upcoming ----
         make('#upcoming-table', data.upcoming, [
