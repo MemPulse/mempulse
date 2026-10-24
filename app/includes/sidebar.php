@@ -514,8 +514,7 @@ if ($user_id && isset($conn)) {
         <button type="button" data-open-settings="account" data-tooltip="Account settings"
             class="sidebar-tooltip sidebar-row sidebar-subtle-link sidebar-profile w-full text-left"
             title="Account settings" aria-label="Open account settings">
-            <span class="material-symbols-outlined profile-avatar">account_circle</span>
-            <span class="hide-collapsed flex flex-col min-w-0">
+            <img src="/mempulse/assets/images/profile-picture.webp.jpg" alt="Profile picture" class="profile-avatar profile-avatar-img">            <span class="hide-collapsed flex flex-col min-w-0">
                 <span data-user-name class="text-sm font-semibold text-on-surface leading-tight truncate">
                     <?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?>
                 </span>

@@ -137,9 +137,7 @@ $currentPage = "review";
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
     <main id="main-content" class="pl-0 md:pl-72 pt-16 transition-all duration-300 ease-in-out">
-        
-        <div class="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6 lg:px-8 py-6">
-                        
+                                
             <?php if (!$isReviewing): ?>
                 <?php include __DIR__ . '/review-hub-view.php'; ?>
 
@@ -317,7 +315,6 @@ $currentPage = "review";
                 </div>
 
             <?php endif; ?>
-        </div>
     </main>
 
     <!-- Data Injection -->

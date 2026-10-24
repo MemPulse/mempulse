@@ -38,8 +38,7 @@ $currentPage = "decks";
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
     <!-- MAIN: Viewport Shell Offset for Fixed Top Header (pt-16) and Sidebar (md:pl-72) -->
-    <main id="main-content" 
-        class="pl-0 md:pl-72 pt-16 transition-all duration-300 ease-in-out">
+    <main id="main-content" class="pl-0 md:pl-72 pt-16 transition-all duration-300 ease-in-out">
         <?php include __DIR__ . '/decks-view.php'; ?>
     </main>
 

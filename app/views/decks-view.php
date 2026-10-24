@@ -14,7 +14,7 @@
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div class="flex items-center gap-3">
                     <div class="flex items-center gap-2.5">
-                        <h2 class="font-headline-md text-headline-md font-bold tracking-tight text-on-surface">Decks</h2>
+                        <h1 class="font-headline-md text-headline-md font-bold tracking-tight text-on-surface">Decks</h1>
                         <span id="deck-count-badge" class="px-2.5 py-0.5 rounded-full bg-primary-container text-on-primary font-label-sm text-label-sm font-semibold tracking-wide shadow-xs">
                             <?= $deckTotal ?> <?= $deckTotal === 1 ? 'Deck' : 'Decks' ?>
                         </span>

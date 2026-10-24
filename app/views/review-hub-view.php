@@ -31,8 +31,10 @@ $nextDueLabel = ($nextDueSecs !== null && $nextDueSecs > 0)
 <!-- ========================================================================= -->
 <!-- STATE A: REVIEW HUB (dashboard-style layout, table lists)                 -->
 <!-- ========================================================================= -->
-<div class="w-full px-2 sm:px-6 lg:px-8 py-4 sm:py-6 md:py-8" id="review-hub-root">
+<div class="w-full px-2 sm:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
     <div class="flex flex-col w-full gap-4 sm:gap-6">
+
+        <h1 class="font-headline-md text-headline-md font-bold tracking-tight text-on-surface">Review</h1>
 
         <!-- Unified Header Hero Banner -->
         <div class="relative w-full rounded-2xl bg-surface-container-lowest border border-outline-variant/30 p-4 sm:p-5 shadow-xs">
