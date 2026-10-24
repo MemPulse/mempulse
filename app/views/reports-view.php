@@ -55,7 +55,7 @@ $periodLabel = ($filters['range'] === 'all' ? 'All time' : $rangeLabels[$filters
         <div class="rp-no-print flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
             <div>
                 <h1 class="font-headline-md text-2xl font-bold text-on-surface">Reports</h1>
-                <p class="text-sm text-on-surface-variant mt-0.5">Your study activity, retention and card progress.</p>
+                <!-- <p class="text-sm text-on-surface-variant mt-0.5">Your study activity, retention and card progress.</p> -->
             </div>
             <div class="flex items-center gap-2">
                 <details id="rp-export-menu" class="relative">

@@ -393,6 +393,14 @@ if ($user_id && isset($conn)) {
         font-variation-settings: 'FILL' 1;
     }
 
+    .sidebar-profile .profile-avatar-img {
+        width: 34px;
+        height: 34px;
+        border-radius: 9999px;
+        object-fit: cover;
+        flex-shrink: 0;
+    }
+
     .sidebar-account {
         flex-shrink: 0;
         display: flex;
@@ -425,6 +433,19 @@ if ($user_id && isset($conn)) {
         #sidebar.collapsed .sidebar-profile {
             border-color: transparent;
         }
+    }
+
+    /* Header search: remove the inner input's hairline border/focus outline;
+       the outer rounded container stays as the only visible shape */
+    #header-search-input,
+    #header-search-input:hover,
+    #header-search-input:focus,
+    #header-search-input:focus-visible {
+        border: 0 !important;
+        outline: none !important;
+        box-shadow: none !important;
+        -webkit-appearance: none;
+        appearance: none;
     }
 
     /* Keep the header un-dimmed while the Settings modal is open */
@@ -514,7 +535,9 @@ if ($user_id && isset($conn)) {
         <button type="button" data-open-settings="account" data-tooltip="Account settings"
             class="sidebar-tooltip sidebar-row sidebar-subtle-link sidebar-profile w-full text-left"
             title="Account settings" aria-label="Open account settings">
-            <img src="/mempulse/assets/images/profile-picture.webp.jpg" alt="Profile picture" class="profile-avatar profile-avatar-img">            <span class="hide-collapsed flex flex-col min-w-0">
+            <img src="<?php echo BASE_URL; ?>assets/images/profile-picture.webp.jpg" alt="Profile picture"
+                class="profile-avatar profile-avatar-img">
+            <span class="hide-collapsed flex flex-col min-w-0">
                 <span data-user-name class="text-sm font-semibold text-on-surface leading-tight truncate">
                     <?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?>
                 </span>
