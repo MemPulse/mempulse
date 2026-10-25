@@ -105,6 +105,50 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
 #flashcards-tabulator-grid .tabulator-row.tabulator-selected:hover{
   background:linear-gradient(90deg,rgba(99,102,241,.22),rgba(217,70,239,.10))!important;box-shadow:inset 3px 0 0 var(--mp-g2)}
 
+/* Layout toggle (table / tiles) */
+.mp-seg{display:inline-flex;align-items:center;gap:2px;padding:2px;border-radius:.7rem;background:rgba(128,128,128,.14)}
+.mp-seg button{display:inline-flex;align-items:center;justify-content:center;width:2.25rem;height:2.1rem;border-radius:.55rem;color:#64748b;transition:background .15s,color .15s}
+.mp-seg button:hover{color:var(--mp-g2);background:rgba(124,58,237,.1)}
+.mp-seg button[aria-pressed="true"]{color:#fff;background:linear-gradient(135deg,var(--mp-g1),var(--mp-g2) 55%,var(--mp-g3));box-shadow:0 4px 10px -4px rgba(124,58,237,.6)}
+.mp-seg button:focus-visible{outline:2px solid var(--mp-g2);outline-offset:1px}
+
+/* Tiles layout: Tabulator rows become cards in a responsive grid (the header is hidden, rendering is "basic") */
+#flashcards-tabulator-grid.mp-tiles .tabulator-header{display:none}
+#flashcards-tabulator-grid.mp-tiles .tabulator-tableholder{overflow-x:hidden}
+#flashcards-tabulator-grid.mp-tiles .tabulator-table{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,16rem),1fr));gap:.75rem;
+  padding:.75rem;box-sizing:border-box;width:100%!important;min-width:0!important}
+#flashcards-tabulator-grid.mp-tiles .tabulator-row,
+#flashcards-tabulator-grid.mp-tiles .tabulator-row.tabulator-row-even,
+#flashcards-tabulator-grid.mp-tiles .tabulator-row.tabulator-row-odd{
+  display:block;min-height:0;height:auto!important;width:auto!important;
+  border:1px solid rgba(128,128,128,.28);border-radius:1rem;background:#fff;overflow:hidden;
+  transition:border-color .15s,box-shadow .15s,transform .15s}
+#flashcards-tabulator-grid.mp-tiles .tabulator-row.tabulator-selectable:hover{
+  background:#fff;border-color:rgba(124,58,237,.5);box-shadow:0 8px 18px -10px rgba(99,102,241,.55)}
+#flashcards-tabulator-grid.mp-tiles .tabulator-row.tabulator-selected,
+#flashcards-tabulator-grid.mp-tiles .tabulator-row.tabulator-selected:hover{
+  background:linear-gradient(135deg,rgba(99,102,241,.14),rgba(217,70,239,.08))!important;
+  border-color:var(--mp-g2);box-shadow:0 0 0 2px rgba(124,58,237,.35)!important}
+#flashcards-tabulator-grid.mp-tiles .tabulator-row .tabulator-cell{
+  display:block;width:100%!important;height:auto!important;padding:0;border:0;white-space:normal;overflow:visible}
+.mp-tile{display:flex;flex-direction:column;gap:.5rem;padding:.7rem .85rem .8rem;min-height:7.5rem;text-align:left}
+.mp-tile-top{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+.mp-tile-num{font-size:.6875rem;font-weight:600;font-variant-numeric:tabular-nums;color:#94a3b8}
+.mp-tile-check{display:inline-flex;align-items:center;justify-content:center;width:2.75rem;height:2.75rem;margin:-.8rem -.8rem -.8rem 0;cursor:pointer}
+.mp-tile-front,.mp-tile-back{white-space:pre-line;overflow-wrap:anywhere;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical}
+.mp-tile-front{font-weight:600;font-size:.9375rem;line-height:1.35;-webkit-line-clamp:3;line-clamp:3}
+.mp-tile-back{font-size:.8125rem;line-height:1.35;opacity:.7;-webkit-line-clamp:2;line-clamp:2}
+.mp-tile-meta{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:auto;padding-top:.15rem}
+.mp-chip{display:inline-flex;align-items:center;gap:.2rem;padding:.1rem .5rem;border-radius:999px;font-size:.6875rem;font-weight:600;line-height:1.4;background:rgba(128,128,128,.14);color:#64748b}
+.mp-chip .material-symbols-outlined{font-size:14px}
+.mp-chip.is-due{background:rgba(245,158,11,.16);color:#d97706}
+.mp-chip.is-warn{background:rgba(244,63,94,.12);color:#be123c}
+@media (max-width:767px){
+  /* the jump rail would eat a column of width on phones */
+  .mp-grid-row:has(#flashcards-tabulator-grid.mp-tiles) > .mp-rail{display:none}
+}
+
 .mp-check { width: 1.1rem; height: 1.1rem; accent-color: var(--mp-g2); cursor: pointer; }
 .workspace-editing { --mp-pane-h: clamp(380px, calc(100vh - 23.5rem), 720px); }
 
@@ -139,7 +183,7 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
             </nav>
 
             <!-- ACTION BAR -->
-            <div class="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-surface-container-lowest border border-outline-variant/30 shadow-xs">
+            <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-surface-container-lowest border border-outline-variant/30 shadow-xs">
                 <div class="flex items-center gap-3 min-w-0 text-sm text-on-surface-variant">
                     <span class="inline-flex items-center gap-1 font-semibold text-on-surface whitespace-nowrap">
                         <span class="material-symbols-outlined text-primary text-[18px]">style</span>
@@ -150,6 +194,14 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
                 </div>
 
                 <div class="flex items-center gap-2 shrink-0">
+                    <div id="layout-toggle" class="mp-seg" role="group" aria-label="Card layout">
+                        <button type="button" data-layout="table" aria-pressed="true" title="Table view" aria-label="Table view">
+                            <span class="material-symbols-outlined text-[19px]">table_rows</span>
+                        </button>
+                        <button type="button" data-layout="tiles" aria-pressed="false" title="Tile view" aria-label="Tile view">
+                            <span class="material-symbols-outlined text-[19px]">grid_view</span>
+                        </button>
+                    </div>
                     <button type="button" id="toggle-archive-btn"
                             title="View archive" aria-label="View archive" aria-pressed="false"
                             class="inline-flex items-center justify-center gap-2 px-2.5 lg:px-3.5 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-sm transition-colors">

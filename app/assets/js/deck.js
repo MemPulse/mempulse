@@ -264,7 +264,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const first = tabulatorTable.getRows()[0];
         const rowH = first ? first.getElement().offsetHeight : 0;
         if (!holder || !rowH) return 10;
-        return Math.max(1, Math.floor(holder.clientHeight / rowH) - 1);   // one screenful, minus one row of overlap
+        let perRow = 1;
+        if (layoutMode === 'tiles') {
+            const table = gridContainer.querySelector('.tabulator-table');
+            if (table) perRow = Math.max(1, getComputedStyle(table).gridTemplateColumns.split(' ').length);
+        }
+        return Math.max(1, (Math.floor(holder.clientHeight / rowH) - 1) * perRow);   // one screenful, minus one row of overlap
     }
 
     // Make sure row #index (0-based) is rendered, pulling 50 more at a time
@@ -629,10 +634,153 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     ];
 
-    if (gridContainer) {
+    // ---------------------------------------------------------------------------
+    // Layout: table (default on wider screens) or tiles (default on phones).
+    // Tabulator stays the data store in both layouts, so lazy loading, selection,
+    // bulk actions and the editor all keep working on the same rows.
+    // ---------------------------------------------------------------------------
+    const LAYOUT_KEY = 'mempulse.deckLayout';
+    const mobileMQ = window.matchMedia('(max-width: 767px)');   // phone width: tiles unless the user chose otherwise
+    const layoutToggle = document.getElementById('layout-toggle');
+    let layoutMode = 'table';
+    let needsRenumber = false;      // only set if this Tabulator build cannot watch row positions
+
+    function readSavedLayout() {
+        try {
+            const v = window.localStorage.getItem(LAYOUT_KEY);
+            return v === 'tiles' || v === 'table' ? v : null;
+        } catch (_) { return null; }
+    }
+    function saveLayout(mode) {
+        try { window.localStorage.setItem(LAYOUT_KEY, mode); } catch (_) { /* storage unavailable: choice lasts for this visit only */ }
+    }
+    let layoutChoice = readSavedLayout();   // explicit choice; null = follow the width-based default
+    function resolveLayout() {
+        return layoutChoice || (mobileMQ.matches ? 'tiles' : 'table');
+    }
+    function syncLayoutToggle() {
+        if (!layoutToggle) return;
+        layoutToggle.querySelectorAll('button[data-layout]').forEach((b) => {
+            b.setAttribute('aria-pressed', String(b.dataset.layout === layoutMode));
+        });
+    }
+
+    // ---- Tile rendering (DOM nodes + textContent, so card text is never parsed as HTML) ----
+    function mk(tag, cls, text) {
+        const n = document.createElement(tag);
+        if (cls) n.className = cls;
+        if (text !== undefined) n.textContent = text;
+        return n;
+    }
+
+    function parseDbDate(value) {
+        if (!value) return null;
+        const d = new Date(String(value).replace(' ', 'T'));
+        return isNaN(d.getTime()) ? null : d;
+    }
+
+    function dueChipInfo(value) {
+        const t = parseDbDate(value);
+        const diff = t ? t.getTime() - Date.now() : 0;
+        if (diff <= 0) return { text: 'Due now', due: true };
+        const mins = Math.max(1, Math.round(diff / 60000));
+        if (mins < 60) return { text: `Due in ${mins}m`, due: false };
+        const hours = Math.round(mins / 60);
+        if (hours < 24) return { text: `Due in ${hours}h`, due: false };
+        return { text: `Due in ${Math.round(hours / 24)}d`, due: false };
+    }
+
+    function mkChip(text, cls, icon) {
+        const c = mk('span', 'mp-chip' + (cls ? ' ' + cls : ''));
+        if (icon) c.appendChild(mk('span', 'material-symbols-outlined', icon));
+        c.appendChild(document.createTextNode(text));
+        return c;
+    }
+
+    function buildTile(cell) {
+        const d = cell.getData();
+        const row = cell.getRow();
+        const tile = mk('div', 'mp-tile');
+
+        const top = mk('div', 'mp-tile-top');
+        const num = mk('span', 'mp-tile-num');
+        if (typeof row.watchPosition === 'function') {
+            row.watchPosition((pos) => { num.textContent = '#' + pos; });   // stays correct as cards are added / removed
+        } else {
+            needsRenumber = true;
+            num.textContent = '#' + row.getPosition(true);
+        }
+
+        // Same hooks as the table's checkbox cell: .row-check feeds the delegated change handler,
+        // .mp-check-cell keeps taps on the checkbox from opening the card.
+        const checkWrap = mk('label', 'mp-check-cell mp-tile-check');
+        const box = mk('input', 'mp-check row-check');
+        box.type = 'checkbox';
+        box.dataset.id = String(d.id);
+        box.checked = checkedIds.has(Number(d.id));
+        box.setAttribute('aria-label', 'Select card');
+        checkWrap.appendChild(box);
+        top.append(num, checkWrap);
+
+        const meta = mk('div', 'mp-tile-meta');
+        if (viewArchived) {
+            const left = d.days_left;
+            const urgent = left !== null && left !== undefined && Number(left) <= 3;
+            meta.appendChild(mkChip(Archive.retentionLabel(left), urgent ? 'is-warn' : '', 'inventory_2'));
+        } else {
+            const due = dueChipInfo(d.next_review_at);
+            meta.appendChild(mkChip(due.text, due.due ? 'is-due' : '', 'schedule'));
+        }
+        if (d.interval_days !== undefined && d.interval_days !== null) {
+            const n = Number(d.interval_days);
+            meta.appendChild(mkChip(`Every ${n} ${n === 1 ? 'day' : 'days'}`, '', 'update'));
+        }
+        if (Number(d.lapses) > 0) {
+            const n = Number(d.lapses);
+            meta.appendChild(mkChip(`${n} ${n === 1 ? 'lapse' : 'lapses'}`, 'is-due', 'replay'));
+        }
+
+        tile.append(top, mk('div', 'mp-tile-front', d.front || ''), mk('div', 'mp-tile-back', d.back || ''), meta);
+        return tile;
+    }
+
+    const tileColumns = [{
+        title: "",
+        field: "id",
+        resizable: false,
+        headerSort: false,
+        formatter: (cell) => buildTile(cell)
+    }];
+
+    function columnsFor(mode, archived) {
+        if (mode === 'tiles') return tileColumns;
+        return allColumns.filter((c) => c.field !== (archived ? 'next_review_at' : 'days_left'));
+    }
+
+    // ---- Grid construction (rebuildable) ----
+    let renumberQueued = false;
+    function renumberRows() {
+        if (layoutMode === 'tiles' && !needsRenumber) return;   // tiles watch their own position
+        if (renumberQueued || !tabulatorTable) return;
+        renumberQueued = true;
+        requestAnimationFrame(() => {
+            renumberQueued = false;
+            if (tabulatorTable) tabulatorTable.getRows().forEach((r) => r.reformat());
+        });
+    }
+
+    // The table keeps Tabulator's virtual rendering; tiles need "basic" rendering because they are a CSS grid.
+    // That option is fixed at construction, so changing layout means building a new grid from the same data.
+    function createGrid(mode, list, onLoaded) {
+        layoutMode = mode;
+        gridReady = false;
+        gridContainer.classList.toggle('mp-tiles', mode === 'tiles');
+        syncLayoutToggle();
+
         tabulatorTable = new Tabulator("#flashcards-tabulator-grid", {
             data: [],                              // filled in tableBuilt, first 50 only
-            layout: "fitDataFill",
+            layout: mode === 'tiles' ? "fitColumns" : "fitDataFill",
+            renderVertical: mode === 'tiles' ? "basic" : "virtual",
             height: "100%",                        // fills .mp-pane (replaces maxHeight)
             responsiveLayout: false,
             selectable: 1,                         // select-only: the grid has no cell editors
@@ -640,22 +788,15 @@ document.addEventListener("DOMContentLoaded", () => {
             resizableColumnFit: false,
             columnDefaults: { headerSort: false }, // sorting 50 of N rows would mislead
             placeholder: "No Flashcards Available",
-            columns: allColumns.filter((c) => c.field !== 'days_left'),
+            columns: columnsFor(mode, viewArchived),
         });
 
         tabulatorTable.on("tableBuilt", () => {
             gridReady = true;
             bindGridScroll();
-            if (initialFlashcards.length > 0) {
+            if (list.length > 0) {
                 toggleStateVisibility(true);
-                loadFirstPage(initialFlashcards).then(() => {
-                    if (!isDesktopView()) return;
-                    const firstRow = tabulatorTable.getRows()[0];
-                    if (firstRow) {
-                        firstRow.select();
-                        populateSidebar(firstRow.getData(), firstRow, { expand: false });
-                    }
-                });
+                loadFirstPage(list).then(() => { if (onLoaded) onLoaded(); });
             }
         });
 
@@ -669,18 +810,62 @@ document.addEventListener("DOMContentLoaded", () => {
             else openModalForEdit(cardData);
         });
 
-        let renumberQueued = false;
-        function renumberRows() {
-            if (renumberQueued || !tabulatorTable) return;
-            renumberQueued = true;
-            requestAnimationFrame(() => {
-                renumberQueued = false;
-                tabulatorTable.getRows().forEach((r) => r.reformat());
-            });
-        }
         tabulatorTable.on("rowAdded", renumberRows);
         tabulatorTable.on("rowDeleted", renumberRows);
+
+        // A tile is drawn from the whole card, so redraw it whenever any field of the row changes
+        tabulatorTable.on("rowUpdated", (row) => { if (layoutMode === 'tiles') row.reformat(); });
     }
+
+    function selectFirstCardOnDesktop() {
+        if (!isDesktopView()) return;
+        const firstRow = tabulatorTable.getRows()[0];
+        if (firstRow) {
+            firstRow.select();
+            populateSidebar(firstRow.getData(), firstRow, { expand: false });
+        }
+    }
+
+    async function switchLayout(mode) {
+        if (!gridContainer || !tabulatorTable || mode === layoutMode) { syncLayoutToggle(); return; }
+
+        const list = tabulatorTable.getData().concat(pending);     // every card of the current view, rendered or not
+        const selected = tabulatorTable.getSelectedRows();
+        const keepId = selected.length ? Number(selected[0].getData().id) : null;
+
+        tabulatorTable.destroy();
+        selectedTabulatorRow = null;                               // pointed at a row of the destroyed grid
+
+        // Put the highlight back on the same card. The editor is NOT repopulated, so unsaved typing survives.
+        const restoreSelection = async () => {
+            if (keepId === null) return;
+            const idx = list.findIndex((c) => Number(c.id) === keepId);
+            if (idx === -1) return;
+            await ensureLoaded(idx);
+            const row = tabulatorTable.getRows()[idx];
+            if (!row) return;
+            row.select();
+            if (selectedSidebarCardId === keepId) selectedTabulatorRow = row;
+            Promise.resolve(row.scrollTo('nearest', false)).catch(() => { });
+            updatePositionLabel();
+        };
+        createGrid(mode, list, restoreSelection);
+    }
+
+    if (layoutToggle) layoutToggle.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-layout]');
+        if (!btn) return;
+        layoutChoice = btn.dataset.layout;      // an explicit choice always wins over the width-based default
+        saveLayout(layoutChoice);
+        switchLayout(layoutChoice);
+    });
+
+    // Without an explicit choice, follow the screen: tiles at phone width, table otherwise
+    mobileMQ.addEventListener('change', () => {
+        if (layoutChoice === null) switchLayout(resolveLayout());
+    });
+
+    if (gridContainer) createGrid(resolveLayout(), initialFlashcards, selectFirstCardOnDesktop);
 
     // Crossing the breakpoint: the modal never coexists with the editor
     desktopMQ.addEventListener('change', (e) => {
@@ -828,9 +1013,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (tabulatorTable) {
-            tabulatorTable.setColumns(
-                allColumns.filter((c) => c.field !== (archived ? 'next_review_at' : 'days_left'))
-            );
+            if (layoutMode === 'table') tabulatorTable.setColumns(columnsFor('table', archived));
 
             const current = tabulatorTable.getData().concat(pending); // full list of the view we're leaving
             const next = offscreenList;
