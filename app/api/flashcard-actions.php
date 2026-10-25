@@ -102,7 +102,8 @@ try {
 
         respond(200, [
             'ok'   => true,
-            'card' => $card
+            'card' => $card,
+            'counts' => FlashcardService::getDeckCounts($conn, $deck_id)
         ]);
     }
 
@@ -153,7 +154,8 @@ try {
 
         respond(200, [
             'ok'   => true,
-            'card' => $card
+            'card' => $card,
+            'counts' => FlashcardService::getDeckCounts($conn, $deck_id)
         ]);
     }
 
@@ -175,7 +177,7 @@ try {
         if (!$ok) {
             respond(404, ['error' => 'Card not found.']);
         }
-        respond(200, ['ok' => true, 'card_id' => $card_id]);
+        respond(200, ['ok' => true, 'card_id' => $card_id, 'counts' => FlashcardService::getDeckCounts($conn, $deck_id)]);
     }
 
     // Action: Bulk Duplicate
@@ -186,7 +188,7 @@ try {
         if (count($card_ids) > 1000) respond(400, ['error' => 'Batch size limited to 1000.']);
 
         $newCards = FlashcardService::bulkDuplicate($conn, $deck_id, $card_ids, $user_id);
-        respond(200, ['ok' => true, 'cards' => $newCards]);
+        respond(200, ['ok' => true, 'cards' => $newCards, 'counts' => FlashcardService::getDeckCounts($conn, $deck_id)]);
     }
 
     // Action: Bulk Move
@@ -199,7 +201,7 @@ try {
         if (count($card_ids) > 1000) respond(400, ['error' => 'Batch size limited to 1000.']);
 
         $affected = FlashcardService::bulkMove($conn, $deck_id, $target_deck_id, $card_ids, $user_id);
-        respond(200, ['ok' => true, 'affected' => $affected]);
+        respond(200, ['ok' => true, 'affected' => $affected, 'counts' => FlashcardService::getDeckCounts($conn, $deck_id)]);
     }
 
     // Action: Bulk Reset
@@ -210,7 +212,7 @@ try {
         if (count($card_ids) > 1000) respond(400, ['error' => 'Batch size limited to 1000.']);
 
         $affected = FlashcardService::bulkReset($conn, $deck_id, $card_ids, $user_id);
-        respond(200, ['ok' => true, 'affected' => $affected]);
+        respond(200, ['ok' => true, 'affected' => $affected, 'counts' => FlashcardService::getDeckCounts($conn, $deck_id)]);
     }
 
     // Action: Bulk Archive
@@ -226,7 +228,7 @@ try {
                 $archivedCount++;
             }
         }
-        respond(200, ['ok' => true, 'affected' => $archivedCount]);
+        respond(200, ['ok' => true, 'affected' => $archivedCount, 'counts' => FlashcardService::getDeckCounts($conn, $deck_id)]);
     }
 
         // Actions: Bulk Restore / Bulk Permanent Delete (archive view)
@@ -243,7 +245,7 @@ try {
                 : ArchiveService::deletePermanently($conn, 'flashcards', $id, $user_id);
             if ($ok) $affected++;
         }
-        respond(200, ['ok' => true, 'affected' => $affected]);
+        respond(200, ['ok' => true, 'affected' => $affected, 'counts' => FlashcardService::getDeckCounts($conn, $deck_id)]);
     }
     
     respond(400, ['error' => 'Unknown action.']);

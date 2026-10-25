@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const initialFlashcards = Array.isArray(config.flashcards) ? config.flashcards : [];
     let totalCards = initialFlashcards.length;
     let archivedCards = Array.isArray(config.archivedFlashcards) ? config.archivedFlashcards.length : 0;
+    let dueCount = Number(config.dueCount) || 0;
     let offscreenList = Array.isArray(config.archivedFlashcards) ? config.archivedFlashcards.slice() : [];
     let viewArchived = false;
     const checkedIds = new Set();          // declared early: grid formatters and the editor read it
@@ -26,6 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const tableWrapper = document.getElementById('table-wrapper');
     const emptyState = document.getElementById('no-cards-empty-state');
     const cardCountLabel = document.getElementById('deck-card-count-label');
+    const dueCountLabel = document.getElementById('deck-due-count');
     const openAddCardBtn = document.getElementById('open-add-card-btn');
     const toggleArchiveBtn = document.getElementById('toggle-archive-btn');
     const toggleArchiveIcon = document.getElementById('toggle-archive-icon');
@@ -48,6 +50,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const sidebarCardDue = document.getElementById('sidebar-card-due');
     const sidebarCardError = document.getElementById('sidebar-card-error');
     const sidebarSaveBtn = document.getElementById('sidebar-save-btn');
+    const sidebarSaveLabel = document.getElementById('sidebar-save-label');
     const sidebarTitle = document.getElementById('sidebar-title');
     const workspace = document.getElementById('mp-workspace');
     const peekTab = document.getElementById('editor-peek-tab');
@@ -74,12 +77,19 @@ document.addEventListener("DOMContentLoaded", () => {
     const modalCardDue = document.getElementById('modal-card-due');
     const modalError = document.getElementById('modal-card-error');
     const modalSaveBtn = document.getElementById('modal-save-btn');
+    const modalSaveLabel = document.getElementById('modal-save-label');
+    const modalCancelBtn = document.getElementById('modal-cancel-btn');
     const closeModalBtn = document.getElementById('close-modal-btn');
 
     // Delete Modal Elements
     const deleteCardDialog = document.getElementById('delete-card-dialog');
     const deleteCardError = document.getElementById('delete-card-error');
     const deleteCardConfirm = document.getElementById('delete-card-confirm');
+
+    // Keyboard hint badges: show the Command key instead of Ctrl on Apple devices
+    const IS_APPLE = /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || '');
+    const MOD_KEY = IS_APPLE ? '⌘' : 'Ctrl';
+    document.querySelectorAll('.mp-kbd-mod').forEach((k) => { k.textContent = MOD_KEY; });
 
     let targetDeleteCardId = null;
     let tabulatorTable = null;
@@ -138,9 +148,22 @@ document.addEventListener("DOMContentLoaded", () => {
             cardCountLabel.textContent = totalCards + (totalCards === 1 ? ' Card' : ' Cards');
         }
         if (archivedCountLabel) archivedCountLabel.textContent = archivedCards;
+        if (dueCountLabel) dueCountLabel.textContent = dueCount;
+        if (startReviewBtn) startReviewBtn.classList.toggle('hidden', viewArchived || dueCount < 1);
 
         const visibleCount = viewArchived ? archivedCards : totalCards;
         toggleStateVisibility(visibleCount > 0);
+    }
+
+    // Server-side counters (returned by every card action) are the source of truth,
+    // so "Due Now" is always the latest after create / edit / archive / restore / bulk actions.
+    function applyCounts(counts) {
+        if (counts) {
+            if (counts.card_count !== undefined) totalCards = Number(counts.card_count) || 0;
+            if (counts.archived_count !== undefined) archivedCards = Number(counts.archived_count) || 0;
+            if (counts.due_count !== undefined) dueCount = Number(counts.due_count) || 0;
+        }
+        updateCardCountLabel();
     }
 
     function formatDateTimeForInput(dateString) {
@@ -159,6 +182,17 @@ document.addEventListener("DOMContentLoaded", () => {
         return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
 
+    // Button labels follow the mode: a blank form creates, a loaded card saves changes
+    function syncSaveLabels() {
+        const sidebarNew = !(sidebarCardId && sidebarCardId.value);
+        const modalNew = !(modalCardId && modalCardId.value);
+        if (sidebarSaveLabel) sidebarSaveLabel.textContent = sidebarNew ? 'Create Card' : 'Save Changes';
+        if (sidebarSaveBtn) sidebarSaveBtn.title = `${sidebarNew ? 'Create Card' : 'Save Changes'} (${MOD_KEY}+Return)`;
+        if (modalSaveLabel) modalSaveLabel.textContent = modalNew ? 'Create' : 'Save';
+        if (modalSaveBtn) modalSaveBtn.title = `${modalNew ? 'Create Card' : 'Save Changes'} (${MOD_KEY}+Return)`;
+        if (modalCancelBtn) modalCancelBtn.textContent = modalNew ? 'Done' : 'Cancel';
+    }
+
     // Read-only support for archived cards
     function setEditorReadOnly(readOnly) {
         [sidebarCardFront, sidebarCardBack, modalCardFront, modalCardBack].forEach((el) => { if (el) el.readOnly = readOnly; });
@@ -171,9 +205,10 @@ document.addEventListener("DOMContentLoaded", () => {
             if (sidebarTitle) sidebarTitle.textContent = 'Archived Card Details';
             if (modalTitle) modalTitle.textContent = 'Archived Flashcard';
         } else {
-            if (sidebarTitle) sidebarTitle.textContent = 'Card Editor';
-            if (modalTitle) modalTitle.textContent = 'View / Edit Flashcard';
+            if (sidebarTitle) sidebarTitle.textContent = (sidebarCardId && sidebarCardId.value) ? 'Card Editor' : 'New Flashcard';
+            if (modalTitle) modalTitle.textContent = (modalCardId && modalCardId.value) ? 'View / Edit Flashcard' : 'Create New Flashcard';
         }
+        syncSaveLabels();
     }
 
     // Editor collapse: hides the editor, grid goes full width, a peek tab shows on the right edge
@@ -282,10 +317,22 @@ document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener('keydown', (e) => {
         // 1. Ctrl + Return to save changes
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-            if (isDesktopView() && !isSidebarCollapsed && !viewArchived && (checkedIds.size > 0 || !selectedSidebarCardId)) {
+            if (viewArchived) return;
+
+            // Mobile / tablet modal: create or save from the keyboard
+            if (cardModal && cardModal.open) {
                 e.preventDefault();
-                // If the save button isn't hidden (meaning it's not locked), trigger the click
-                if (sidebarSaveBtn && !sidebarSaveBtn.classList.contains('hidden')) {
+                if (modalSaveBtn && !modalSaveBtn.classList.contains('hidden') && !modalSaveBtn.disabled) {
+                    modalSaveBtn.click();
+                }
+                return;
+            }
+
+            // Desktop sidebar (editing is only unlocked for checked cards; creating is always allowed)
+            if (isDesktopView() && !isSidebarCollapsed && (checkedIds.size > 0 || !selectedSidebarCardId)) {
+                e.preventDefault();
+                // If the save button isn't hidden (meaning it's not locked) or mid-save, trigger the click
+                if (sidebarSaveBtn && !sidebarSaveBtn.classList.contains('hidden') && !sidebarSaveBtn.disabled) {
                     sidebarSaveBtn.click();
                 }
             }
@@ -313,9 +360,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // Modal Control Handlers (For Mobile View)
-    function openModalForCreate() {
-        if (viewArchived) return;
-        if (modalTitle) modalTitle.textContent = 'Create New Flashcard';
+    // Blank "create" state for the modal; also used after a successful create so the next card can be typed straight away
+    function resetModalForCreate() {
         if (modalCardId) modalCardId.value = '';
         if (modalCardFront) modalCardFront.value = '';
         if (modalCardBack) modalCardBack.value = '';
@@ -324,7 +370,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
         setMinDueDateConstraint();
         setEditorReadOnly(false);
+        if (modalCardFront) modalCardFront.focus();
+    }
+
+    function openModalForCreate() {
+        if (viewArchived) return;
+        resetModalForCreate();
         if (cardModal) cardModal.showModal();
+        if (modalCardFront) modalCardFront.focus();
     }
 
     function openModalForEdit(cardData) {
@@ -342,23 +395,33 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (closeModalBtn) closeModalBtn.addEventListener('click', () => cardModal && cardModal.close());
+    // Blank "create" state for the desktop editor; also used after a successful create (fast entry: Ctrl+Return, type, repeat)
+    function resetSidebarForCreate() {
+        selectedSidebarCardId = null;
+        selectedTabulatorRow = null;
+        if (tabulatorTable) tabulatorTable.deselectRow();
+        if (sidebarCardId) sidebarCardId.value = '';
+        if (sidebarCardFront) sidebarCardFront.value = '';
+        if (sidebarCardBack) sidebarCardBack.value = '';
+        if (sidebarCardDue) sidebarCardDue.value = formatDateTimeForInput(new Date());
+        if (sidebarCardError) sidebarCardError.classList.add('hidden');
+
+        if (detLastReviewed) detLastReviewed.textContent = 'Never';
+        if (detAccuracy) detAccuracy.textContent = '—';
+        if (detSpeed) detSpeed.textContent = '—';
+        if (detInterval) detInterval.textContent = '—';
+        if (detReviews) detReviews.textContent = '0';
+        if (detLapses) detLapses.textContent = '0';
+
+        updatePositionLabel();
+        setEditorReadOnly(false);
+        if (sidebarCardFront) sidebarCardFront.focus();
+    }
+
     if (openAddCardBtn) openAddCardBtn.addEventListener('click', () => {
         if (isDesktopView()) {
             setSidebarCollapsed(false);
-            selectedSidebarCardId = null;
-            selectedTabulatorRow = null;
-            if (tabulatorTable) tabulatorTable.deselectRow();
-            if (sidebarCardId) sidebarCardId.value = '';
-            if (sidebarCardFront) sidebarCardFront.value = '';
-            if (sidebarCardBack) sidebarCardBack.value = '';
-            if (sidebarCardDue) sidebarCardDue.value = formatDateTimeForInput(new Date());
-            if (sidebarCardError) sidebarCardError.classList.add('hidden');
-            if (sidebarTitle) sidebarTitle.textContent = 'New Flashcard';
-            updatePositionLabel();
-
-            setEditorReadOnly(false);
-
-            if (sidebarCardFront) sidebarCardFront.focus();
+            resetSidebarForCreate();
         } else {
             openModalForCreate();
         }
@@ -643,13 +706,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (action === 'add') {
                 totalCards++;
-                if (tabulatorTable) {
-                    const row = await tabulatorTable.addRow(res.card, true);
-                    if (isSidebar && row) {                 // bind the editor to the new card so Save can't duplicate it
-                        row.select();
-                        populateSidebar(row.getData(), row);
-                    }
-                }
+                if (tabulatorTable) await tabulatorTable.addRow(res.card, true);
             } else {
                 const row = tabulatorTable ? tabulatorTable.getRow(Number(res.card.id)) : null;
                 if (row) await row.update(res.card);
@@ -658,9 +715,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             }
 
-            updateCardCountLabel();
+            applyCounts(res.counts);
             if (gridReady) updateLoadMoreUI();
-            if (!isSidebar && cardModal) cardModal.close();
+            if (action === 'add') {
+                // Fast entry: clear the fields and put the cursor back on the front side
+                if (isSidebar) resetSidebarForCreate();
+                else resetModalForCreate();
+            } else if (!isSidebar && cardModal) {
+                cardModal.close();
+            }
             Archive.toast(action === 'add' ? 'Card created successfully' : 'Card updated successfully');
         } catch (err) {
             if (errorEl) {
@@ -705,12 +768,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function archiveCard(card) {
         try {
-            await sendCardAction({ action: 'archive', card_id: card.id });
+            const res = await sendCardAction({ action: 'archive', card_id: card.id });
             removeRow(card.id);
             offscreenList.unshift({ ...card, archived_at: new Date().toISOString(), days_left: Archive.RETENTION_DAYS });
             totalCards--;
             archivedCards++;
-            updateCardCountLabel();
+            applyCounts(res.counts);
             Archive.toast('Card archived', { actionLabel: 'Undo', onAction: () => restoreCard(card.id) });
         } catch (err) {
             Archive.toast(err.message, { type: 'error' });
@@ -719,7 +782,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function restoreCard(cardId) {
         try {
-            await sendCardAction({ action: 'restore', card_id: cardId });
+            const res = await sendCardAction({ action: 'restore', card_id: cardId });
             const id = Number(cardId);
 
             if (viewArchived) {
@@ -738,7 +801,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             totalCards++;
             archivedCards--;
-            updateCardCountLabel();
+            applyCounts(res.counts);
         } catch (err) {
             Archive.toast(err.message, { type: 'error' });
         }
@@ -749,7 +812,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (archiveBanner) archiveBanner.classList.toggle('hidden', !archived);
         if (openAddCardBtn) openAddCardBtn.classList.toggle('hidden', archived);
-        if (startReviewBtn) startReviewBtn.classList.toggle('hidden', archived);
         if (toggleArchiveIcon) toggleArchiveIcon.textContent = archived ? 'arrow_back' : 'inventory_2';
         if (toggleArchiveLabel) toggleArchiveLabel.textContent = archived ? 'Back to cards' : 'Archive';
         if (toggleArchiveBtn) {
@@ -930,7 +992,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 res.cards.reverse().forEach(card => tabulatorTable.addRow(card, true));
             }
             totalCards += res.cards.length;
-            updateCardCountLabel();
+            applyCounts(res.counts);
             Archive.toast(`${res.cards.length} cards duplicated`);
             setEditMode(false);
         } catch (err) {
@@ -971,7 +1033,7 @@ document.addEventListener("DOMContentLoaded", () => {
             });
 
             totalCards -= res.affected;
-            updateCardCountLabel();
+            applyCounts(res.counts);
             Archive.toast(`${res.affected} cards moved`);
             setEditMode(false);
             moveDialog.close();
@@ -1009,7 +1071,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             totalCards -= res.affected;
             archivedCards += res.affected;
-            updateCardCountLabel();
+            applyCounts(res.counts);
             Archive.toast(`${res.affected} cards archived`);
             setEditMode(false);
         } catch (err) {
@@ -1079,6 +1141,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             });
 
+            applyCounts(res.counts);   // reset makes the cards due immediately
             Archive.toast(`Progress reset for ${res.affected} cards`);
             setEditMode(false);
             resetDialog.close();
@@ -1119,7 +1182,7 @@ document.addEventListener("DOMContentLoaded", () => {
             totalCards += res.affected;
             archivedCards -= res.affected;
             checkedIds.clear();
-            updateCardCountLabel();
+            applyCounts(res.counts);
             if (gridReady) updateLoadMoreUI();
             Archive.toast(`${res.affected} ${res.affected === 1 ? 'card' : 'cards'} restored`);
         } catch (err) {
@@ -1148,7 +1211,7 @@ document.addEventListener("DOMContentLoaded", () => {
             takeCards(ids);
             archivedCards -= res.affected;
             checkedIds.clear();
-            updateCardCountLabel();
+            applyCounts(res.counts);
             if (gridReady) updateLoadMoreUI();
             if (deleteCardDialog) deleteCardDialog.close();
             Archive.toast(`${res.affected} ${res.affected === 1 ? 'card' : 'cards'} deleted permanently`, { type: 'error' });

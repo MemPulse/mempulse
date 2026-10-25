@@ -49,6 +49,46 @@ class FlashcardService
     }
 
     /**
+     * Live counters for a deck: active cards, cards due right now, and archived cards.
+     * Returned by every card action so the deck page never shows a stale "Due Now".
+     * Callers must already have verified that the user owns the deck.
+     *
+     * @param mysqli $conn Active database connection instance.
+     * @param int $deckId Target deck ID.
+     * @return array{card_count:int, due_count:int, archived_count:int}
+     */
+    public static function getDeckCounts(mysqli $conn, int $deckId): array
+    {
+        $counts = ['card_count' => 0, 'due_count' => 0, 'archived_count' => 0];
+
+        $sql = "SELECT COUNT(CASE WHEN deleted_at IS NULL THEN 1 END) AS card_count,
+                       COUNT(CASE WHEN deleted_at IS NULL AND next_review_at <= NOW() THEN 1 END) AS due_count,
+                       COUNT(CASE WHEN deleted_at IS NOT NULL THEN 1 END) AS archived_count
+                  FROM flashcards
+                 WHERE deck_id = ?";
+
+        $stmt = mysqli_prepare($conn, $sql);
+        if (!$stmt) {
+            return $counts;
+        }
+
+        mysqli_stmt_bind_param($stmt, "i", $deckId);
+        mysqli_stmt_execute($stmt);
+        $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        mysqli_stmt_close($stmt);
+
+        if ($row) {
+            $counts = [
+                'card_count'     => (int) $row['card_count'],
+                'due_count'      => (int) $row['due_count'],
+                'archived_count' => (int) $row['archived_count'],
+            ];
+        }
+
+        return $counts;
+    }
+
+    /**
      * Fetch active flashcards belonging to a specific deck with optional search filtering.
      * 
      * @param mysqli $conn Active database connection instance.

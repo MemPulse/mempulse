@@ -70,6 +70,12 @@
 .mp-spin{animation:mp-spin 1s linear infinite}
 @keyframes mp-spin{to{transform:rotate(360deg)}}
 
+/* Keyboard hint badges (hidden on touch-only devices) */
+.mp-kbd-group{display:inline-flex;align-items:center;gap:.2rem;margin-left:.35rem}
+.mp-kbd{display:inline-flex;align-items:center;padding:.05rem .35rem;border-radius:.35rem;font:600 .625rem/1.3 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  color:#fff;background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.35)}
+@media (hover:none){.mp-kbd-group{display:none}}
+
 /* Lazy-load footer */
 .mp-footer{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.625rem .875rem;
   border-top:1px solid rgba(124,58,237,.18);background:linear-gradient(90deg,rgba(79,70,229,.06),rgba(217,70,239,.06))}
@@ -119,49 +125,53 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
 
 <div class="w-full px-2 sm:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
     <div class="flex flex-col w-full gap-4 sm:gap-6">
-        <!-- DECK HEADER BAR -->
-        <div class="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-surface-container-lowest border border-outline-variant/30 shadow-xs">
-            <div class="flex items-center gap-3 min-w-0 text-sm text-on-surface-variant">
-            <a href="decks.php" class="hover:text-primary transition-colors">Decks</a>
-            <span class="material-symbols-outlined text-[16px] text-outline">chevron_right</span>
+        <!-- DECK HEADER: breadcrumb + action bar -->
+        <div class="flex flex-col gap-3">
 
+            <!-- BREADCRUMB -->
+            <nav aria-label="Breadcrumb" class="flex items-center gap-2 min-w-0 px-1 text-sm text-on-surface-variant">
+                <a href="decks.php" class="hover:text-primary transition-colors">Decks</a>
+                <span class="material-symbols-outlined text-[16px] text-outline">chevron_right</span>
                 <h1 class="font-headline-sm text-headline-sm font-bold tracking-tight text-on-surface truncate"
                     title="<?= FlashcardService::h($deck['title']) ?>">
                     <?= FlashcardService::h($deck['title']) ?>
                 </h1>
-                <span class="text-outline">|</span>
-                <span class="inline-flex items-center gap-1 font-semibold text-on-surface whitespace-nowrap">
-                    <span class="material-symbols-outlined text-primary text-[18px]">style</span>
-                    <span id="deck-card-count-label"><?= $deck['card_count'] ?> <?= $deck['card_count'] === 1 ? 'Card' : 'Cards' ?></span>
-                </span>
-                <span class="text-outline">•</span>
-                <span class="text-primary font-semibold whitespace-nowrap"><?= $deck['due_count'] ?> Due<span class="hidden sm:inline"> Now</span></span>
-            </div>
+            </nav>
 
-            <div class="flex items-center gap-2 shrink-0">
-                <button type="button" id="toggle-archive-btn"
-                        title="View archive" aria-label="View archive" aria-pressed="false"
-                        class="inline-flex items-center justify-center gap-2 px-2.5 lg:px-3.5 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-sm transition-colors">
-                    <span id="toggle-archive-icon" class="material-symbols-outlined text-[19px]">inventory_2</span>
-                    <span id="toggle-archive-label" class="hidden lg:inline">Archive</span>
-                    <span id="archived-count-label" class="text-xs px-1.5 py-0.5 rounded-full bg-surface-container-highest"><?= (int) $deck['archived_count'] ?></span>
-                </button>
-                <?php if ($deck['due_count'] > 0): ?>
+            <!-- ACTION BAR -->
+            <div class="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-surface-container-lowest border border-outline-variant/30 shadow-xs">
+                <div class="flex items-center gap-3 min-w-0 text-sm text-on-surface-variant">
+                    <span class="inline-flex items-center gap-1 font-semibold text-on-surface whitespace-nowrap">
+                        <span class="material-symbols-outlined text-primary text-[18px]">style</span>
+                        <span id="deck-card-count-label"><?= $deck['card_count'] ?> <?= $deck['card_count'] === 1 ? 'Card' : 'Cards' ?></span>
+                    </span>
+                    <span class="text-outline">•</span>
+                    <span id="deck-due-label" class="text-primary font-semibold whitespace-nowrap"><span id="deck-due-count"><?= (int) $deck['due_count'] ?></span> Due<span class="hidden sm:inline"> Now</span></span>
+                </div>
+
+                <div class="flex items-center gap-2 shrink-0">
+                    <button type="button" id="toggle-archive-btn"
+                            title="View archive" aria-label="View archive" aria-pressed="false"
+                            class="inline-flex items-center justify-center gap-2 px-2.5 lg:px-3.5 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-sm transition-colors">
+                        <span id="toggle-archive-icon" class="material-symbols-outlined text-[19px]">inventory_2</span>
+                        <span id="toggle-archive-label" class="hidden lg:inline">Archive</span>
+                        <span id="archived-count-label" class="text-xs px-1.5 py-0.5 rounded-full bg-surface-container-highest"><?= (int) $deck['archived_count'] ?></span>
+                    </button>
                     <a href="review.php?deck_id=<?= $deck['id'] ?>"
-                    id="start-review-btn"
-                    title="Start Review" aria-label="Start Review"
-                    class="inline-flex items-center justify-center gap-2 px-2.5 lg:px-4 py-2 rounded-lg bg-primary hover:bg-primary-container text-on-primary font-semibold text-sm shadow-sm transition-all">
+                        id="start-review-btn"
+                        title="Start Review" aria-label="Start Review"
+                        class="<?= (int) $deck['due_count'] > 0 ? '' : 'hidden ' ?>inline-flex items-center justify-center gap-2 px-2.5 lg:px-4 py-2 rounded-lg bg-primary hover:bg-primary-container text-on-primary font-semibold text-sm shadow-sm transition-all">
                         <span class="material-symbols-outlined text-[19px]">play_arrow</span>
                         <span class="hidden lg:inline">Start Review</span>
                     </a>
-                <?php endif; ?>
 
-                <button type="button" id="open-add-card-btn"
-                        title="Create Card" aria-label="Create Card"
-                        class="inline-flex items-center justify-center gap-2 px-2.5 lg:px-4 py-2 rounded-lg bg-primary hover:bg-primary-container text-on-primary font-semibold text-sm transition-all shadow-xs">
-                    <span class="material-symbols-outlined text-[19px]">add</span>
-                    <span class="hidden lg:inline">Create Card</span>
-                </button>
+                    <button type="button" id="open-add-card-btn"
+                            title="Create Card" aria-label="Create Card"
+                            class="inline-flex items-center justify-center gap-2 px-2.5 lg:px-4 py-2 rounded-lg bg-primary hover:bg-primary-container text-on-primary font-semibold text-sm transition-all shadow-xs">
+                        <span class="material-symbols-outlined text-[19px]">add</span>
+                        <span class="hidden lg:inline">Create Card</span>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -312,7 +322,8 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
 
                             <div class="mp-foot">
                                 <button type="submit" id="sidebar-save-btn" class="mp-btn mp-btn-gradient disabled:opacity-60" title="Save Changes (Ctrl+Return)">
-                                    <span>Save Changes</span>
+                                    <span id="sidebar-save-label">Save Changes</span>
+                                    <span class="mp-kbd-group" aria-hidden="true"><kbd class="mp-kbd mp-kbd-mod">Ctrl</kbd><kbd class="mp-kbd">Return</kbd></span>
                                 </button>
                             </div>
                         </form>
@@ -367,10 +378,11 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
                 </div>
 
                 <div class="mp-foot">
-                    <button type="button" data-close-dialog class="mp-btn mp-btn-ghost">Cancel</button>
+                    <button type="button" id="modal-cancel-btn" data-close-dialog class="mp-btn mp-btn-ghost">Cancel</button>
                     <button type="submit" id="modal-save-btn" class="mp-btn mp-btn-gradient">
                         <span class="material-symbols-outlined text-[18px]">save</span>
-                        <span>Save</span>
+                        <span id="modal-save-label">Save</span>
+                        <span class="mp-kbd-group" aria-hidden="true"><kbd class="mp-kbd mp-kbd-mod">Ctrl</kbd><kbd class="mp-kbd">Return</kbd></span>
                     </button>
                 </div>
             </form>

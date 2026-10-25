@@ -66,6 +66,7 @@ $currentPage = "decks";
             csrfToken: <?= json_encode($_SESSION['csrf_token'] ?? '') ?>,
             deckId: <?= $deckId ?>,
             cardCount: <?= (int) $deck['card_count'] ?>,
+            dueCount: <?= (int) $deck['due_count'] ?>,
             archivedCount: <?= (int) $deck['archived_count'] ?>,
             retentionDays: <?= ArchiveService::RETENTION_DAYS ?>,
             otherDecks: <?= json_encode(array_values($otherDecks)) ?>
