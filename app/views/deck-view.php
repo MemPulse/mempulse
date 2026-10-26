@@ -30,12 +30,6 @@
 .mp-grid-row{display:flex;flex:1 1 0;min-height:0}
 .mp-grid-row:has(#flashcards-tabulator-grid.hidden){display:none}
 .mp-grid-row > #flashcards-tabulator-grid{min-width:0}
-.mp-rail{flex:0 0 auto;width:2.75rem;display:flex;flex-direction:column;gap:2px;padding:.4rem .25rem;overflow-y:auto;scrollbar-width:none;border-left:1px solid rgba(124,58,237,.15);background:rgba(124,58,237,.03)}
-.mp-rail[hidden]{display:none}
-.mp-rail button{flex:0 0 auto;border:0;border-radius:.5rem;padding:.35rem 0;font-size:.6875rem;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;color:#64748b;background:transparent;cursor:pointer}
-.mp-rail button:hover{background:rgba(124,58,237,.12);color:var(--mp-g2)}
-.mp-rail button.is-active{color:#fff;background:linear-gradient(135deg,var(--mp-g1),var(--mp-g3))}
-.mp-rail button:focus-visible{outline:2px solid var(--mp-g2);outline-offset:1px}
 #flashcards-tabulator-grid .mp-rownum{color:#94a3b8;font-size:.75rem;font-variant-numeric:tabular-nums}
 .mp-editor{display:none}
 @media (min-width:1024px){ .mp-editor{display:flex} }
@@ -76,12 +70,19 @@
   color:#fff;background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.35)}
 @media (hover:none){.mp-kbd-group{display:none}}
 
-/* Lazy-load footer */
-.mp-footer{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.625rem .875rem;
+/* Pagination footer */
+.mp-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;padding:.75rem .875rem;
   border-top:1px solid rgba(124,58,237,.18);background:linear-gradient(90deg,rgba(79,70,229,.06),rgba(217,70,239,.06))}
-.mp-footer-info{display:flex;flex-direction:column;gap:.35rem;min-width:0;flex:1}
-.mp-progress{height:4px;max-width:260px;border-radius:999px;background:rgba(124,58,237,.15);overflow:hidden}
-.mp-progress>span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--mp-g1),var(--mp-g3));transition:width .3s ease}
+.mp-footer-info{display:flex;align-items:center;flex-wrap:wrap;gap:.6rem;min-width:0;flex:1}
+.mp-page-size{border:1px solid rgba(124,58,237,.25);border-radius:.5rem;background:var(--color-surface-container-lowest,#fff);padding:.35rem .5rem;font-size:.75rem;color:inherit}
+.mp-pagination{display:flex;align-items:center;justify-content:flex-end;gap:.25rem;min-width:0;max-width:100%;flex-wrap:wrap}
+.mp-pagination .tabulator-pages{display:flex;align-items:center;gap:.2rem;flex-wrap:wrap}
+.mp-pagination .tabulator-page{min-width:2rem;height:2rem;padding:0 .45rem;border:1px solid rgba(124,58,237,.22);border-radius:.5rem;background:transparent;color:inherit;font-size:.75rem;font-weight:600;cursor:pointer}
+.mp-pagination .tabulator-page:hover:not(:disabled){background:rgba(124,58,237,.1);border-color:rgba(124,58,237,.45)}
+.mp-pagination .tabulator-page.active,.mp-pagination .tabulator-page[aria-current="page"]{background:linear-gradient(135deg,var(--mp-g1),var(--mp-g2));border-color:transparent;color:#fff}
+.mp-pagination .tabulator-page:disabled{opacity:.35;cursor:not-allowed}
+.mp-pagination .tabulator-page:focus-visible,.mp-page-size:focus-visible{outline:2px solid var(--mp-g2);outline-offset:2px}
+@media(max-width:640px){.mp-footer{align-items:stretch}.mp-footer-info{justify-content:space-between}.mp-pagination{justify-content:center;width:100%}.mp-pagination .tabulator-page{min-width:1.85rem;height:1.9rem;padding:0 .35rem}}
 
 /* Peek tab (collapsed editor, desktop only) */
 .mp-peek{position:fixed;right:0;top:50%;z-index:40;transform:translate(8px,-50%);display:flex;flex-direction:column;align-items:center;gap:.5rem;
@@ -144,11 +145,6 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
 .mp-chip .material-symbols-outlined{font-size:14px}
 .mp-chip.is-due{background:rgba(245,158,11,.16);color:#d97706}
 .mp-chip.is-warn{background:rgba(244,63,94,.12);color:#be123c}
-@media (max-width:767px){
-  /* the jump rail would eat a column of width on phones */
-  .mp-grid-row:has(#flashcards-tabulator-grid.mp-tiles) > .mp-rail{display:none}
-}
-
 .mp-check { width: 1.1rem; height: 1.1rem; accent-color: var(--mp-g2); cursor: pointer; }
 .workspace-editing { --mp-pane-h: clamp(380px, calc(100vh - 23.5rem), 720px); }
 
@@ -301,14 +297,20 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
 
                 <div class="mp-grid-row">
                     <div id="flashcards-tabulator-grid" class="mp-grid-fill w-full <?= empty($flashcards) ? 'hidden' : '' ?>"></div>
-                    <nav id="grid-jump-rail" class="mp-rail" aria-label="Jump to card" hidden></nav>
                 </div>
-                <!-- Lazy-load footer: progress + wayfinding -->
+                <!-- Standard pagination: range, page size, and numbered wayfinding controls -->
                 <div id="grid-footer" class="mp-footer" <?= empty($flashcards) ? 'hidden' : '' ?>>
                     <div class="mp-footer-info">
-                        <span id="grid-range-label" class="text-xs font-semibold text-on-surface-variant">Showing cards…</span>
-                        <div class="mp-progress"><span id="grid-progress-bar" style="width:0%"></span></div>
+                        <span id="grid-range-label" class="text-xs font-semibold text-on-surface-variant" aria-live="polite">Showing cards…</span>
+                        <label for="grid-page-size" class="text-xs font-semibold text-on-surface-variant">Rows per page</label>
+                        <select id="grid-page-size" class="mp-page-size" aria-label="Rows per page">
+                            <option value="10">10</option>
+                            <option value="25" selected>25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
                     </div>
+                    <nav id="grid-pagination-controls" class="mp-pagination" aria-label="Flashcard pages"></nav>
                 </div>
             </div>
 

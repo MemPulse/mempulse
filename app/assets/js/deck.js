@@ -23,7 +23,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // DOM Elements
     const gridContainer = document.getElementById('flashcards-tabulator-grid');
-    const jumpRail = document.getElementById('grid-jump-rail');
     const tableWrapper = document.getElementById('table-wrapper');
     const emptyState = document.getElementById('no-cards-empty-state');
     const cardCountLabel = document.getElementById('deck-card-count-label');
@@ -57,7 +56,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const positionLabel = document.getElementById('sidebar-position');
     const gridFooter = document.getElementById('grid-footer');
     const rangeLabel = document.getElementById('grid-range-label');
-    const progressBar = document.getElementById('grid-progress-bar');
+    const pageSizeSelect = document.getElementById('grid-page-size');
+    const paginationControls = document.getElementById('grid-pagination-controls');
+    let pageSize = 25;
 
     // Sidebar Details Elements
     const detLastReviewed = document.getElementById('det-last-reviewed');
@@ -226,11 +227,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function updatePositionLabel() {
         if (!positionLabel) return;
+
         const total = viewArchived ? archivedCards : totalCards;
-        if (!selectedSidebarCardId || !tabulatorTable) { positionLabel.textContent = 'New card'; highlightJumpRail(-1); return; }
-        const idx = tabulatorTable.getRows().findIndex(r => Number(r.getData().id) === selectedSidebarCardId);
-        positionLabel.textContent = idx === -1 ? 'Use ↑ ↓ to browse' : `Card ${idx + 1} of ${total} · ↑ ↓ to browse`;
-        highlightJumpRail(idx);
+
+        if (!selectedSidebarCardId || !tabulatorTable) {
+            positionLabel.textContent = 'New card';
+            return;
+        }
+
+        const rows = tabulatorTable.getRows('all');
+        const idx = rows.findIndex(
+            r => Number(r.getData().id) === selectedSidebarCardId
+        );
+
+        positionLabel.textContent = idx === -1
+            ? 'Use ↑ ↓ to browse'
+            : `Card ${idx + 1} of ${total} · ↑ ↓ to browse`;
     }
 
     // Populate Sidebar Editor with selected card data & metadata details
@@ -272,13 +284,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return Math.max(1, (Math.floor(holder.clientHeight / rowH) - 1) * perRow);   // one screenful, minus one row of overlap
     }
 
-    // Make sure row #index (0-based) is rendered, pulling 50 more at a time
-    async function ensureLoaded(index) {
-        while (tabulatorTable.getDataCount() <= index && pending.length) {
-            if (loadingMore) { await new Promise((r) => setTimeout(r, 30)); continue; }
-            await loadMore();
-        }
-    }
+
 
     // Single place that makes a row "the" selected row: one highlight, editor in sync
     function activateRow(row, { expand = true, position = 'nearest' } = {}) {
@@ -290,20 +296,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function navigateSidebarRow(direction, { expand = true, step = 1 } = {}) {
         if (!tabulatorTable) return;
-        let rows = tabulatorTable.getRows();
+
+        let rows = tabulatorTable.getRows('all');
         if (!rows.length) return;
 
-        const idx = rows.findIndex(r => Number(r.getData().id) === selectedSidebarCardId);
-        let targetIdx;
-        if (idx === -1) targetIdx = direction === 'next' ? 0 : rows.length - 1;
-        else targetIdx = direction === 'next' ? idx + step : idx - step;
+        const idx = rows.findIndex(
+            r => Number(r.getData().id) === selectedSidebarCardId
+        );
 
-        if (targetIdx > rows.length - 1) {                 // past the loaded slice: pull more first
-            await ensureLoaded(targetIdx);
-            rows = tabulatorTable.getRows();
+        let targetIdx;
+        if (idx === -1) {
+            targetIdx = direction === 'next' ? 0 : rows.length - 1;
+        } else {
+            targetIdx = direction === 'next' ? idx + step : idx - step;
         }
-        targetIdx = Math.max(0, Math.min(targetIdx, rows.length - 1));   // clamp at first/last card
+
+        targetIdx = Math.max(0, Math.min(targetIdx, rows.length - 1));
         if (targetIdx === idx) return;
+
+        const targetPage =
+            Math.floor(targetIdx / Math.max(1, tabulatorTable.getPageSize())) + 1;
+
+        if (targetPage !== tabulatorTable.getPage()) {
+            await tabulatorTable.setPage(targetPage);
+        }
+
+        rows = tabulatorTable.getRows('all');
         activateRow(rows[targetIdx], { expand });
     }
 
@@ -440,100 +458,68 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // ---------------------------------------------------------------------------
-    // Lazy loading: render 50 cards at a time
+    // Local pagination: all cards stay in Tabulator; only the current page is rendered.
     // ---------------------------------------------------------------------------
-    const PAGE_SIZE = 50;
-    let pending = [];          // cards of the current view that aren't rendered yet
-    let loadingMore = false;
     let gridReady = false;
 
-    function updateLoadMoreUI() {
+    function updatePaginationUI() {
         if (!gridFooter || !tabulatorTable) return;
-        const loaded = tabulatorTable.getDataCount();
-        const remaining = pending.length;
-        const total = loaded + remaining;
-        const noun = total === 1 ? 'card' : 'cards';
+
+        const total = tabulatorTable.getDataCount('active');
+        const currentPage = tabulatorTable.getPage() || 1;
+        const size = tabulatorTable.getPageSize() || pageSize;
+        const pages = Math.max(1, tabulatorTable.getPageMax() || 1);
+
+        if (currentPage > pages) {
+            tabulatorTable.setPage(pages).then(updatePaginationUI);
+            return;
+        }
+
+        const start = total ? ((currentPage - 1) * size) + 1 : 0;
+        const end = Math.min(currentPage * size, total);
 
         gridFooter.hidden = total === 0;
-        rangeLabel.textContent = remaining ? `Showing ${loaded} of ${total} ${noun}` : `All ${total} ${noun} loaded`;
-        progressBar.style.width = total ? `${Math.round((loaded / total) * 100)}%` : '0%';
-        renderJumpRail();
-    }
 
-    function loadFirstPage(list) {
-        pending = list.slice(PAGE_SIZE);
-        return tabulatorTable.setData(list.slice(0, PAGE_SIZE)).then(updateLoadMoreUI);
-    }
+        if (rangeLabel) {
+            rangeLabel.textContent = total
+                ? `Showing ${start}–${end} of ${total} ${total === 1 ? 'card' : 'cards'} · Page ${currentPage} of ${pages}`
+                : 'No cards to display';
+        }
 
-    async function loadMore() {
-        if (loadingMore || !pending.length || !tabulatorTable) return;
-        loadingMore = true;
-        updateLoadMoreUI();
-        try {
-            await tabulatorTable.addData(pending.splice(0, PAGE_SIZE), false); // false = append at bottom
-        } finally {
-            loadingMore = false;
-            updateLoadMoreUI();
+        if (pageSizeSelect && Number(pageSizeSelect.value) !== size) {
+            pageSizeSelect.value = String(size);
+        }
+
+        if (paginationControls) {
+            paginationControls.setAttribute(
+                'aria-label',
+                `Pagination, page ${currentPage} of ${pages}`
+            );
+
+            paginationControls.querySelectorAll('.tabulator-page').forEach((button) => {
+                const isCurrent =
+                    button.getAttribute('aria-current') === 'page' ||
+                    button.classList.contains('active');
+
+                if (isCurrent) button.setAttribute('aria-current', 'page');
+            });
         }
     }
 
-    function bindGridScroll() {
-        const holder = gridContainer.querySelector('.tabulator-tableholder');
-        if (!holder) return;
-        holder.addEventListener('scroll', () => {
-            if (holder.scrollTop + holder.clientHeight >= holder.scrollHeight - 160) loadMore();
-        }, { passive: true });
+    if (pageSizeSelect) {
+        pageSizeSelect.addEventListener('change', async () => {
+            const requested = Number(pageSizeSelect.value);
+
+            if (![10, 25, 50, 100].includes(requested) || !tabulatorTable) {
+                return;
+            }
+
+            pageSize = requested;
+            await tabulatorTable.setPageSize(pageSize);
+            await tabulatorTable.setPage(1);
+            updatePaginationUI();
+        });
     }
-    // ---- Jump rail: clickable record ranges beside the grid ----
-    const MAX_RAIL_BUTTONS = 16;
-    let railStep = PAGE_SIZE;
-    let railTotal = -1;
-
-    function renderJumpRail() {
-        if (!jumpRail) return;
-        const total = tabulatorTable ? tabulatorTable.getDataCount() + pending.length : 0;
-        if (total === railTotal) return;
-        railTotal = total;
-        jumpRail.textContent = '';
-        if (total <= PAGE_SIZE) { jumpRail.hidden = true; return; }
-
-        railStep = PAGE_SIZE * Math.ceil(total / PAGE_SIZE / MAX_RAIL_BUTTONS);
-        for (let start = 0; start < total; start += railStep) {
-            const b = document.createElement('button');
-            b.type = 'button';
-            b.dataset.start = start;
-            b.textContent = start + 1;
-            b.title = `Jump to card ${start + 1}`;
-            b.setAttribute('aria-label', `Jump to card ${start + 1}`);
-            jumpRail.appendChild(b);
-        }
-        jumpRail.hidden = false;
-        const idx = selectedSidebarCardId
-            ? tabulatorTable.getRows().findIndex(r => Number(r.getData().id) === selectedSidebarCardId)
-            : -1;
-        highlightJumpRail(idx);
-    }
-
-    function highlightJumpRail(idx) {
-        if (!jumpRail || jumpRail.hidden) return;
-        const start = idx < 0 ? -1 : Math.floor(idx / railStep) * railStep;
-        jumpRail.querySelectorAll('button').forEach((b) =>
-            b.classList.toggle('is-active', Number(b.dataset.start) === start));
-    }
-
-    async function jumpToRecord(index) {
-        if (!tabulatorTable) return;
-        await ensureLoaded(index);
-        const row = tabulatorTable.getRows()[index];
-        if (!row) return;
-        activateRow(row, { expand: false, position: 'top' });
-        highlightJumpRail(index);
-    }
-
-    if (jumpRail) jumpRail.addEventListener('click', (e) => {
-        const b = e.target.closest('button[data-start]');
-        if (b) jumpToRecord(Number(b.dataset.start));
-    });
 
     // 1. Tabulator Grid Setup
     const allColumns = [
@@ -636,7 +622,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // ---------------------------------------------------------------------------
     // Layout: table (default on wider screens) or tiles (default on phones).
-    // Tabulator stays the data store in both layouts, so lazy loading, selection,
     // bulk actions and the editor all keep working on the same rows.
     // ---------------------------------------------------------------------------
     const LAYOUT_KEY = 'mempulse.deckLayout';
@@ -778,27 +763,31 @@ document.addEventListener("DOMContentLoaded", () => {
         syncLayoutToggle();
 
         tabulatorTable = new Tabulator("#flashcards-tabulator-grid", {
-            data: [],                              // filled in tableBuilt, first 50 only
+            data: list,
             layout: mode === 'tiles' ? "fitColumns" : "fitDataFill",
             renderVertical: mode === 'tiles' ? "basic" : "virtual",
             height: "100%",                        // fills .mp-pane (replaces maxHeight)
             responsiveLayout: false,
+            pagination: "local",
+            paginationSize: pageSize,
+            paginationButtonCount: 5,
+            paginationElement: paginationControls,
             selectable: 1,                         // select-only: the grid has no cell editors
             selectableRollingSelection: true,
             resizableColumnFit: false,
-            columnDefaults: { headerSort: false }, // sorting 50 of N rows would mislead
-            placeholder: "No Flashcards Available",
+            columnDefaults: { headerSort: false }, // keep navigation order predictable            placeholder: "No Flashcards Available",
             columns: columnsFor(mode, viewArchived),
         });
 
         tabulatorTable.on("tableBuilt", () => {
             gridReady = true;
-            bindGridScroll();
-            if (list.length > 0) {
-                toggleStateVisibility(true);
-                loadFirstPage(list).then(() => { if (onLoaded) onLoaded(); });
-            }
+            toggleStateVisibility(list.length > 0);
+            updatePaginationUI();
+            if (onLoaded) onLoaded();
         });
+
+        tabulatorTable.on("pageLoaded", updatePaginationUI);
+        tabulatorTable.on("dataProcessed", updatePaginationUI);
 
         // Desktop: row click fills the editor. Mobile/tablet: row click opens the modal.
         tabulatorTable.on("rowClick", (e, row) => {
@@ -810,8 +799,15 @@ document.addEventListener("DOMContentLoaded", () => {
             else openModalForEdit(cardData);
         });
 
-        tabulatorTable.on("rowAdded", renumberRows);
-        tabulatorTable.on("rowDeleted", renumberRows);
+        tabulatorTable.on("rowAdded", () => {
+            renumberRows();
+            updatePaginationUI();
+        });
+
+        tabulatorTable.on("rowDeleted", () => {
+            renumberRows();
+            updatePaginationUI();
+        });
 
         // A tile is drawn from the whole card, so redraw it whenever any field of the row changes
         tabulatorTable.on("rowUpdated", (row) => { if (layoutMode === 'tiles') row.reformat(); });
@@ -829,7 +825,7 @@ document.addEventListener("DOMContentLoaded", () => {
     async function switchLayout(mode) {
         if (!gridContainer || !tabulatorTable || mode === layoutMode) { syncLayoutToggle(); return; }
 
-        const list = tabulatorTable.getData().concat(pending);     // every card of the current view, rendered or not
+        const list = tabulatorTable.getData();
         const selected = tabulatorTable.getSelectedRows();
         const keepId = selected.length ? Number(selected[0].getData().id) : null;
 
@@ -841,8 +837,14 @@ document.addEventListener("DOMContentLoaded", () => {
             if (keepId === null) return;
             const idx = list.findIndex((c) => Number(c.id) === keepId);
             if (idx === -1) return;
-            await ensureLoaded(idx);
-            const row = tabulatorTable.getRows()[idx];
+            const targetPage =
+                Math.floor(idx / Math.max(1, tabulatorTable.getPageSize())) + 1;
+
+            if (targetPage !== tabulatorTable.getPage()) {
+                await tabulatorTable.setPage(targetPage);
+            }
+
+            const row = tabulatorTable.getRows('all')[idx];
             if (!row) return;
             row.select();
             if (selectedSidebarCardId === keepId) selectedTabulatorRow = row;
@@ -901,7 +903,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             applyCounts(res.counts);
-            if (gridReady) updateLoadMoreUI();
+            if (gridReady) updatePaginationUI();
             if (action === 'add') {
                 // Fast entry: clear the fields and put the cursor back on the front side
                 if (isSidebar) resetSidebarForCreate();
@@ -1015,15 +1017,19 @@ document.addEventListener("DOMContentLoaded", () => {
         if (tabulatorTable) {
             if (layoutMode === 'table') tabulatorTable.setColumns(columnsFor('table', archived));
 
-            const current = tabulatorTable.getData().concat(pending); // full list of the view we're leaving
+            const current = tabulatorTable.getData();
             const next = offscreenList;
             offscreenList = current;
             selectedSidebarCardId = null;
             selectedTabulatorRow = null;
 
-            loadFirstPage(next).then(() => {
+            tabulatorTable.setData(next).then(() => {
+                tabulatorTable.setPage(1);
                 tabulatorTable.redraw(true);
-                const first = tabulatorTable.getRows()[0];
+                updatePaginationUI();
+
+                const first = tabulatorTable.getRows('all')[0];
+
                 if (first && isDesktopView() && !viewArchived) {
                     first.select();
                     populateSidebar(first.getData(), first, { expand: false });
@@ -1090,8 +1096,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 2. Selection Logic
     function updateBulkUI() {
-        const total = tabulatorTable ? tabulatorTable.getDataCount() + pending.length : 0;
-        const selected = checkedIds.size;
+        const total = tabulatorTable ? tabulatorTable.getDataCount('active') : 0; const selected = checkedIds.size;
         const hasSelection = selected > 0;
 
         const selectAll = document.getElementById('bulk-select-all');
@@ -1145,7 +1150,7 @@ document.addEventListener("DOMContentLoaded", () => {
             checkedIds.clear();
 
             if (isChecked && tabulatorTable) {
-                const allIds = [...tabulatorTable.getData().map(r => Number(r.id)), ...pending.map(r => Number(r.id))];
+                const allIds = tabulatorTable.getData().map(r => Number(r.id));
                 allIds.forEach(id => checkedIds.add(id));
             }
 
@@ -1205,7 +1210,6 @@ document.addEventListener("DOMContentLoaded", () => {
             ids.forEach(id => {
                 const row = tabulatorTable.getRow(id);
                 if (row) row.delete();
-                pending = pending.filter(p => Number(p.id) !== id);
 
                 // If moving the actively viewed card, jump to next or clear
                 if (selectedSidebarCardId === id && isDesktopView()) {
@@ -1242,7 +1246,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     offscreenList.unshift({ ...data, archived_at: new Date().toISOString(), days_left: Archive.RETENTION_DAYS });
                     row.delete();
                 }
-                pending = pending.filter(p => Number(p.id) !== id);
 
                 // Keep editor in sync if we archived the currently viewed card
                 if (selectedSidebarCardId === id && isDesktopView()) {
@@ -1271,7 +1274,7 @@ document.addEventListener("DOMContentLoaded", () => {
             try {
                 if (viewArchived) return;
                 // Grid order, not click order (loaded rows first, then the ones not rendered yet)
-                const gridOrder = [...tabulatorTable.getData(), ...pending].map(r => Number(r.id));
+                const gridOrder = tabulatorTable.getData().map(r => Number(r.id));
                 const ids = gridOrder.filter(id => checkedIds.has(id));
                 console.log('[practice] selected:', Array.from(checkedIds), 'in grid order:', ids);
                 if (ids.length === 0) {
@@ -1338,18 +1341,18 @@ document.addEventListener("DOMContentLoaded", () => {
     // ---------------------------------------------------------------------------
     // Archive view: bulk Restore / Delete permanently
     // ---------------------------------------------------------------------------
-    function takeCards(ids) {       // removes cards from the grid AND the not-yet-rendered list
-        const set = new Set(ids);
+    function takeCards(ids) {
         const taken = [];
+
         ids.forEach((id) => {
             const row = tabulatorTable.getRow(id);
-            if (row) { taken.push(row.getData()); row.delete(); }
+
+            if (row) {
+                taken.push(row.getData());
+                row.delete();
+            }
         });
-        pending = pending.filter((p) => {
-            if (!set.has(Number(p.id))) return true;
-            taken.push(p);
-            return false;
-        });
+
         return taken;
     }
 
@@ -1366,7 +1369,7 @@ document.addEventListener("DOMContentLoaded", () => {
             archivedCards -= res.affected;
             checkedIds.clear();
             applyCounts(res.counts);
-            if (gridReady) updateLoadMoreUI();
+            if (gridReady) updatePaginationUI();
             Archive.toast(`${res.affected} ${res.affected === 1 ? 'card' : 'cards'} restored`);
         } catch (err) {
             Archive.toast(err.message, { type: 'error' });
@@ -1395,7 +1398,7 @@ document.addEventListener("DOMContentLoaded", () => {
             archivedCards -= res.affected;
             checkedIds.clear();
             applyCounts(res.counts);
-            if (gridReady) updateLoadMoreUI();
+            if (gridReady) updatePaginationUI();
             if (deleteCardDialog) deleteCardDialog.close();
             Archive.toast(`${res.affected} ${res.affected === 1 ? 'card' : 'cards'} deleted permanently`, { type: 'error' });
         } catch (err) {
