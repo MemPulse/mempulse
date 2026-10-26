@@ -11,25 +11,45 @@ foreach ($upcomingDecks as $d) {
     <h1 class="font-headline-md text-2xl font-bold tracking-tight text-on-surface">Review</h1>
 
     <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3" aria-label="Review quick actions">
-      <a href="<?= $dueTotal > 0 && !empty($dueDecks) ? 'review.php?deck_id=' . (int)$dueDecks[0]['id'] : 'review.php' ?>" class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-4 hover:border-primary/50 transition-colors">
-        <span class="material-symbols-outlined text-primary text-2xl">play_circle</span>
-        <h2 class="font-bold text-on-surface mt-2">Review Scheduled Cards</h2>
-        <p class="text-sm text-on-surface-variant mt-1"><?= (int)$dueTotal ?> card<?= $dueTotal === 1 ? '' : 's' ?> due now</p>
+      <a href="<?= $dueTotal > 0 && !empty($dueDecks) ? 'review.php?deck_id=' . (int)$dueDecks[0]['id'] : 'review.php' ?>" class="bg-gradient-to-br from-primary/10 via-surface-container-lowest to-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-xs flex flex-col justify-between relative group hover:border-primary/50 hover:shadow-md transition-all min-h-[110px]">
+        <div class="absolute right-0 bottom-0 w-16 h-16 bg-primary/10 rounded-br-2xl rounded-tl-full blur-md pointer-events-none group-hover:bg-primary/20 transition-all"></div>
+        <div class="relative z-10 flex items-center justify-between w-full">
+          <span class="material-symbols-outlined text-primary text-2xl">play_circle</span>
+        </div>
+        <div class="relative z-10 mt-2">
+          <h2 class="font-bold text-on-surface">Review Scheduled Cards</h2>
+          <p class="text-sm text-on-surface-variant mt-1"><?= (int)$dueTotal ?> card<?= $dueTotal === 1 ? '' : 's' ?> due now</p>
+        </div>
       </a>
-      <button type="button" data-open-modal="random-practice-modal" class="text-left rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-4 hover:border-primary/50 transition-colors">
-        <span class="material-symbols-outlined text-primary text-2xl">shuffle</span>
-        <h2 class="font-bold text-on-surface mt-2">Review Deck in Random</h2>
-        <p class="text-sm text-on-surface-variant mt-1">Practice any active cards in shuffled order</p>
+      <button type="button" data-open-modal="random-practice-modal" class="text-left bg-gradient-to-br from-teal-500/10 via-surface-container-lowest to-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-xs flex flex-col justify-between relative group hover:border-teal-500/50 hover:shadow-md transition-all min-h-[110px]">
+        <div class="absolute right-0 bottom-0 w-16 h-16 bg-teal-500/10 rounded-br-2xl rounded-tl-full blur-md pointer-events-none group-hover:bg-teal-500/20 transition-all"></div>
+        <div class="relative z-10 flex items-center justify-between w-full">
+          <span class="material-symbols-outlined text-teal-600 text-2xl">shuffle</span>
+        </div>
+        <div class="relative z-10 mt-2">
+          <h2 class="font-bold text-on-surface">Review Deck in Random</h2>
+          <p class="text-sm text-on-surface-variant mt-1">Practice any active cards in shuffled order</p>
+        </div>
       </button>
-      <button type="button" data-open-modal="upcoming-modal" class="text-left rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-4 hover:border-primary/50 transition-colors">
-        <span class="material-symbols-outlined text-primary text-2xl">event_upcoming</span>
-        <h2 class="font-bold text-on-surface mt-2">View Upcoming</h2>
-        <p class="text-sm text-on-surface-variant mt-1"><?= array_sum(array_column($upcomingDecks, 'upcomingCount')) ?> cards scheduled in the next <?= (int)ReviewHubService::UPCOMING_DAYS ?> days</p>
+      <button type="button" data-open-modal="upcoming-modal" class="text-left bg-gradient-to-br from-rose-500/10 via-surface-container-lowest to-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-xs flex flex-col justify-between relative group hover:border-error/50 hover:shadow-md transition-all min-h-[110px]">
+        <div class="absolute right-0 bottom-0 w-16 h-16 bg-rose-500/10 rounded-br-2xl rounded-tl-full blur-md pointer-events-none group-hover:bg-rose-500/20 transition-all"></div>
+        <div class="relative z-10 flex items-center justify-between w-full">
+          <span class="material-symbols-outlined text-error text-2xl">event_upcoming</span>
+        </div>
+        <div class="relative z-10 mt-2">
+          <h2 class="font-bold text-on-surface">View Upcoming</h2>
+          <p class="text-sm text-on-surface-variant mt-1"><?= array_sum(array_column($upcomingDecks, 'upcomingCount')) ?> cards scheduled in the next <?= (int)ReviewHubService::UPCOMING_DAYS ?> days</p>
+        </div>
       </button>
-      <a href="sessions.php" class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest p-4 hover:border-primary/50 transition-colors">
-        <span class="material-symbols-outlined text-primary text-2xl">history</span>
-        <h2 class="font-bold text-on-surface mt-2">View Session History</h2>
-        <p class="text-sm text-on-surface-variant mt-1">Browse completed review sessions</p>
+      <a href="sessions.php" class="bg-gradient-to-br from-indigo-500/10 via-surface-container-lowest to-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-xs flex flex-col justify-between relative group hover:border-indigo-500/50 hover:shadow-md transition-all min-h-[110px]">
+        <div class="absolute right-0 bottom-0 w-16 h-16 bg-indigo-500/10 rounded-br-2xl rounded-tl-full blur-md pointer-events-none group-hover:bg-indigo-500/20 transition-all"></div>
+        <div class="relative z-10 flex items-center justify-between w-full">
+          <span class="material-symbols-outlined text-indigo-600 text-2xl">history</span>
+        </div>
+        <div class="relative z-10 mt-2">
+          <h2 class="font-bold text-on-surface">View Session History</h2>
+          <p class="text-sm text-on-surface-variant mt-1">Browse completed review sessions</p>
+        </div>
       </a>
     </section>
 

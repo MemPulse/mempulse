@@ -20,7 +20,9 @@ $kpiCards = [
         'value' => number_format($k['totalReviews']),
         'sub'   => number_format($k['remembered']) . ' remembered · ' . number_format($k['forgotten']) . ' forgotten',
         'icon'  => 'style',
-        'tone'  => 'text-primary bg-primary/10 border-primary/20',
+        'color' => 'primary',
+        'labelColor' => 'text-primary',
+        'iconBg' => 'bg-primary/10 border border-primary/20 text-primary',
         'tip'   => 'Cards rated in completed sessions within the selected period.',
     ],
     [
@@ -28,7 +30,9 @@ $kpiCards = [
         'value' => rtrim(rtrim(number_format($k['accuracy'], 1), '0'), '.') . '%',
         'sub'   => 'Remembered ÷ reviewed',
         'icon'  => 'target',
-        'tone'  => 'text-teal-700 bg-teal-50 border-teal-200',
+        'color' => 'teal-500',
+        'labelColor' => 'text-teal-700',
+        'iconBg' => 'bg-teal-50 border border-teal-200/80 text-teal-600',
         'tip'   => 'Share of reviews rated "remembered".',
     ],
     [
@@ -36,7 +40,9 @@ $kpiCards = [
         'value' => ReportsService::formatDuration($k['studySeconds']),
         'sub'   => $k['sessions'] > 0 ? 'Avg ' . ReportsService::formatDuration($avgSession) . ' per session' : 'No completed sessions',
         'icon'  => 'schedule',
-        'tone'  => 'text-amber-700 bg-amber-50 border-amber-200',
+        'color' => 'amber-500',
+        'labelColor' => 'text-amber-700',
+        'iconBg' => 'bg-amber-50 border border-amber-200/80 text-amber-600',
         'tip'   => 'Time between session start and finish, completed sessions only.',
     ],
     [
@@ -44,7 +50,9 @@ $kpiCards = [
         'value' => number_format($k['sessions']),
         'sub'   => number_format($k['abandoned']) . ' abandoned · ' . rtrim(rtrim(number_format($k['completionRate'], 1), '0'), '.') . '% completed',
         'icon'  => 'event_repeat',
-        'tone'  => 'text-violet-700 bg-violet-50 border-violet-200',
+        'color' => 'violet-500',
+        'labelColor' => 'text-violet-700',
+        'iconBg' => 'bg-violet-50 border border-violet-200/80 text-violet-600',
         'tip'   => 'Completed sessions. A session that was started but never finished counts as abandoned.',
     ],
     [
@@ -52,7 +60,9 @@ $kpiCards = [
         'value' => number_format($k['activeDays']),
         'sub'   => 'of ' . number_format($k['rangeDays']) . ' days in period',
         'icon'  => 'calendar_month',
-        'tone'  => 'text-sky-700 bg-sky-50 border-sky-200',
+        'color' => 'sky-500',
+        'labelColor' => 'text-sky-700',
+        'iconBg' => 'bg-sky-50 border border-sky-200/80 text-sky-600',
         'tip'   => 'Days with at least one reviewed card.',
     ],
     [
@@ -60,7 +70,9 @@ $kpiCards = [
         'value' => number_format($st['current']) . ($st['current'] === 1 ? ' day' : ' days'),
         'sub'   => 'Best: ' . number_format($st['best']) . ($st['best'] === 1 ? ' day' : ' days') . ' · all time',
         'icon'  => 'local_fire_department',
-        'tone'  => 'text-rose-700 bg-rose-50 border-rose-200',
+        'color' => 'rose-500',
+        'labelColor' => 'text-error',
+        'iconBg' => 'bg-red-50 border border-red-200/80 text-error',
         'tip'   => 'All-time streak. Not affected by the filters above.',
     ],
 ];
@@ -70,16 +82,23 @@ $kpiCards = [
 
     <!-- KPI CARDS -->
     <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 rp-kpi-grid">
-        <?php foreach ($kpiCards as $card): ?>
-            <div class="rp-avoid-break bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 flex flex-col gap-3 shadow-xs" title="<?= ReportsService::h($card['tip']) ?>">
-                <div class="flex items-center justify-between gap-2">
-                    <span class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant"><?= ReportsService::h($card['label']) ?></span>
-                    <span class="w-8 h-8 rounded-xl border flex items-center justify-center flex-shrink-0 <?= $card['tone'] ?>">
+        <?php foreach ($kpiCards as $card): 
+            $color = $card['color'];
+            $labelColor = $card['labelColor'] ?? '';
+            $iconBg = $card['iconBg'] ?? '';
+        ?>
+            <div class="rp-avoid-break bg-gradient-to-br from-<?= $color ?>/10 via-surface-container-lowest to-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col justify-between h-32 sm:h-36 relative group hover:border-<?= $color ?>/50 hover:shadow-md transition-all" title="<?= ReportsService::h($card['tip']) ?>">
+                <div class="absolute right-0 bottom-0 w-16 h-16 bg-<?= $color ?>/10 rounded-br-2xl rounded-tl-full blur-md pointer-events-none group-hover:bg-<?= $color ?>/20 transition-all"></div>
+                <div class="flex items-center justify-between w-full relative z-10">
+                    <div class="flex items-center gap-1.5">
+                        <span class="font-label-sm text-[11px] font-bold uppercase tracking-wider <?= $labelColor ?: 'text-on-surface-variant' ?>"><?= ReportsService::h($card['label']) ?></span>
+                    </div>
+                    <div class="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 shadow-xs <?= $iconBg ?>">
                         <span class="material-symbols-outlined text-[18px]"><?= $card['icon'] ?></span>
-                    </span>
+                    </div>
                 </div>
-                <div class="flex flex-col">
-                    <span class="font-headline-lg text-2xl font-extrabold tracking-tight text-on-surface"><?= ReportsService::h($card['value']) ?></span>
+                <div class="flex flex-col mt-2 relative z-10">
+                    <span class="font-headline-lg text-2xl sm:text-3xl font-extrabold tracking-tight text-on-surface"><?= ReportsService::h($card['value']) ?></span>
                     <span class="text-xs text-on-surface-variant/80 font-medium mt-0.5"><?= ReportsService::h($card['sub']) ?></span>
                 </div>
             </div>
