@@ -5,12 +5,19 @@ document.addEventListener("DOMContentLoaded", () => {
     // PRACTICE MODE: replay cards without saving anything. No saveSession(), no
     // unsaved-changes warning, no endpoint calls. `practice` can also be switched on
     // client-side from a normal review's finished screen ("Practice again").
-    let practice = data.mode === 'practice';
+    const randomPractice = data.mode === 'random';
+    let practice = data.mode === 'practice' || randomPractice;
     const cleanCard = c => ({ id: c.id, front: c.front, back: c.back, interval_days: c.interval_days, next_review_at: c.next_review_at });
     let lastSet = data.dueCards.map(cleanCard);   // what "Practice again" replays
     let finishToken = 0;                          // cancels a running stats animation on restart
 
-    let queue = data.dueCards;
+    let queue = data.dueCards.slice();
+    if (randomPractice) {
+        for (let i = queue.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [queue[i], queue[j]] = [queue[j], queue[i]];
+        }
+    }
     let currentIndex = 0;
 
     // State storage: track how the user rated each card ID
@@ -23,6 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let sessionStartedAt = Date.now();
     let sessionDuration = 0;
     let unsavedRatings = false;
+    let randomPracticeSaved = false;
 
     // "Again" puts the card back into this session's queue a few cards later.
     // It never writes to `ratings`, so nothing extra is saved for it.
@@ -301,6 +309,27 @@ document.addEventListener("DOMContentLoaded", () => {
         return body;
     }
 
+    async function saveRandomPractice() {
+        if (randomPracticeSaved) return { ok: true, alreadySaved: true };
+        const res = await fetch('../api/save-random-practice.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                deck_id: data.deckId,
+                label: 'Random Practice',
+                results: ratings,
+                duration_seconds: sessionDuration,
+                csrf_token: csrfToken
+            })
+        });
+        let body = {};
+        try { body = await res.json(); } catch (_) { }
+        if (!res.ok || !body.ok) throw new Error(body.error || `Save failed (HTTP ${res.status}).`);
+        randomPracticeSaved = true;
+        return body;
+    }
+
     function showSaveError(message) {
         let box = document.getElementById('save-status');
         if (!box) {
@@ -321,7 +350,7 @@ document.addEventListener("DOMContentLoaded", () => {
         btn.addEventListener('click', async () => {
             btn.disabled = true;
             try {
-                await saveSession(); box.remove(); armMissedButton();
+                if (randomPractice) await saveRandomPractice(); else await saveSession(); box.remove(); armMissedButton();
             } catch (err) { showSaveError(err.message); }
         });
 
@@ -344,10 +373,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const ratedIds = Object.keys(ratings);
         if (ratedIds.length === 0) {
-            if (practice) {   // ended early with nothing rated: still allow another go
-                document.getElementById('finished-headline').textContent = 'Practice complete';
+            if (practice) {
+                document.getElementById('finished-headline').textContent = randomPractice ? 'Random Practice Complete' : 'Practice complete';
                 showPracticeAgain(false);
                 styleFinishedButtons(false);
+                if (randomPractice) {
+                    try { await saveRandomPractice(); } catch (error) { showSaveError(error.message); }
+                }
             }
             return;
         }
@@ -380,7 +412,12 @@ document.addEventListener("DOMContentLoaded", () => {
         statsDone = showStats(remCount, forgCount, accuracy);
 
         if (practice) {
-            armMissedButton();               // practice never saves anything
+            if (randomPractice) {
+                try { await saveRandomPractice(); armMissedButton(); }
+                catch (error) { console.error('Failed to save random practice:', error); showSaveError(error.message); }
+            } else {
+                armMissedButton(); // replay practice is intentionally not persisted
+            }
             return;
         }
 
@@ -502,6 +539,7 @@ document.addEventListener("DOMContentLoaded", () => {
         unsavedRatings = false;
         sessionStartedAt = Date.now();
         sessionDuration = 0;
+        randomPracticeSaved = false;
         missedCount = 0;
         finishToken++;
 
@@ -749,7 +787,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // Init
-    if (practice) setPracticeMode(true);
-    else loadSrsSettings();   // practice never needs the interval settings
+    if (practice) {
+        setPracticeMode(true);
+        if (randomPractice) {
+            const bannerCopy = practiceBanner?.querySelector('p');
+            if (bannerCopy) bannerCopy.textContent = 'Random Practice: saved separately and excluded from SRS statistics';
+            document.getElementById('finished-headline').textContent = 'Random Practice Complete';
+        }
+    } else loadSrsSettings();   // practice never needs the interval settings
     renderCard();
 });

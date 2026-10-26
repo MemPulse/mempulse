@@ -21,16 +21,49 @@ $deckId = isset($_GET['deck_id']) && ctype_digit((string) $_GET['deck_id']) ? (i
 $isReviewing = false;
 $dueCards = [];
 $hubDecks = [];
+$practiceDecks = [];
 
 // PRACTICE MODE (read-only): replay chosen cards without touching the schedule.
 //   review.php?deck_id=12&mode=practice&from=deck&cards=5,9,14
 //   review.php?mode=practice&from=sessions&session_id=88
-$isPractice   = (($_GET['mode'] ?? '') === 'practice');
+$mode = (string) ($_GET['mode'] ?? '');
+$isRandomPractice = ($mode === 'random');
+$isPractice   = ($mode === 'practice' || $isRandomPractice);
 $practiceSkipped = 0;
 $returnUrl    = 'review.php';
 $practiceSessionId = 0;
 
-if ($isPractice) {
+if ($isRandomPractice) {
+    $isReviewing = true;
+    $from = 'hub';
+    $deckName = null;
+    if (!$deckId || $deckId < 1) {
+        header('Location: review.php');
+        exit;
+    }
+    $sql = "SELECT f.id, f.front, f.back, f.interval_days, f.next_review_at
+            FROM flashcards f
+            JOIN decks d ON d.id = f.deck_id
+            WHERE f.deck_id = ? AND d.user_id = ? AND d.deleted_at IS NULL
+              AND f.deleted_at IS NULL
+            ORDER BY f.id ASC";
+    if ($stmt = mysqli_prepare($conn, $sql)) {
+        mysqli_stmt_bind_param($stmt, 'ii', $deckId, $userId);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        while ($row = mysqli_fetch_assoc($result)) { $dueCards[] = $row; }
+        mysqli_stmt_close($stmt);
+    }
+    if ($stmt = mysqli_prepare($conn, "SELECT title FROM decks WHERE id = ? AND user_id = ? AND deleted_at IS NULL")) {
+        mysqli_stmt_bind_param($stmt, 'ii', $deckId, $userId);
+        mysqli_stmt_execute($stmt);
+        $row = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+        $deckName = $row['title'] ?? null;
+        mysqli_stmt_close($stmt);
+    }
+    if ($deckName === null) { header('Location: review.php'); exit; }
+    $returnUrl = 'review.php';
+} elseif ($isPractice) {
     $isReviewing = true;
     $from = (string) ($_GET['from'] ?? '');
     $practiceSessionId = isset($_GET['session_id']) && ctype_digit((string) $_GET['session_id']) ? (int) $_GET['session_id'] : 0;
@@ -107,6 +140,7 @@ if ($isPractice) {
     $dueDecks       = ReviewHubService::dueDecks($hubDecks);
     $upcomingDecks  = ReviewHubService::upcomingDecks($hubDecks);
     $recentSessions = ReviewHubService::getRecentSessions($conn, $userId, 8);
+    $practiceDecks = ReviewHubService::getPracticeDecks($conn, $userId);
 
     $streakInfo     = ReviewHubService::getStreakInfo($conn, $userId);
     $curStreak      = $streakInfo['currentStreak'];
@@ -166,7 +200,7 @@ $currentPage = "review";
                             <span class="material-symbols-outlined text-[40px]">inventory_2</span>
                         </div>
                         <h2 class="font-headline-md text-3xl font-extrabold text-on-surface mb-2">No cards to practice</h2>
-                        <p class="text-on-surface-variant mb-8">These cards have been archived or deleted since the session.</p>
+                        <p class="text-on-surface-variant mb-8"><?= $isRandomPractice ? 'This deck has no active cards to practice.' : 'These cards have been archived or deleted since the session.' ?></p>
                         <a href="<?= htmlspecialchars($returnUrl, ENT_QUOTES, 'UTF-8') ?>" class="px-6 py-3 rounded-xl bg-primary text-on-primary font-bold shadow-sm hover:bg-primary-container transition-colors">Back</a>
                     </div>
                 <?php endif; ?>
@@ -320,7 +354,7 @@ $currentPage = "review";
             deckId: <?= json_encode($deckId) ?>,
             dueCards: <?= json_encode($dueCards ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
             csrfToken: <?= json_encode($_SESSION['csrf_token'] ?? '') ?>,
-            mode: <?= json_encode($isPractice ? 'practice' : null) ?>,
+            mode: <?= json_encode($isRandomPractice ? 'random' : ($isPractice ? 'practice' : null)) ?>,
             skipped: <?= (int) $practiceSkipped ?>,
             returnUrl: <?= json_encode($returnUrl) ?>
         };
