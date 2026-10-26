@@ -187,7 +187,7 @@
                                 </div>
                                 <!-- DIV: Slide Action Button & Wayfinder Dots Bar -->
                                 <div class="relative z-10 flex items-center justify-between pt-4 border-t border-white/10">
-                                    <a href="science.php" class="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-900 font-label-md text-xs font-bold shadow-xs transition-all group">
+                                    <a href="../../landing-page/science.html" target="_blank" class="inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-900 font-label-md text-xs font-bold shadow-xs transition-all group">
                                         <span>Learn More</span>
                                         <span class="material-symbols-outlined text-[16px] transition-transform group-hover:translate-x-1">arrow_forward</span>
                                     </a>
