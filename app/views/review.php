@@ -177,8 +177,7 @@ $currentPage = "review";
 
             <?php else: ?>
                 <!-- Practice mode banner (JS also shows it when a finished review switches to practice) -->
-                <div id="practice-banner" class="<?= $isPractice ? '' : 'hidden' ?> max-w-[55rem] mx-auto mb-6 sm:px-14">
-                    <div class="rounded-xl bg-surface-container-low border border-outline-variant/30 px-4 py-2.5 text-sm text-on-surface">
+<div id="practice-banner" class="<?= $isPractice ? '' : 'hidden' ?> max-w-[55rem] mx-auto pt-6 sm:pt-10 px-4 sm:px-14">                    <div class="rounded-xl bg-surface-container-low border border-outline-variant/30 px-4 py-2.5 text-sm text-on-surface">
                         <p class="font-bold flex items-center gap-2">
                             <span class="material-symbols-outlined text-[18px] text-primary">play_arrow</span>
                             Practice mode: results are not saved

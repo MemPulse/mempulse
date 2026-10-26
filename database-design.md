@@ -144,3 +144,24 @@ CREATE TABLE admin_audit_log (
     INDEX idx_audit_target (target_user_id, created_at),
     INDEX idx_audit_admin (admin_id, created_at)
 ) ENGINE=InnoDB;
+
+
+-- Random Practice is deliberately stored outside review_sessions/review_logs.
+-- Existing SRS reports, streaks and review statistics therefore remain unchanged.
+CREATE TABLE random_practice_sessions (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL,
+    deck_id BIGINT UNSIGNED NOT NULL,
+    label VARCHAR(80) NOT NULL DEFAULT 'Random Practice',
+    total_rated INT UNSIGNED NOT NULL DEFAULT 0,
+    remembered_count INT UNSIGNED NOT NULL DEFAULT 0,
+    accuracy_percentage DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+    duration_seconds INT UNSIGNED NOT NULL DEFAULT 0,
+    started_at DATETIME NOT NULL,
+    ended_at DATETIME NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_random_practice_user_ended (user_id, ended_at),
+    INDEX idx_random_practice_deck (deck_id),
+    CONSTRAINT fk_random_practice_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_random_practice_deck FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

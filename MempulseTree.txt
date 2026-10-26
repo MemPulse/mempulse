@@ -3,10 +3,26 @@ Folder PATH listing
 Volume serial number is 8E4B-9250
 C:.
 │   .gitignore
+│   adding-header.txt
 │   comebine_files.py
+│   CompleteMempulse.txt
 │   database-design.md
+│   deck-refresh-actions.txt
+│   deck-view.php deck.php decks-view.php reports.php review.php review-hub.php session-details.php sessions.php MempulseTree.txt
+│   deck-view.php deck.php decks-view.php reports.php review.php review-hub.php session-details.php sessions.php MempulseTree.txt sidebar.php index.php dashboard.php
+│   fixingheader+sidebar.txt
+│   forStructuralChanges.txt
 │   generate_mock.py
+│   index.php sidebar.php dashboard.php database-design.md MempulseTree.txt
+│   main-view.txt
+│   mempulse.txt
 │   MempulseTree.txt
+│   pagination.txt
+│   review-due-now.txt
+│   review-redesign.txt
+│   review-revision.txt
+│   seed_mempulse.sql
+│   session-save-endpoint.txt
 │   tailwind.config.js
 │   test_combine_files.py
 │   
@@ -58,6 +74,7 @@ C:.
 │   │       ReportsExportService.php
 │   │       ReportsService.php
 │   │       ReviewHubService.php
+│   │       save-random-practice.php
 │   │       save-session.php
 │   │       SessionService.php
 │   │       settings-actions.php
@@ -150,7 +167,6 @@ C:.
 ├───landing-page
 │       about.html
 │       index.html
-│       landing-page-nav-and-pricing-changes.md
 │       pricing.html
 │       science.html
 │       style.css

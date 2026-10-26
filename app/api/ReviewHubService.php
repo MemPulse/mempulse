@@ -98,6 +98,38 @@ class ReviewHubService
     }
 
     /**
+     * Decks that have at least one active card, for the Random Practice picker.
+     *
+     * @return array<int, array{id:int, title:string, activeCount:int}>
+     */
+    public static function getPracticeDecks(mysqli $conn, int $userId): array
+    {
+        $sql = "SELECT d.id, d.title, COUNT(f.id) AS active_count
+                FROM decks d
+                JOIN flashcards f ON f.deck_id = d.id AND f.deleted_at IS NULL
+                WHERE d.user_id = ? AND d.deleted_at IS NULL
+                GROUP BY d.id, d.title
+                HAVING active_count > 0
+                ORDER BY d.title ASC";
+
+        $decks = [];
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "i", $userId);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            while ($row = mysqli_fetch_assoc($result)) {
+                $decks[] = [
+                    'id'          => (int) $row['id'],
+                    'title'       => (string) $row['title'],
+                    'activeCount' => (int) $row['active_count'],
+                ];
+            }
+            mysqli_stmt_close($stmt);
+        }
+        return $decks;
+    }
+
+    /**
      * Seconds until the user's next card becomes due (no 48h limit), or null
      * when there are no scheduled cards at all.
      */
@@ -121,10 +153,12 @@ class ReviewHubService
     }
 
     /**
-     * Latest completed review sessions.
+     * Latest completed sessions: scheduled reviews plus Random Practice
+     * (stored separately in random_practice_sessions).
      *
      * @return array<int, array{
-     *   deckId:int, deckTitle:string, cardsReviewed:int, rememberedCount:int,
+     *   sessionType:string, sessionLabel:string, sessionID:int, deckId:int,
+     *   deckTitle:string, cardsReviewed:int, rememberedCount:int,
      *   accuracy:int, durationSeconds:?int, formattedTime:string
      * }>
      */
@@ -132,29 +166,47 @@ class ReviewHubService
     {
         $limit = max(1, min($limit, 50));
 
-        $sql = "SELECT rs.id AS session_id, rs.deck_id, d.title AS deck_title, rs.total_reviewed, rs.remembered_count,
-                       rs.accuracy_percentage,
-                       TIMESTAMPDIFF(SECOND, rs.started_at, rs.ended_at) AS duration_seconds,
-                       TIMESTAMPDIFF(SECOND, rs.ended_at, NOW()) AS ended_ago_seconds
-                FROM review_sessions rs
-                JOIN decks d ON d.id = rs.deck_id
-                WHERE rs.user_id = ? AND rs.ended_at IS NOT NULL
-                ORDER BY rs.ended_at DESC, rs.id DESC
+        $sql = "SELECT * FROM (
+                    SELECT 'srs' AS session_type, 'Review' AS session_label,
+                           rs.id AS session_id, rs.deck_id, d.title AS deck_title,
+                           rs.total_reviewed AS cards, rs.remembered_count,
+                           rs.accuracy_percentage AS accuracy,
+                           TIMESTAMPDIFF(SECOND, rs.started_at, rs.ended_at) AS duration_seconds,
+                           rs.ended_at,
+                           TIMESTAMPDIFF(SECOND, rs.ended_at, NOW()) AS ended_ago_seconds
+                    FROM review_sessions rs
+                    JOIN decks d ON d.id = rs.deck_id
+                    WHERE rs.user_id = ? AND rs.ended_at IS NOT NULL
+                    UNION ALL
+                    SELECT 'random', rp.label,
+                           rp.id, rp.deck_id, d.title,
+                           rp.total_rated, rp.remembered_count,
+                           rp.accuracy_percentage,
+                           rp.duration_seconds,
+                           rp.ended_at,
+                           TIMESTAMPDIFF(SECOND, rp.ended_at, NOW())
+                    FROM random_practice_sessions rp
+                    JOIN decks d ON d.id = rp.deck_id
+                    WHERE rp.user_id = ?
+                ) t
+                ORDER BY ended_at DESC, session_id DESC
                 LIMIT ?";
 
         $sessions = [];
         if ($stmt = mysqli_prepare($conn, $sql)) {
-            mysqli_stmt_bind_param($stmt, "ii", $userId, $limit);
+            mysqli_stmt_bind_param($stmt, "iii", $userId, $userId, $limit);
             mysqli_stmt_execute($stmt);
             $result = mysqli_stmt_get_result($stmt);
             while ($row = mysqli_fetch_assoc($result)) {
                 $sessions[] = [
+                    'sessionType'     => (string) $row['session_type'],
+                    'sessionLabel'    => (string) $row['session_label'],
                     'sessionID'       => (int) $row['session_id'],
                     'deckId'          => (int) $row['deck_id'],
                     'deckTitle'       => (string) $row['deck_title'],
-                    'cardsReviewed'   => (int) $row['total_reviewed'],
+                    'cardsReviewed'   => (int) $row['cards'],
                     'rememberedCount' => (int) $row['remembered_count'],
-                    'accuracy'        => (int) $row['accuracy_percentage'],
+                    'accuracy'        => (int) $row['accuracy'],
                     'durationSeconds' => $row['duration_seconds'] === null ? null : (int) $row['duration_seconds'],
                     'formattedTime'   => self::formatAgo((int) $row['ended_ago_seconds']),
                 ];
