@@ -47,50 +47,56 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
         </div>
 
         <!-- 4 KPI CARDS -->
-        <section aria-label="Activity summary metrics" class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-xs flex items-center justify-between">
-                <div>
-                    <span class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Sessions (30d)</span>
-                    <p class="font-headline-md text-2xl font-extrabold text-on-surface mt-1 tabular-nums"><?= $fmt($s['sessions30d']) ?></p>
-                    <span class="text-[11px] text-on-surface-variant"><?= $fmt($s['sessionsToday']) ?> completed today</span>
+        <section aria-label="Activity summary metrics" class="grid grid-cols-4 gap-2 sm:gap-3 lg:gap-4" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr))">
+
+            <!-- Sessions (30d) (primary) -->
+            <div class="min-w-0 bg-gradient-to-br from-primary/10 via-surface-container-lowest to-surface-container-lowest border border-outline-variant/30 rounded-2xl p-3 shadow-xs flex items-center justify-between gap-2 hover:border-primary/50 transition-all group">
+                <div class="min-w-0">
+                    <span class="block truncate text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-primary">Sessions (30d)</span>
+                    <p class="font-headline-md text-xl sm:text-2xl font-extrabold text-on-surface mt-1 tabular-nums"><?= $fmt($s['sessions30d']) ?></p>
+                    <span class="block truncate text-[10px] sm:text-[11px] text-on-surface-variant"><?= $fmt($s['sessionsToday']) ?> completed today</span>
                 </div>
-                <div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                    <span class="material-symbols-outlined text-[22px]">history_edu</span>
+                <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-primary/10 group-hover:bg-primary/20 text-primary flex items-center justify-center shrink-0 transition-colors">
+                    <span class="material-symbols-outlined text-xl">history_edu</span>
                 </div>
             </div>
 
-            <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-xs flex items-center justify-between">
-                <div>
-                    <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-700">Reviews (30d)</span>
-                    <p class="font-headline-md text-2xl font-extrabold text-on-surface mt-1 tabular-nums"><?= $fmt($s['reviews30d']) ?></p>
-                    <span class="text-[11px] text-on-surface-variant"><?= $fmt($s['activeToday']) ?> active today · <?= $fmt($s['active7d']) ?> in 7d</span>
+            <!-- Reviews (30d) (rose) -->
+            <div class="min-w-0 bg-gradient-to-br from-rose-500/10 via-surface-container-lowest to-surface-container-lowest border border-outline-variant/30 rounded-2xl p-3 shadow-xs flex items-center justify-between gap-2 hover:border-rose-500/50 transition-all group">
+                <div class="min-w-0">
+                    <span class="block truncate text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-rose-700">Reviews (30d)</span>
+                    <p class="font-headline-md text-xl sm:text-2xl font-extrabold text-on-surface mt-1 tabular-nums"><?= $fmt($s['reviews30d']) ?></p>
+                    <span class="block truncate text-[10px] sm:text-[11px] text-on-surface-variant"><?= $fmt($s['activeToday']) ?> active today · <?= $fmt($s['active7d']) ?> in 7d</span>
                 </div>
-                <div class="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200/80 text-indigo-600 flex items-center justify-center">
-                    <span class="material-symbols-outlined text-[22px]">bolt</span>
-                </div>
-            </div>
-
-            <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-xs flex items-center justify-between">
-                <div>
-                    <span class="text-[11px] font-bold uppercase tracking-wider text-teal-700">30d Retention Rate</span>
-                    <p class="font-headline-md text-2xl font-extrabold text-on-surface mt-1 tabular-nums"><?= number_format($s['retention30d'], 1) ?>%</p>
-                    <span class="text-[11px] text-on-surface-variant">Platform recall accuracy</span>
-                </div>
-                <div class="w-10 h-10 rounded-xl bg-teal-50 border border-teal-200/80 text-teal-600 flex items-center justify-center">
-                    <span class="material-symbols-outlined text-[22px]">verified</span>
+                <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-rose-500/10 group-hover:bg-rose-500/20 text-rose-700 flex items-center justify-center shrink-0 transition-colors">
+                    <span class="material-symbols-outlined text-xl">bolt</span>
                 </div>
             </div>
 
-            <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-xs flex items-center justify-between">
-                <div>
-                    <span class="text-[11px] font-bold uppercase tracking-wider text-amber-700">Avg Recall Speed</span>
-                    <p class="font-headline-md text-2xl font-extrabold text-on-surface mt-1 tabular-nums"><?= number_format($s['avgResponseSec'], 2) ?>s</p>
-                    <span class="text-[11px] text-on-surface-variant">Per flashcard (30d)</span>
+            <!-- 30d Retention Rate (teal) -->
+            <div class="min-w-0 bg-gradient-to-br from-teal-500/10 via-surface-container-lowest to-surface-container-lowest border border-outline-variant/30 rounded-2xl p-3 shadow-xs flex items-center justify-between gap-2 hover:border-teal-500/50 transition-all group">
+                <div class="min-w-0">
+                    <span class="block truncate text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-teal-700">30d Retention Rate</span>
+                    <p class="font-headline-md text-xl sm:text-2xl font-extrabold text-on-surface mt-1 tabular-nums"><?= number_format($s['retention30d'], 1) ?>%</p>
+                    <span class="block truncate text-[10px] sm:text-[11px] text-on-surface-variant">Platform recall accuracy</span>
                 </div>
-                <div class="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-700 flex items-center justify-center">
-                    <span class="material-symbols-outlined text-[22px]">timer</span>
+                <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-teal-500/10 group-hover:bg-teal-500/20 text-teal-600 flex items-center justify-center shrink-0 transition-colors">
+                    <span class="material-symbols-outlined text-xl">verified</span>
                 </div>
             </div>
+
+            <!-- Avg Recall Speed (primary) -->
+            <div class="min-w-0 bg-gradient-to-br from-primary/10 via-surface-container-lowest to-surface-container-lowest border border-outline-variant/30 rounded-2xl p-3 shadow-xs flex items-center justify-between gap-2 hover:border-primary/50 transition-all group">
+                <div class="min-w-0">
+                    <span class="block truncate text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-primary">Avg Recall Speed</span>
+                    <p class="font-headline-md text-xl sm:text-2xl font-extrabold text-on-surface mt-1 tabular-nums"><?= number_format($s['avgResponseSec'], 2) ?>s</p>
+                    <span class="block truncate text-[10px] sm:text-[11px] text-on-surface-variant">Per flashcard (30d)</span>
+                </div>
+                <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-primary/10 group-hover:bg-primary/20 text-primary flex items-center justify-center shrink-0 transition-colors">
+                    <span class="material-symbols-outlined text-xl">timer</span>
+                </div>
+            </div>
+
         </section>
 
         <!-- INTERACTIVE STUDY & RETENTION TREND CHART -->
@@ -130,54 +136,103 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
         </section>
         
         <!-- SESSIONS TABLE -->
-        <section class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl shadow-xs overflow-hidden min-w-0" aria-label="Study session log">
+        <style>
+            /* ---------- Filter bar ---------- */
+            #activity-sessions .act-filter { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; padding: 16px; }
+            #activity-sessions .act-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+            #activity-sessions .act-field.grow { flex: 1 1 260px; }
+            #activity-sessions .act-field.date { flex: 0 0 190px; }
+            #activity-sessions .act-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+
+            /* ---------- Compact, fixed-width table ---------- */
+            #activity-sessions .act-table { table-layout: fixed; width: 100%; min-width: 760px; border-collapse: collapse; }
+            #activity-sessions .act-table th,
+            #activity-sessions .act-table td {
+                padding: 6px 12px;
+                vertical-align: middle;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            #activity-sessions .act-table th { padding-top: 8px; padding-bottom: 8px; }
+            #activity-sessions .act-table .c-started,
+            #activity-sessions .act-table th.c-started { padding-left: 16px; }
+            #activity-sessions .act-table .c-duration { padding-right: 16px; text-align: right; }
+
+            /* Column widths (Learner takes the remaining space) */
+            #activity-sessions col.c-started  { width: 220px; }
+            #activity-sessions col.c-reviewed { width: 290px; }
+            #activity-sessions col.c-retention { width: 120px; }
+            #activity-sessions col.c-duration { width: 100px; }
+
+            /* Single-line learner cell: name + email */
+            #activity-sessions .learner-cell { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+            #activity-sessions .learner-name { flex: 0 1 auto; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            #activity-sessions .learner-email { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+            /* Loading state while the table refreshes */
+            #activity-sessions .act-table-wrap { transition: opacity .15s; }
+            #activity-sessions.is-loading .act-table-wrap { opacity: .5; pointer-events: none; }
+        </style>
+
+        <section id="activity-sessions" class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl shadow-xs overflow-hidden min-w-0" aria-label="Study session log">
 
             <!-- State Tabs -->
-            <nav class="flex gap-1 overflow-x-auto px-3 pt-3 border-b border-outline-variant/30">
+            <nav data-tabs class="flex gap-1 overflow-x-auto px-3 pt-3 border-b border-outline-variant/30">
                 <?php foreach ($tabs as $key => $label):
                     $on = $f['state'] === $key; ?>
                     <a href="activity.php<?= adminEsc(AdminActivityService::buildQuery($f, ['state' => $key, 'page' => 1])) ?>"
-                       class="flex items-center gap-2 px-3 py-2 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors <?= $on ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface' ?>">
+                    class="flex items-center gap-2 px-3 py-2 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors <?= $on ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface' ?>">
                         <?= adminEsc($label) ?>
                     </a>
                 <?php endforeach; ?>
             </nav>
 
             <!-- Search & Date Filter -->
-            <form method="get" action="activity.php" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 p-4 border-b border-outline-variant/30">
+            <form data-ajax method="get" action="activity.php" class="act-filter border-b border-outline-variant/30">
                 <input type="hidden" name="state" value="<?= adminEsc($f['state']) ?>">
                 <input type="hidden" name="sort" value="<?= adminEsc($f['sort']) ?>">
                 <input type="hidden" name="dir" value="<?= adminEsc($f['dir']) ?>">
 
-                <div class="lg:col-span-6">
-                    <input type="search" name="q" value="<?= adminEsc($f['q']) ?>" maxlength="100" placeholder="Search learner by name or email…" class="<?= $input ?>">
+                <div class="act-field grow">
+                    <label for="act-q" class="text-xs font-bold text-on-surface-variant">Search</label>
+                    <input id="act-q" type="search" name="q" value="<?= adminEsc($f['q']) ?>" maxlength="100" placeholder="Learner name or email…" class="<?= $input ?> min-w-0">
                 </div>
-                <div class="lg:col-span-2">
-                    <input type="date" name="from" value="<?= adminEsc($f['from']) ?>" title="Started from" class="<?= $input ?>">
+                <div class="act-field date">
+                    <label for="act-from" class="text-xs font-bold text-on-surface-variant">Started From</label>
+                    <input id="act-from" type="date" name="from" value="<?= adminEsc($f['from']) ?>" class="<?= $input ?> min-w-0">
                 </div>
-                <div class="lg:col-span-2">
-                    <input type="date" name="to" value="<?= adminEsc($f['to']) ?>" title="Started to" class="<?= $input ?>">
+                <div class="act-field date">
+                    <label for="act-to" class="text-xs font-bold text-on-surface-variant">Started To</label>
+                    <input id="act-to" type="date" name="to" value="<?= adminEsc($f['to']) ?>" class="<?= $input ?> min-w-0">
                 </div>
-                <div class="lg:col-span-2 flex items-center gap-2">
-                    <button type="submit" class="flex-1 px-4 py-2 rounded-xl bg-primary text-on-primary text-sm font-semibold hover:opacity-90 transition-opacity">Filter</button>
+                <div class="act-actions">
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-primary text-on-primary text-sm font-semibold hover:opacity-90 transition-opacity h-[38px]">Filter</button>
                     <?php if ($hasFilters): ?>
-                        <a href="activity.php" class="px-3 py-2 rounded-xl bg-surface-container-low hover:bg-surface-container-high text-on-surface text-sm font-semibold transition-colors">Reset</a>
+                        <a href="activity.php" class="px-4 py-2 rounded-xl bg-surface-container-low hover:bg-surface-container-high text-on-surface text-sm font-semibold transition-colors flex items-center justify-center h-[38px]">Reset</a>
                     <?php endif; ?>
                 </div>
             </form>
 
             <?php if ($list['rows']): ?>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
+                <div class="overflow-x-auto act-table-wrap">
+                    <table class="act-table text-left">
+                        <colgroup>
+                            <col class="c-started">
+                            <col>
+                            <col class="c-reviewed">
+                            <col class="c-retention">
+                            <col class="c-duration">
+                        </colgroup>
                         <thead>
                             <tr class="bg-surface-container-low border-b border-outline-variant/30 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
                                 <?php
                                 $headers = [
-                                    'started'  => ['label' => 'Started',        'class' => 'py-3 pl-4 pr-3'],
-                                    'learner'  => ['label' => 'Learner',        'class' => 'py-3 px-3'],
-                                    'reviewed' => ['label' => 'Cards Reviewed', 'class' => 'py-3 px-3'],
-                                    'accuracy' => ['label' => 'Retention',      'class' => 'py-3 px-3'],
-                                    'duration' => ['label' => 'Duration',       'class' => 'py-3 pl-3 pr-4 text-right'],
+                                    'started'  => ['label' => 'Started',        'class' => 'c-started'],
+                                    'learner'  => ['label' => 'Learner',        'class' => ''],
+                                    'reviewed' => ['label' => 'Cards Reviewed', 'class' => 'c-reviewed'],
+                                    'accuracy' => ['label' => 'Retention',      'class' => 'c-retention'],
+                                    'duration' => ['label' => 'Duration',       'class' => 'c-duration'],
                                 ];
                                 foreach ($headers as $key => $h):
                                     $active = $f['sort'] === $key;
@@ -199,36 +254,33 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
                                     : ($r['accuracy'] >= 60 ? 'bg-amber-50 text-amber-700 border-amber-200/80' : 'bg-error-container/40 text-error border-error/20');
                             ?>
                                 <tr class="hover:bg-surface-container-low/50 transition-colors">
-                                    <td class="py-3 pl-4 pr-3 whitespace-nowrap">
-                                        <div class="flex flex-col">
-                                            <span class="text-xs font-semibold text-on-surface tabular-nums"><?= adminEsc($r['started']) ?></span>
-                                            <span class="text-[11px] text-on-surface-variant"><?= adminEsc($r['age']) ?></span>
+                                    <td class="c-started tabular-nums">
+                                        <span class="text-xs font-semibold text-on-surface"><?= adminEsc($r['started']) ?></span>
+                                        <span class="text-[11px] text-on-surface-variant ml-1.5"><?= adminEsc($r['age']) ?></span>
+                                    </td>
+                                    <td>
+                                        <div class="learner-cell">
+                                            <a href="users.php?q=<?= urlencode($r['email']) ?>"
+                                            class="learner-name text-xs font-bold text-on-surface hover:text-primary hover:underline"
+                                            title="<?= adminEsc($r['name']) ?>"><?= adminEsc($r['name']) ?></a>
+                                            <span class="learner-email text-[11px] text-on-surface-variant"
+                                                title="<?= adminEsc($r['email']) ?>"><?= adminEsc($r['email']) ?></span>
                                         </div>
                                     </td>
-                                    <td class="py-3 px-3">
-                                        <div class="flex flex-col min-w-0">
-                                            <a href="users.php?q=<?= urlencode($r['email']) ?>" class="text-xs font-bold text-on-surface hover:text-primary hover:underline truncate">
-                                                <?= adminEsc($r['name']) ?>
-                                            </a>
-                                            <span class="text-[11px] text-on-surface-variant truncate"><?= adminEsc($r['email']) ?></span>
-                                        </div>
-                                    </td>
-                                    <td class="py-3 px-3 tabular-nums text-xs">
+                                    <td class="c-reviewed tabular-nums text-xs">
                                         <span class="font-bold text-on-surface"><?= $fmt($r['reviewed']) ?> cards</span>
-                                        <span class="text-[11px] text-on-surface-variant block">
-                                            <?= $fmt($r['remembered']) ?> remembered · <?= $fmt($r['forgot']) ?> forgot
-                                        </span>
+                                        <span class="text-[11px] text-on-surface-variant ml-1.5"><?= $fmt($r['remembered']) ?> remembered · <?= $fmt($r['forgot']) ?> forgot</span>
                                     </td>
-                                    <td class="py-3 px-3 tabular-nums">
+                                    <td class="c-retention tabular-nums">
                                         <?php if ($r['completed']): ?>
-                                            <span class="text-xs font-bold px-2.5 py-0.5 rounded-md border <?= $accCls ?>">
+                                            <span class="text-[11px] font-bold px-2 py-0.5 rounded-md border <?= $accCls ?>">
                                                 <?= number_format($r['accuracy'], 1) ?>%
                                             </span>
                                         <?php else: ?>
                                             <span class="text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200/80 text-amber-700">Active now</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="py-3 pl-3 pr-4 text-right tabular-nums text-xs text-on-surface-variant whitespace-nowrap">
+                                    <td class="c-duration tabular-nums text-xs text-on-surface-variant">
                                         <?= adminEsc($r['duration']) ?>
                                     </td>
                                 </tr>
@@ -238,19 +290,77 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
                 </div>
 
                 <!-- Pagination -->
-                <nav class="flex flex-wrap items-center justify-between gap-3 px-5 py-3 border-t border-outline-variant/30" aria-label="Pagination">
+                <?php
+                $curPage  = (int) $list['page'];
+                $lastPage = (int) $list['pages'];
+                $pgUrl    = fn($p) => 'activity.php' . AdminActivityService::buildQuery($f, ['page' => $p]);
+
+                // 1 … window around current … last
+                $pageItems = [];
+                $prevShown = 0;
+                for ($p = 1; $p <= $lastPage; $p++) {
+                    if ($p === 1 || $p === $lastPage || abs($p - $curPage) <= 2) {
+                        if ($prevShown && $p - $prevShown > 1) $pageItems[] = '…';
+                        $pageItems[] = $p;
+                        $prevShown = $p;
+                    }
+                }
+                $navBtn      = 'w-8 h-8 rounded-lg flex items-center justify-center transition-colors ';
+                $navActive   = 'text-on-surface-variant hover:bg-surface-container-high hover:text-primary';
+                $navDisabled = 'text-on-surface-variant/30 pointer-events-none';
+                ?>
+                <nav class="flex flex-wrap items-center justify-between gap-3 px-5 py-2.5 border-t border-outline-variant/30" aria-label="Pagination">
                     <p class="text-xs text-on-surface-variant">
                         Showing <?= $fmt($list['first']) ?>&ndash;<?= $fmt($list['last']) ?> of <?= $fmt($list['total']) ?> sessions
                     </p>
-                    <?php if ($list['pages'] > 1): ?>
-                        <div class="flex items-center gap-1">
-                            <?php for ($p = $firstShown; $p <= $lastShown; $p++): ?>
-                                <?php if ($p === $list['page']): ?>
-                                    <span aria-current="page" class="<?= $pageBtn ?>bg-primary text-on-primary"><?= $p ?></span>
+
+                    <?php if ($lastPage > 1): ?>
+                        <div class="flex flex-wrap items-center gap-3">
+
+                            <!-- Page buttons -->
+                            <div class="flex items-center gap-1">
+                                <?php if ($curPage > 1): ?>
+                                    <a href="<?= adminEsc($pgUrl(1)) ?>" aria-label="First page" title="First page" class="<?= $navBtn . $navActive ?>"><span class="material-symbols-outlined text-[20px]">first_page</span></a>
+                                    <a href="<?= adminEsc($pgUrl($curPage - 1)) ?>" aria-label="Previous page" title="Previous page" class="<?= $navBtn . $navActive ?>"><span class="material-symbols-outlined text-[20px]">chevron_left</span></a>
                                 <?php else: ?>
-                                    <a href="activity.php<?= adminEsc(AdminActivityService::buildQuery($f, ['page' => $p])) ?>" class="<?= $pageBtn ?>text-on-surface-variant hover:bg-surface-container-high hover:text-primary"><?= $p ?></a>
+                                    <span aria-hidden="true" class="<?= $navBtn . $navDisabled ?>"><span class="material-symbols-outlined text-[20px]">first_page</span></span>
+                                    <span aria-hidden="true" class="<?= $navBtn . $navDisabled ?>"><span class="material-symbols-outlined text-[20px]">chevron_left</span></span>
                                 <?php endif; ?>
-                            <?php endfor; ?>
+
+                                <?php foreach ($pageItems as $item): ?>
+                                    <?php if ($item === '…'): ?>
+                                        <span class="min-w-6 h-8 flex items-center justify-center text-xs text-on-surface-variant">…</span>
+                                    <?php elseif ($item === $curPage): ?>
+                                        <span aria-current="page" class="<?= $pageBtn ?>bg-primary text-on-primary"><?= $item ?></span>
+                                    <?php else: ?>
+                                        <a href="<?= adminEsc($pgUrl($item)) ?>" class="<?= $pageBtn ?>text-on-surface-variant hover:bg-surface-container-high hover:text-primary"><?= $item ?></a>
+                                    <?php endif; ?>
+                                <?php endforeach; ?>
+
+                                <?php if ($curPage < $lastPage): ?>
+                                    <a href="<?= adminEsc($pgUrl($curPage + 1)) ?>" aria-label="Next page" title="Next page" class="<?= $navBtn . $navActive ?>"><span class="material-symbols-outlined text-[20px]">chevron_right</span></a>
+                                    <a href="<?= adminEsc($pgUrl($lastPage)) ?>" aria-label="Last page" title="Last page" class="<?= $navBtn . $navActive ?>"><span class="material-symbols-outlined text-[20px]">last_page</span></a>
+                                <?php else: ?>
+                                    <span aria-hidden="true" class="<?= $navBtn . $navDisabled ?>"><span class="material-symbols-outlined text-[20px]">chevron_right</span></span>
+                                    <span aria-hidden="true" class="<?= $navBtn . $navDisabled ?>"><span class="material-symbols-outlined text-[20px]">last_page</span></span>
+                                <?php endif; ?>
+                            </div>
+
+                            <!-- Jump to page -->
+                            <form data-ajax method="get" action="activity.php" class="flex items-center gap-2">
+                                <input type="hidden" name="state" value="<?= adminEsc($f['state']) ?>">
+                                <input type="hidden" name="sort"  value="<?= adminEsc($f['sort']) ?>">
+                                <input type="hidden" name="dir"   value="<?= adminEsc($f['dir']) ?>">
+                                <input type="hidden" name="q"     value="<?= adminEsc($f['q']) ?>">
+                                <input type="hidden" name="from"  value="<?= adminEsc($f['from']) ?>">
+                                <input type="hidden" name="to"    value="<?= adminEsc($f['to']) ?>">
+
+                                <label for="jump-page" class="text-xs text-on-surface-variant whitespace-nowrap">Go to</label>
+                                <input id="jump-page" type="number" name="page" min="1" max="<?= $lastPage ?>" value="<?= $curPage ?>" inputmode="numeric" required
+                                    class="<?= $input ?> tabular-nums text-center" style="width:72px;height:32px;padding:0 8px;">
+                                <span class="text-xs text-on-surface-variant whitespace-nowrap">of <?= $fmt($lastPage) ?></span>
+                                <button type="submit" class="px-3 h-8 rounded-lg bg-surface-container-low hover:bg-surface-container-high text-on-surface text-xs font-semibold transition-colors">Go</button>
+                            </form>
                         </div>
                     <?php endif; ?>
                 </nav>
@@ -261,6 +371,85 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
                 </div>
             <?php endif; ?>
         </section>
+
+        <script>
+        (function () {
+            var region = document.getElementById('activity-sessions');
+            if (!region) return;
+
+            var controller = null;
+            history.replaceState({ actAjax: true }, '', location.href);
+
+            function load(url, push) {
+                if (controller) controller.abort();
+                var ctrl = controller = new AbortController();
+                region.classList.add('is-loading');
+
+                fetch(url, {
+                    credentials: 'same-origin',
+                    headers: { 'X-Requested-With': 'fetch' },
+                    signal: ctrl.signal
+                })
+                    .then(function (res) {
+                        if (!res.ok) throw new Error('HTTP ' + res.status);
+                        return res.text();
+                    })
+                    .then(function (html) {
+                        var doc   = new DOMParser().parseFromString(html, 'text/html');
+                        var fresh = doc.getElementById('activity-sessions');
+                        if (!fresh) throw new Error('Section not found');
+
+                        var nav = region.querySelector('[data-tabs]');
+                        var tabScroll = nav ? nav.scrollLeft : 0;
+
+                        region.innerHTML = fresh.innerHTML;
+
+                        var newNav = region.querySelector('[data-tabs]');
+                        if (newNav) newNav.scrollLeft = tabScroll;
+
+                        if (push) history.pushState({ actAjax: true }, '', url);
+                    })
+                    .catch(function (err) {
+                        if (err.name !== 'AbortError') window.location.href = url; // fall back to a normal page load
+                    })
+                    .finally(function () {
+                        if (controller === ctrl) {
+                            controller = null;
+                            region.classList.remove('is-loading');
+                        }
+                    });
+            }
+
+            // Tabs, sort headers, pagination, Reset
+            region.addEventListener('click', function (e) {
+                var a = e.target.closest('a[href]');
+                if (!a || !region.contains(a)) return;
+                if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+
+                var url = new URL(a.href, location.href);
+                if (url.origin !== location.origin || !/activity\.php$/.test(url.pathname)) return; // skip users.php links
+
+                e.preventDefault();
+                load(url.href, true);
+            });
+
+            // Filter form
+            region.addEventListener('submit', function (e) {
+                var form = e.target;
+                if (!form.hasAttribute('data-ajax')) return;
+                e.preventDefault();
+
+                var url = new URL(form.getAttribute('action'), location.href);
+                url.search = new URLSearchParams(new FormData(form)).toString();
+                load(url.href, true);
+            });
+
+            // Back / forward buttons
+            window.addEventListener('popstate', function (e) {
+                if (e.state && e.state.actAjax) load(location.href, false);
+            });
+        })();
+        </script>
 
     </div>
 </div>

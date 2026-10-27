@@ -421,19 +421,75 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
                 </div>
 
                 <!-- Pagination -->
+                <?php
+                $curPage  = (int) $list['page'];
+                $lastPage = (int) $list['pages'];
+                $pgUrl    = fn($p) => 'content.php' . AdminContentService::buildQuery($f, ['page' => $p]);
+
+                // 1 … window around current … last
+                $pageItems = [];
+                $prevShown = 0;
+                for ($p = 1; $p <= $lastPage; $p++) {
+                    if ($p === 1 || $p === $lastPage || abs($p - $curPage) <= 2) {
+                        if ($prevShown && $p - $prevShown > 1) $pageItems[] = '…';
+                        $pageItems[] = $p;
+                        $prevShown = $p;
+                    }
+                }
+                $navBtn      = 'w-8 h-8 rounded-lg flex items-center justify-center transition-colors ';
+                $navActive   = 'text-on-surface-variant hover:bg-surface-container-high hover:text-primary';
+                $navDisabled = 'text-on-surface-variant/30 pointer-events-none';
+                ?>
                 <nav class="flex flex-wrap items-center justify-between gap-3 px-5 py-2.5 border-t border-outline-variant/30" aria-label="Pagination">
                     <p class="text-xs text-on-surface-variant">
                         Showing <?= $fmt($list['first']) ?>&ndash;<?= $fmt($list['last']) ?> of <?= $fmt($list['total']) ?> learners
                     </p>
-                    <?php if ($list['pages'] > 1): ?>
-                        <div class="flex items-center gap-1">
-                            <?php for ($p = $firstShown; $p <= $lastShown; $p++): ?>
-                                <?php if ($p === $list['page']): ?>
-                                    <span aria-current="page" class="<?= $pageBtn ?>bg-primary text-on-primary"><?= $p ?></span>
+
+                    <?php if ($lastPage > 1): ?>
+                        <div class="flex flex-wrap items-center gap-3">
+
+                            <!-- Page buttons -->
+                            <div class="flex items-center gap-1">
+                                <?php if ($curPage > 1): ?>
+                                    <a href="<?= adminEsc($pgUrl(1)) ?>" aria-label="First page" title="First page" class="<?= $navBtn . $navActive ?>"><span class="material-symbols-outlined text-[20px]" aria-hidden="true">first_page</span></a>
+                                    <a href="<?= adminEsc($pgUrl($curPage - 1)) ?>" aria-label="Previous page" title="Previous page" class="<?= $navBtn . $navActive ?>"><span class="material-symbols-outlined text-[20px]" aria-hidden="true">chevron_left</span></a>
                                 <?php else: ?>
-                                    <a href="content.php<?= adminEsc(AdminContentService::buildQuery($f, ['page' => $p])) ?>" class="<?= $pageBtn ?>text-on-surface-variant hover:bg-surface-container-high hover:text-primary"><?= $p ?></a>
+                                    <span aria-hidden="true" class="<?= $navBtn . $navDisabled ?>"><span class="material-symbols-outlined text-[20px]">first_page</span></span>
+                                    <span aria-hidden="true" class="<?= $navBtn . $navDisabled ?>"><span class="material-symbols-outlined text-[20px]">chevron_left</span></span>
                                 <?php endif; ?>
-                            <?php endfor; ?>
+
+                                <?php foreach ($pageItems as $item): ?>
+                                    <?php if ($item === '…'): ?>
+                                        <span class="min-w-6 h-8 flex items-center justify-center text-xs text-on-surface-variant">…</span>
+                                    <?php elseif ($item === $curPage): ?>
+                                        <span aria-current="page" class="<?= $pageBtn ?>bg-primary text-on-primary"><?= $item ?></span>
+                                    <?php else: ?>
+                                        <a href="<?= adminEsc($pgUrl($item)) ?>" class="<?= $pageBtn ?>text-on-surface-variant hover:bg-surface-container-high hover:text-primary"><?= $item ?></a>
+                                    <?php endif; ?>
+                                <?php endforeach; ?>
+
+                                <?php if ($curPage < $lastPage): ?>
+                                    <a href="<?= adminEsc($pgUrl($curPage + 1)) ?>" aria-label="Next page" title="Next page" class="<?= $navBtn . $navActive ?>"><span class="material-symbols-outlined text-[20px]" aria-hidden="true">chevron_right</span></a>
+                                    <a href="<?= adminEsc($pgUrl($lastPage)) ?>" aria-label="Last page" title="Last page" class="<?= $navBtn . $navActive ?>"><span class="material-symbols-outlined text-[20px]" aria-hidden="true">last_page</span></a>
+                                <?php else: ?>
+                                    <span aria-hidden="true" class="<?= $navBtn . $navDisabled ?>"><span class="material-symbols-outlined text-[20px]">chevron_right</span></span>
+                                    <span aria-hidden="true" class="<?= $navBtn . $navDisabled ?>"><span class="material-symbols-outlined text-[20px]">last_page</span></span>
+                                <?php endif; ?>
+                            </div>
+
+                            <!-- Jump to page -->
+                            <form data-ajax method="get" action="content.php" class="flex items-center gap-2">
+                                <input type="hidden" name="filter" value="<?= adminEsc($f['filter']) ?>">
+                                <input type="hidden" name="sort"   value="<?= adminEsc($f['sort']) ?>">
+                                <input type="hidden" name="dir"    value="<?= adminEsc($f['dir']) ?>">
+                                <input type="hidden" name="q"      value="<?= adminEsc($f['q']) ?>">
+
+                                <label for="jump-page" class="text-xs text-on-surface-variant whitespace-nowrap">Go to</label>
+                                <input id="jump-page" type="number" name="page" min="1" max="<?= $lastPage ?>" value="<?= $curPage ?>" inputmode="numeric" required
+                                    class="<?= $input ?> tabular-nums text-center" style="width:72px;height:32px;padding:0 8px;">
+                                <span class="text-xs text-on-surface-variant whitespace-nowrap">of <?= $fmt($lastPage) ?></span>
+                                <button type="submit" class="px-3 h-8 rounded-lg bg-surface-container-low hover:bg-surface-container-high text-on-surface text-xs font-semibold transition-colors">Go</button>
+                            </form>
                         </div>
                     <?php endif; ?>
                 </nav>

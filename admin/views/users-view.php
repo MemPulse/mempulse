@@ -27,7 +27,7 @@ $statusLabels = [
     'rejected' => 'Suspended',
     'deleted'  => 'Archived',
 ];
-$iconBtn = 'w-8 h-8 inline-flex items-center justify-center rounded-lg transition-colors';
+$iconBtn = 'w-7 h-7 inline-flex items-center justify-center rounded-lg transition-colors';
 
 $input = 'w-full rounded-xl border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40';
 
@@ -112,8 +112,8 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
 
         <!-- 4 KPI SUMMARY CARDS -->
         <section aria-label="User summary metrics"
-        class="grid grid-cols-4 gap-2 sm:gap-3 lg:gap-4"
-        style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr))">
+            class="grid grid-cols-4 gap-2 sm:gap-3 lg:gap-4"
+            style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr))">
 
             <!-- Total Live Users -->
             <div class="min-w-0 bg-gradient-to-br from-primary/10 via-surface-container-lowest to-surface-container-lowest border border-outline-variant/30 rounded-2xl p-3 shadow-xs flex items-center justify-between gap-2 hover:border-primary/50 transition-all group">
@@ -176,7 +176,7 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
         <?php endif; ?>
 
         <!-- FILTER CARD: status tabs + search/filter form -->
-        <section class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl shadow-xs overflow-hidden min-w-0" aria-label="Filter users">
+        <section id="users-filter" class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl shadow-xs overflow-hidden min-w-0" aria-label="Filter users">
 
             <!-- Status Tabs -->
             <nav class="flex gap-1 overflow-x-auto overflow-y-hidden px-4 pt-2 border-b border-outline-variant/30 scrollbar-hide" aria-label="Filter by status">
@@ -192,22 +192,35 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
                 <?php endforeach; ?>
             </nav>
 
+            <style>
+                /* Filter form: wider inputs */
+                #users-filter .flt-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; padding: 16px; }
+                #users-filter .flt-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+                #users-filter .flt-field.grow   { flex: 2 1 320px; min-width: 260px; }  /* Search */
+                #users-filter .flt-field.select { flex: 1 1 240px; min-width: 220px; }  /* Role */
+                #users-filter .flt-field.date   { flex: 0 0 210px; }                    /* Joined From / To */
+                #users-filter .flt-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+
+                /* Keep room on the right so the dropdown arrow is never covered */
+                #users-filter .flt-field select { padding-right: 2.25rem; text-overflow: ellipsis; }
+            </style>
+
             <!-- Search & Filter Bar with Visible Labels -->
-            <form method="get" action="users.php" class="flex flex-wrap items-end gap-x-4 gap-y-3 p-4 bg-surface-container-lowest">
+            <form data-ajax method="get" action="users.php" class="flt-form bg-surface-container-lowest">
                 <input type="hidden" name="status" value="<?= adminEsc($f['status']) ?>">
                 <input type="hidden" name="sort" value="<?= adminEsc($f['sort']) ?>">
                 <input type="hidden" name="dir" value="<?= adminEsc($f['dir']) ?>">
 
                 <!-- Search (grows the most) -->
-                <div class="flex flex-col gap-1.5 flex-[2_1_240px] min-w-[200px]">
+                <div class="flt-field grow">
                     <label for="flt-q" class="text-xs font-bold text-on-surface-variant">Search</label>
-                    <input id="flt-q" type="search" name="q" value="<?= adminEsc($f['q']) ?>" maxlength="100" placeholder="Name or email…" class="<?= $input ?> w-full min-w-0">
+                    <input id="flt-q" type="search" name="q" value="<?= adminEsc($f['q']) ?>" maxlength="100" placeholder="Name or email…" class="<?= $input ?> min-w-0">
                 </div>
 
                 <!-- Role -->
-                <div class="flex flex-col gap-1.5 w-80 shrink-0">
+                <div class="flt-field select">
                     <label for="flt-role" class="text-xs font-bold text-on-surface-variant">Role</label>
-                    <select id="flt-role" name="role" class="<?= $input ?> w-full w-80 min-w-0" data-autosubmit>
+                    <select id="flt-role" name="role" class="<?= $input ?> min-w-0" data-autosubmit>
                         <option value="">All roles</option>
                         <?php foreach (AdminUsersService::ROLES as $r): ?>
                             <option value="<?= $r ?>" <?= $f['role'] === $r ? 'selected' : '' ?>><?= ucfirst($r) ?></option>
@@ -216,19 +229,19 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
                 </div>
 
                 <!-- Joined From -->
-                <div class="flex flex-col gap-1.5 flex-[1_1_160px] min-w-[150px]">
+                <div class="flt-field date">
                     <label for="flt-from" class="text-xs font-bold text-on-surface-variant">Joined From</label>
-                    <input id="flt-from" type="date" name="from" value="<?= adminEsc($f['from']) ?>" class="<?= $input ?> w-full min-w-0">
+                    <input id="flt-from" type="date" name="from" value="<?= adminEsc($f['from']) ?>" class="<?= $input ?> min-w-0">
                 </div>
 
                 <!-- Joined To -->
-                <div class="flex flex-col gap-1.5 flex-[1_1_160px] min-w-[150px]">
+                <div class="flt-field date">
                     <label for="flt-to" class="text-xs font-bold text-on-surface-variant">Joined To</label>
-                    <input id="flt-to" type="date" name="to" value="<?= adminEsc($f['to']) ?>" class="<?= $input ?> w-full min-w-0">
+                    <input id="flt-to" type="date" name="to" value="<?= adminEsc($f['to']) ?>" class="<?= $input ?> min-w-0">
                 </div>
 
                 <!-- Actions -->
-                <div class="flex items-center gap-2 shrink-0">
+                <div class="flt-actions">
                     <button type="submit" class="px-5 py-2 rounded-xl bg-primary text-on-primary text-sm font-semibold hover:opacity-90 transition-opacity h-[38px]">Filter</button>
                     <?php if ($hasFilters): ?>
                         <a href="users.php" class="px-4 py-2 rounded-xl bg-surface-container-low hover:bg-surface-container-high text-on-surface text-sm font-semibold transition-colors flex items-center justify-center h-[38px]">Reset</a>
@@ -238,7 +251,7 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
         </section>
 
         <!-- TABLE CARD -->
-        <section class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl shadow-xs overflow-hidden min-w-0" aria-label="User list">
+        <section id="users-table" class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl shadow-xs overflow-hidden min-w-0" aria-label="User list">
 
             <!-- Bulk Action Toolbar -->
             <div id="bulk-action-bar" class="hidden items-center justify-between gap-3 px-4 py-2.5 bg-primary-fixed/40 border-b border-primary/20">
@@ -321,8 +334,8 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
                                         <?php endif; ?>
                                     </td>
                                     <td class="py-3 px-3">
-                                        <div class="flex items-center gap-3 min-w-0">
-                                            <div class="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 text-xs font-bold">
+                                        <div class="flex items-center gap-2.5 min-w-0">
+                                            <div class="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 text-[11px] font-bold">
                                                 <?= adminEsc($firstChr) ?>
                                             </div>
                                             <div class="flex flex-col min-w-0">
@@ -390,31 +403,78 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
                 </div>
 
                 <!-- Pagination -->
-                <nav class="flex flex-wrap items-center justify-between gap-3 px-5 py-3 border-t border-outline-variant/30" aria-label="Pagination">
+                <?php
+                $curPage  = (int) $list['page'];
+                $lastPage = (int) $list['pages'];
+                $pgUrl    = fn($p) => 'users.php' . AdminUsersService::buildQuery($f, ['page' => $p]);
+
+                // 1 … window around current … last
+                $pageItems = [];
+                $prevShown = 0;
+                for ($p = 1; $p <= $lastPage; $p++) {
+                    if ($p === 1 || $p === $lastPage || abs($p - $curPage) <= 2) {
+                        if ($prevShown && $p - $prevShown > 1) $pageItems[] = '…';
+                        $pageItems[] = $p;
+                        $prevShown = $p;
+                    }
+                }
+                $navBtn      = 'w-8 h-8 rounded-lg flex items-center justify-center transition-colors ';
+                $navActive   = 'text-on-surface-variant hover:bg-surface-container-high hover:text-primary';
+                $navDisabled = 'text-on-surface-variant/30 pointer-events-none';
+                ?>
+                <nav class="flex flex-wrap items-center justify-between gap-3 px-5 py-2 border-t border-outline-variant/30" aria-label="Pagination">
                     <p class="text-xs text-on-surface-variant">
                         Showing <?= $fmt($list['first']) ?>&ndash;<?= $fmt($list['last']) ?> of <?= $fmt($list['total']) ?> accounts
                     </p>
-                    <?php if ($list['pages'] > 1): ?>
-                        <div class="flex items-center gap-1">
-                            <?php if ($list['page'] > 1): ?>
-                                <a href="users.php<?= adminEsc(AdminUsersService::buildQuery($f, ['page' => $list['page'] - 1])) ?>" aria-label="Previous page"
-                                   class="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors">
-                                    <span class="material-symbols-outlined text-[20px]" aria-hidden="true">chevron_left</span>
-                                </a>
-                            <?php endif; ?>
-                            <?php for ($p = $firstShown; $p <= $lastShown; $p++): ?>
-                                <?php if ($p === $list['page']): ?>
-                                    <span aria-current="page" class="<?= $pageBtn ?>bg-primary text-on-primary"><?= $p ?></span>
+
+                    <?php if ($lastPage > 1): ?>
+                        <div class="flex flex-wrap items-center gap-3">
+
+                            <!-- Page buttons -->
+                            <div class="flex items-center gap-1">
+                                <?php if ($curPage > 1): ?>
+                                    <a href="<?= adminEsc($pgUrl(1)) ?>" aria-label="First page" title="First page" class="<?= $navBtn . $navActive ?>"><span class="material-symbols-outlined text-[20px]" aria-hidden="true">first_page</span></a>
+                                    <a href="<?= adminEsc($pgUrl($curPage - 1)) ?>" aria-label="Previous page" title="Previous page" class="<?= $navBtn . $navActive ?>"><span class="material-symbols-outlined text-[20px]" aria-hidden="true">chevron_left</span></a>
                                 <?php else: ?>
-                                    <a href="users.php<?= adminEsc(AdminUsersService::buildQuery($f, ['page' => $p])) ?>" class="<?= $pageBtn ?>text-on-surface-variant hover:bg-surface-container-high hover:text-primary"><?= $p ?></a>
+                                    <span aria-hidden="true" class="<?= $navBtn . $navDisabled ?>"><span class="material-symbols-outlined text-[20px]">first_page</span></span>
+                                    <span aria-hidden="true" class="<?= $navBtn . $navDisabled ?>"><span class="material-symbols-outlined text-[20px]">chevron_left</span></span>
                                 <?php endif; ?>
-                            <?php endfor; ?>
-                            <?php if ($list['page'] < $list['pages']): ?>
-                                <a href="users.php<?= adminEsc(AdminUsersService::buildQuery($f, ['page' => $list['page'] + 1])) ?>" aria-label="Next page"
-                                   class="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors">
-                                    <span class="material-symbols-outlined text-[20px]" aria-hidden="true">chevron_right</span>
-                                </a>
-                            <?php endif; ?>
+
+                                <?php foreach ($pageItems as $item): ?>
+                                    <?php if ($item === '…'): ?>
+                                        <span class="min-w-6 h-8 flex items-center justify-center text-xs text-on-surface-variant">…</span>
+                                    <?php elseif ($item === $curPage): ?>
+                                        <span aria-current="page" class="<?= $pageBtn ?>bg-primary text-on-primary"><?= $item ?></span>
+                                    <?php else: ?>
+                                        <a href="<?= adminEsc($pgUrl($item)) ?>" class="<?= $pageBtn ?>text-on-surface-variant hover:bg-surface-container-high hover:text-primary"><?= $item ?></a>
+                                    <?php endif; ?>
+                                <?php endforeach; ?>
+
+                                <?php if ($curPage < $lastPage): ?>
+                                    <a href="<?= adminEsc($pgUrl($curPage + 1)) ?>" aria-label="Next page" title="Next page" class="<?= $navBtn . $navActive ?>"><span class="material-symbols-outlined text-[20px]" aria-hidden="true">chevron_right</span></a>
+                                    <a href="<?= adminEsc($pgUrl($lastPage)) ?>" aria-label="Last page" title="Last page" class="<?= $navBtn . $navActive ?>"><span class="material-symbols-outlined text-[20px]" aria-hidden="true">last_page</span></a>
+                                <?php else: ?>
+                                    <span aria-hidden="true" class="<?= $navBtn . $navDisabled ?>"><span class="material-symbols-outlined text-[20px]">chevron_right</span></span>
+                                    <span aria-hidden="true" class="<?= $navBtn . $navDisabled ?>"><span class="material-symbols-outlined text-[20px]">last_page</span></span>
+                                <?php endif; ?>
+                            </div>
+
+                            <!-- Jump to page -->
+                            <form data-ajax method="get" action="users.php" class="flex items-center gap-2">
+                                <input type="hidden" name="status" value="<?= adminEsc($f['status']) ?>">
+                                <input type="hidden" name="sort"   value="<?= adminEsc($f['sort']) ?>">
+                                <input type="hidden" name="dir"    value="<?= adminEsc($f['dir']) ?>">
+                                <input type="hidden" name="q"      value="<?= adminEsc($f['q']) ?>">
+                                <input type="hidden" name="role"   value="<?= adminEsc($f['role']) ?>">
+                                <input type="hidden" name="from"   value="<?= adminEsc($f['from']) ?>">
+                                <input type="hidden" name="to"     value="<?= adminEsc($f['to']) ?>">
+
+                                <label for="jump-page" class="text-xs text-on-surface-variant whitespace-nowrap">Go to</label>
+                                <input id="jump-page" type="number" name="page" min="1" max="<?= $lastPage ?>" value="<?= $curPage ?>" inputmode="numeric" required
+                                    class="<?= $input ?> tabular-nums text-center" style="width:72px;height:32px;padding:0 8px;">
+                                <span class="text-xs text-on-surface-variant whitespace-nowrap">of <?= $fmt($lastPage) ?></span>
+                                <button type="submit" class="px-3 h-8 rounded-lg bg-surface-container-low hover:bg-surface-container-high text-on-surface text-xs font-semibold transition-colors">Go</button>
+                            </form>
                         </div>
                     <?php endif; ?>
                 </nav>
@@ -429,6 +489,121 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
                 </div>
             <?php endif; ?>
         </section>
+        <style>
+            #users-table { transition: opacity .15s; }
+            #users-table.is-loading { opacity: .5; pointer-events: none; }
+            /* Compact rows */
+            .admin-users-table td {
+                padding-top: 6px;
+                padding-bottom: 6px;
+            }
+            .admin-users-table th {
+                padding-top: 8px;
+                padding-bottom: 8px;
+            }
+            .admin-users-table td .flex-col {
+                line-height: 1.25;
+            }
+        </style>
+
+        <script>
+        (function () {
+            var REGIONS = ['users-filter', 'users-table'];
+            var tableEl = document.getElementById('users-table');
+            if (!tableEl) return;
+
+            var controller = null;
+            history.replaceState({ usersAjax: true }, '', location.href);
+
+            function load(url, push) {
+                if (controller) controller.abort();
+                var ctrl = controller = new AbortController();
+                tableEl.classList.add('is-loading');
+
+                fetch(url, {
+                    credentials: 'same-origin',
+                    headers: { 'X-Requested-With': 'fetch' },
+                    signal: ctrl.signal
+                })
+                    .then(function (res) {
+                        if (!res.ok) throw new Error('HTTP ' + res.status);
+                        return res.text();
+                    })
+                    .then(function (html) {
+                        var doc = new DOMParser().parseFromString(html, 'text/html');
+                        var fresh = REGIONS.map(function (id) { return doc.getElementById(id); });
+                        if (fresh.some(function (el) { return !el; })) throw new Error('Region not found');
+
+                        // Keep the tab bar's horizontal scroll position
+                        var nav = document.querySelector('#users-filter nav');
+                        var tabScroll = nav ? nav.scrollLeft : 0;
+
+                        REGIONS.forEach(function (id, i) {
+                            document.getElementById(id).innerHTML = fresh[i].innerHTML;
+                        });
+
+                        var newNav = document.querySelector('#users-filter nav');
+                        if (newNav) newNav.scrollLeft = tabScroll;
+
+                        if (push) history.pushState({ usersAjax: true }, '', url);
+
+                        // Lets your existing JS re-bind to the new rows (see note below)
+                        document.dispatchEvent(new CustomEvent('users:refreshed'));
+                    })
+                    .catch(function (err) {
+                        if (err.name !== 'AbortError') window.location.href = url; // fall back to a normal page load
+                    })
+                    .finally(function () {
+                        if (controller === ctrl) {
+                            controller = null;
+                            tableEl.classList.remove('is-loading');
+                        }
+                    });
+            }
+
+            // Tabs, sort headers, pagination, Reset links
+            document.addEventListener('click', function (e) {
+                var a = e.target.closest('a[href]');
+                if (!a) return;
+                if (!a.closest('#users-filter, #users-table')) return;
+                if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+                if (a.target && a.target !== '_self') return;
+
+                var url = new URL(a.href, location.href);
+                if (url.origin !== location.origin || !/users\.php$/.test(url.pathname)) return;
+
+                e.preventDefault();
+                load(url.href, true);
+            });
+
+            // Search / filter form
+            document.addEventListener('submit', function (e) {
+                var form = e.target;
+                if (!form.matches || !form.matches('form[data-ajax]')) return;
+                e.preventDefault();
+
+                var url = new URL(form.getAttribute('action'), location.href);
+                url.search = new URLSearchParams(new FormData(form)).toString();
+                load(url.href, true);
+            });
+
+            // Role dropdown (data-autosubmit): submit through the AJAX path instead of a full reload.
+            // Capture phase so it runs before any existing listener that calls form.submit().
+            document.addEventListener('change', function (e) {
+                var el = e.target;
+                if (!el.matches || !el.matches('[data-autosubmit]')) return;
+                var form = el.form;
+                if (!form || !form.hasAttribute('data-ajax')) return;
+                e.stopPropagation();
+                if (form.requestSubmit) form.requestSubmit(); else form.submit();
+            }, true);
+
+            // Back / forward buttons
+            window.addEventListener('popstate', function (e) {
+                if (e.state && e.state.usersAjax) load(location.href, false);
+            });
+        })();
+        </script>
     </div>
 </div>
 

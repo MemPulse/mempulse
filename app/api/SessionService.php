@@ -70,20 +70,73 @@ class SessionService
     }
 
     // -----------------------------------------------------------------------
-    // NEW: Session History (list page)
+    // Session History (list page)
     // -----------------------------------------------------------------------
+
+    /**
+     * Shared WHERE clause for the history list and its count.
+     *
+     * Supported filters (all optional):
+     *   q           deck title contains this text
+     *   from / to   Y-m-d, inclusive, matched against the session start date
+     *   minAccuracy 0-100, sessions at or above this accuracy
+     *
+     * @return array{0:string,1:string,2:array}  [where sql, bind types, bind values]
+     */
+    private static function historyWhere(int $userId, array $filters): array
+    {
+        $where  = "rs.user_id = ? AND rs.ended_at IS NOT NULL";
+        $types  = "i";
+        $params = [$userId];
+
+        $q = trim((string) ($filters['q'] ?? ''));
+        if ($q !== '') {
+            $where   .= " AND d.title LIKE ?";
+            $types   .= "s";
+            $params[] = '%' . addcslashes($q, '%_\\') . '%';
+        }
+
+        $from = (string) ($filters['from'] ?? '');
+        if ($from !== '' && strtotime($from) !== false) {
+            $where   .= " AND rs.started_at >= ?";
+            $types   .= "s";
+            $params[] = date('Y-m-d', strtotime($from)) . ' 00:00:00';
+        }
+
+        $to = (string) ($filters['to'] ?? '');
+        if ($to !== '' && strtotime($to) !== false) {
+            $where   .= " AND rs.started_at < ?";
+            $types   .= "s";
+            $params[] = date('Y-m-d', strtotime($to . ' +1 day')) . ' 00:00:00';
+        }
+
+        $minAccuracy = (int) ($filters['minAccuracy'] ?? 0);
+        if ($minAccuracy > 0) {
+            $where   .= " AND rs.accuracy_percentage >= ?";
+            $types   .= "i";
+            $params[] = min($minAccuracy, 100);
+        }
+
+        return [$where, $types, $params];
+    }
 
     /**
      * Number of completed sessions for a user (used for pagination).
      * Uses the same "completed" rule as the Review Hub (ended_at IS NOT NULL).
+     * Joins decks so the count always matches the rows getSessionHistory() can return.
      */
-    public static function countCompletedSessions(mysqli $conn, int $userId): int
+    public static function countCompletedSessions(mysqli $conn, int $userId, array $filters = []): int
     {
-        $sql = "SELECT COUNT(*) FROM review_sessions WHERE user_id = ? AND ended_at IS NOT NULL";
+        [$where, $types, $params] = self::historyWhere($userId, $filters);
+
+        $sql = "SELECT COUNT(*)
+                FROM review_sessions rs
+                JOIN decks d ON d.id = rs.deck_id
+                WHERE $where";
 
         $total = 0;
         if ($stmt = mysqli_prepare($conn, $sql)) {
-            mysqli_stmt_bind_param($stmt, "i", $userId);
+            mysqli_stmt_bind_param($stmt, $types, ...$params);
             mysqli_stmt_execute($stmt);
             mysqli_stmt_bind_result($stmt, $total);
             mysqli_stmt_fetch($stmt);
@@ -100,23 +153,28 @@ class SessionService
      *   totalReviewed:int, rememberedCount:int, accuracy:int, durationSeconds:?int
      * }>
      */
-    public static function getSessionHistory(mysqli $conn, int $userId, int $limit = 15, int $offset = 0): array
+    public static function getSessionHistory(mysqli $conn, int $userId, int $limit = 15, int $offset = 0, array $filters = []): array
     {
         $limit  = max(1, min($limit, 100));
         $offset = max(0, $offset);
+
+        [$where, $types, $params] = self::historyWhere($userId, $filters);
+        $types   .= "ii";
+        $params[] = $limit;
+        $params[] = $offset;
 
         $sql = "SELECT rs.id, rs.deck_id, d.title AS deck_title, rs.started_at,
                        rs.total_reviewed, rs.remembered_count, rs.accuracy_percentage,
                        TIMESTAMPDIFF(SECOND, rs.started_at, rs.ended_at) AS duration_seconds
                 FROM review_sessions rs
                 JOIN decks d ON d.id = rs.deck_id
-                WHERE rs.user_id = ? AND rs.ended_at IS NOT NULL
+                WHERE $where
                 ORDER BY rs.ended_at DESC, rs.id DESC
                 LIMIT ? OFFSET ?";
 
         $sessions = [];
         if ($stmt = mysqli_prepare($conn, $sql)) {
-            mysqli_stmt_bind_param($stmt, "iii", $userId, $limit, $offset);
+            mysqli_stmt_bind_param($stmt, $types, ...$params);
             mysqli_stmt_execute($stmt);
             $result = mysqli_stmt_get_result($stmt);
             while ($row = mysqli_fetch_assoc($result)) {

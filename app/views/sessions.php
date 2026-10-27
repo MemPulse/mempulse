@@ -17,23 +17,48 @@ require_once __DIR__ . '/../api/ReviewHubService.php';
 
 $userId = (int) $_SESSION['user_id'];
 
+// ---- Filters (GET) ----
+$validDate = function ($v): string {
+    $v = (string) $v;
+    $d = DateTime::createFromFormat('Y-m-d', $v);
+    return ($d && $d->format('Y-m-d') === $v) ? $v : '';
+};
+$accOptions = [0 => 'Any accuracy', 50 => '50% or higher', 60 => '60% or higher', 70 => '70% or higher', 80 => '80% or higher', 90 => '90% or higher'];
+
+$q      = mb_substr(trim((string) ($_GET['q'] ?? '')), 0, 100);
+$from   = $validDate($_GET['from'] ?? '');
+$to     = $validDate($_GET['to'] ?? '');
+$minAcc = (isset($_GET['acc']) && ctype_digit((string) $_GET['acc']) && isset($accOptions[(int) $_GET['acc']])) ? (int) $_GET['acc'] : 0;
+if ($from !== '' && $to !== '' && $from > $to) { [$from, $to] = [$to, $from]; }
+
+$filters    = ['q' => $q, 'from' => $from, 'to' => $to, 'minAccuracy' => $minAcc];
+$hasFilters = $q !== '' || $from !== '' || $to !== '' || $minAcc > 0;
+$advActive  = ($from !== '' ? 1 : 0) + ($to !== '' ? 1 : 0) + ($minAcc > 0 ? 1 : 0); // filters hidden inside the panel
+
 // ---- Pagination ----
 $perPage    = 15;
-$totalCount = SessionService::countCompletedSessions($conn, $userId);
+$totalCount = SessionService::countCompletedSessions($conn, $userId, $filters);
 $totalPages = max(1, (int) ceil($totalCount / $perPage));
 $page       = isset($_GET['page']) && ctype_digit((string) $_GET['page']) ? (int) $_GET['page'] : 1;
 $page       = min(max(1, $page), $totalPages);
 $offset     = ($page - 1) * $perPage;
 
-$sessions = SessionService::getSessionHistory($conn, $userId, $perPage, $offset);
+$sessions = SessionService::getSessionHistory($conn, $userId, $perPage, $offset, $filters);
 
 $pageTitle   = "Session History";
 $currentPage = "review"; // keep sidebar highlight on Review Hub
 $h = [ReviewHubService::class, 'h'];
 
-// Page-number window (current page +/- 2)
-$firstShown = max(1, $page - 2);
-$lastShown  = min($totalPages, $page + 2);
+// Page URLs keep the active filters
+$baseQuery = array_filter([
+    'q' => $q, 'from' => $from, 'to' => $to, 'acc' => $minAcc > 0 ? (string) $minAcc : '',
+], fn($v) => $v !== '');
+$pgUrl = function (int $p) use ($baseQuery): string {
+    $qs = $baseQuery + ($p > 1 ? ['page' => $p] : []);
+    return 'sessions.php' . ($qs ? '?' . http_build_query($qs) : '');
+};
+
+$input = 'w-full rounded-xl border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40';
 
 // ---- Rows for the Tabulator grid (text is pre-formatted here; JS escapes it) ----
 $sessionRows = [];
@@ -84,7 +109,11 @@ unset($s);
                             <h1 class="font-headline-md text-2xl font-bold text-on-surface m-0">Session History</h1>
                         </div>
                         <p class="text-sm text-on-surface-variant">
-                            <?= (int) $totalCount ?> completed <?= $totalCount === 1 ? 'session' : 'sessions' ?>
+                            <?php if ($hasFilters): ?>
+                                <?= (int) $totalCount ?> matching <?= $totalCount === 1 ? 'session' : 'sessions' ?>
+                            <?php else: ?>
+                                <?= (int) $totalCount ?> completed <?= $totalCount === 1 ? 'session' : 'sessions' ?>
+                            <?php endif; ?>
                         </p>
                     </div>
                 </div>
@@ -92,44 +121,117 @@ unset($s);
                 <!-- Sessions table -->
                 <div class="mp-table bg-surface-container-lowest border border-outline-variant/30 rounded-2xl shadow-xs overflow-x-auto">
 
+                    <?php if ($totalCount > 0 || $hasFilters): ?>
+                        <!-- Search + filters -->
+                        <form id="sess-filter" method="get" action="sessions.php" class="border-b border-outline-variant/30" role="search">
+                            <div class="sf-bar">
+                                <div class="sf-search">
+                                    <span class="material-symbols-outlined text-on-surface-variant" aria-hidden="true">search</span>
+                                    <label for="sf-q" class="sr-only">Search by deck title</label>
+                                    <input id="sf-q" type="search" name="q" value="<?= $h($q) ?>" maxlength="100" placeholder="Search by deck title…"
+                                           class="<?= $input ?> sf-control">
+                                </div>
+
+                                <button type="button" id="sess-filter-toggle" aria-expanded="<?= $advActive ? 'true' : 'false' ?>" aria-controls="sess-filter-panel"
+                                        class="sf-btn inline-flex items-center gap-1.5 rounded-xl border border-outline-variant/40 bg-surface-container-lowest text-on-surface text-sm font-semibold hover:bg-surface-container-low transition-colors">
+                                    <span class="material-symbols-outlined text-[20px]" aria-hidden="true">tune</span>
+                                    <span>Filters</span>
+                                    <?php if ($advActive): ?>
+                                        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-primary/10 text-primary tabular-nums"><?= (int) $advActive ?></span>
+                                    <?php endif; ?>
+                                </button>
+
+                                <button type="submit" class="sf-btn rounded-xl bg-primary text-on-primary text-sm font-semibold hover:opacity-90 transition-opacity">Search</button>
+
+                                <?php if ($hasFilters): ?>
+                                    <a href="sessions.php" class="sf-btn inline-flex items-center rounded-xl bg-surface-container-low hover:bg-surface-container-high text-on-surface text-sm font-semibold transition-colors">Reset</a>
+                                <?php endif; ?>
+                            </div>
+
+                            <div id="sess-filter-panel" class="sf-panel" <?= $advActive ? '' : 'hidden' ?>>
+                                <div class="sf-field date">
+                                    <label for="sf-from" class="text-xs font-bold text-on-surface-variant">Started From</label>
+                                    <input id="sf-from" type="date" name="from" value="<?= $h($from) ?>" class="<?= $input ?> sf-control">
+                                </div>
+                                <div class="sf-field date">
+                                    <label for="sf-to" class="text-xs font-bold text-on-surface-variant">Started To</label>
+                                    <input id="sf-to" type="date" name="to" value="<?= $h($to) ?>" class="<?= $input ?> sf-control">
+                                </div>
+                                <div class="sf-field select">
+                                    <label for="sf-acc" class="text-xs font-bold text-on-surface-variant">Accuracy</label>
+                                    <select id="sf-acc" name="acc" class="<?= $input ?> sf-control" data-autosubmit>
+                                        <?php foreach ($accOptions as $val => $label): ?>
+                                            <option value="<?= (int) $val ?>" <?= $minAcc === $val ? 'selected' : '' ?>><?= $h($label) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+                        </form>
+                    <?php endif; ?>
+
                     <?php if (empty($sessions)): ?>
-                        <div class="flex flex-col items-center justify-center p-10 text-center text-on-surface-variant">
-                            <span class="material-symbols-outlined text-[36px] text-outline mb-2">history_edu</span>
-                            <span class="text-sm font-medium">No review sessions yet.</span>
-                            <span class="text-xs mt-1 text-on-surface-variant">Finish a review session and it will show up here.</span>
-                            <a href="review.php" class="mt-4 px-4 py-2 rounded-xl bg-primary text-on-primary text-sm font-bold hover:bg-primary-container transition-colors">Go to Review Hub</a>
-                        </div>
+                        <?php if ($hasFilters): ?>
+                            <div class="flex flex-col items-center justify-center p-10 text-center text-on-surface-variant">
+                                <span class="material-symbols-outlined text-[36px] text-outline mb-2">search_off</span>
+                                <span class="text-sm font-medium text-on-surface">No sessions match these filters.</span>
+                                <span class="text-xs mt-1 text-on-surface-variant">Try a different deck title, date range, or accuracy.</span>
+                                <a href="sessions.php" class="mt-4 px-4 py-2 rounded-xl bg-primary/10 text-primary text-sm font-bold hover:underline">Reset filters</a>
+                            </div>
+                        <?php else: ?>
+                            <div class="flex flex-col items-center justify-center p-10 text-center text-on-surface-variant">
+                                <span class="material-symbols-outlined text-[36px] text-outline mb-2">history_edu</span>
+                                <span class="text-sm font-medium">No review sessions yet.</span>
+                                <span class="text-xs mt-1 text-on-surface-variant">Finish a review session and it will show up here.</span>
+                                <a href="review.php" class="mt-4 px-4 py-2 rounded-xl bg-primary text-on-primary text-sm font-bold hover:bg-primary-container transition-colors">Go to Review Hub</a>
+                            </div>
+                        <?php endif; ?>
                     <?php else: ?>
                         <div id="sessions-table"></div>
 
                         <?php if ($totalPages > 1): ?>
-                            <!-- Pagination -->
-                            <nav class="flex items-center justify-between gap-3 px-5 py-3 border-t border-outline-variant/30 bg-surface-container-lowest" aria-label="Pagination">
-                                <p class="text-xs text-on-surface-variant">
-                                    Page <?= (int) $page ?> of <?= (int) $totalPages ?>
+                            <!-- Pagination: Previous · Page [n] of N · Next -->
+                            <?php
+                            $firstShown = $offset + 1;
+                            $lastShown  = min($offset + $perPage, $totalCount);
+                            $pgBtn = 'inline-flex items-center gap-1 h-9 px-3 rounded-xl border border-outline-variant/40 text-xs font-semibold transition-colors ';
+                            $pgOn  = 'bg-surface-container-lowest text-on-surface hover:bg-surface-container-low hover:text-primary';
+                            $pgOff = 'bg-surface-container-lowest text-on-surface-variant/40 pointer-events-none';
+                            ?>
+                            <nav class="flex flex-wrap items-center justify-between gap-3 px-5 py-3 border-t border-outline-variant/30 bg-surface-container-lowest" aria-label="Pagination">
+                                <p class="text-xs text-on-surface-variant tabular-nums">
+                                    Showing <?= number_format($firstShown) ?>&ndash;<?= number_format($lastShown) ?> of <?= number_format($totalCount) ?>
                                 </p>
-                                <div class="flex items-center gap-1">
+
+                                <div class="flex items-center gap-2">
                                     <?php if ($page > 1): ?>
-                                        <a href="sessions.php?page=<?= $page - 1 ?>" aria-label="Previous page"
-                                           class="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors">
-                                            <span class="material-symbols-outlined text-[20px]">chevron_left</span>
+                                        <a href="<?= $h($pgUrl($page - 1)) ?>" rel="prev" class="<?= $pgBtn . $pgOn ?>">
+                                            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">chevron_left</span>Previous
                                         </a>
+                                    <?php else: ?>
+                                        <span aria-disabled="true" class="<?= $pgBtn . $pgOff ?>">
+                                            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">chevron_left</span>Previous
+                                        </span>
                                     <?php endif; ?>
 
-                                    <?php for ($p = $firstShown; $p <= $lastShown; $p++): ?>
-                                        <?php if ($p === $page): ?>
-                                            <span aria-current="page" class="min-w-8 h-8 px-2 rounded-lg flex items-center justify-center bg-primary text-on-primary text-xs font-bold tabular-nums"><?= $p ?></span>
-                                        <?php else: ?>
-                                            <a href="sessions.php?page=<?= $p ?>"
-                                               class="min-w-8 h-8 px-2 rounded-lg flex items-center justify-center text-xs font-semibold text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors tabular-nums"><?= $p ?></a>
-                                        <?php endif; ?>
-                                    <?php endfor; ?>
+                                    <!-- Type a page number and press Enter -->
+                                    <form method="get" action="sessions.php" class="flex items-center gap-1.5" title="Type a page number and press Enter">
+                                        <?php foreach ($baseQuery as $k => $v): ?>
+                                            <input type="hidden" name="<?= $h($k) ?>" value="<?= $h((string) $v) ?>">
+                                        <?php endforeach; ?>
+                                        <label for="jump-page" class="text-xs text-on-surface-variant">Page</label>
+                                        <input id="jump-page" type="number" name="page" min="1" max="<?= (int) $totalPages ?>" value="<?= (int) $page ?>" inputmode="numeric" required
+                                               class="w-16 h-9 px-2 rounded-xl border border-outline-variant/40 bg-surface-container-lowest text-sm font-semibold text-on-surface text-center tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40">
+                                        <span class="text-xs text-on-surface-variant tabular-nums">of <?= number_format($totalPages) ?></span>
+                                    </form>
 
                                     <?php if ($page < $totalPages): ?>
-                                        <a href="sessions.php?page=<?= $page + 1 ?>" aria-label="Next page"
-                                           class="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors">
-                                            <span class="material-symbols-outlined text-[20px]">chevron_right</span>
+                                        <a href="<?= $h($pgUrl($page + 1)) ?>" rel="next" class="<?= $pgBtn . $pgOn ?>">
+                                            Next<span class="material-symbols-outlined text-[18px]" aria-hidden="true">chevron_right</span>
                                         </a>
+                                    <?php else: ?>
+                                        <span aria-disabled="true" class="<?= $pgBtn . $pgOff ?>">
+                                            Next<span class="material-symbols-outlined text-[18px]" aria-hidden="true">chevron_right</span>
+                                        </span>
                                     <?php endif; ?>
                                 </div>
                             </nav>
@@ -156,6 +258,23 @@ unset($s);
         /* Rows open the session, so they look clickable */
         #sessions-table .tabulator-row,
         #sessions-table .tabulator-row .tabulator-cell { cursor: pointer; }
+
+        /* Search + filter bar (plain CSS so it doesn't depend on compiled Tailwind classes) */
+        #sess-filter .sf-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px; }
+        #sess-filter .sf-search { position: relative; flex: 1 1 240px; min-width: 200px; }
+        #sess-filter .sf-search > .material-symbols-outlined {
+            position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+            font-size: 20px; pointer-events: none;
+        }
+        #sess-filter .sf-search .sf-control { padding-left: 40px; }
+        #sess-filter .sf-control { height: 40px; min-width: 0; }
+        #sess-filter .sf-btn { height: 40px; padding: 0 16px; }
+        #sess-filter .sf-panel { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; padding: 0 12px 14px; }
+        #sess-filter .sf-panel[hidden] { display: none; }
+        #sess-filter .sf-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+        #sess-filter .sf-field.date { flex: 0 0 190px; }
+        #sess-filter .sf-field.select { flex: 0 1 220px; min-width: 180px; }
+        #sess-filter select { padding-right: 2.25rem; }
     </style>
 
     <script type="application/json" id="sessions-table-data"><?= json_encode($sessionRows, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) ?></script>
@@ -200,6 +319,21 @@ unset($s);
             });
         });
     });
+    </script>
+    <script>
+    // Filters panel toggle + auto-apply the accuracy dropdown
+    (function () {
+        var btn = document.getElementById('sess-filter-toggle');
+        var panel = document.getElementById('sess-filter-panel');
+        if (!btn || !panel) return;
+        btn.addEventListener('click', function () {
+            var open = panel.hidden;
+            panel.hidden = !open;
+            btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        var acc = document.getElementById('sf-acc');
+        if (acc) acc.addEventListener('change', function () { acc.form.submit(); });
+    })();
     </script>
 </body>
 </html>
