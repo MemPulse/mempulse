@@ -77,9 +77,6 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
                     <span class="material-symbols-outlined text-[28px] text-primary" aria-hidden="true">group</span>
                     <h1 class="font-headline-md text-xl sm:text-2xl font-bold text-on-surface m-0">User Management</h1>
                 </div>
-                <p class="text-xs sm:text-sm text-on-surface-variant">
-                    Manage account approvals, roles, security status, and platform-wide learner activity. Study content remains private.
-                </p>
             </div>
             <div class="flex flex-wrap items-center gap-2.5">
                 <a href="<?= adminEsc($exportUrl) ?>" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/30 text-on-surface text-xs font-semibold transition-colors">
@@ -93,52 +90,64 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
             </div>
         </div>
 
+       
         <!-- 4 KPI SUMMARY CARDS -->
-        <section aria-label="User summary metrics" class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-xs flex items-center justify-between">
-                <div>
-                    <span class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Total Live Users</span>
-                    <p class="font-headline-md text-2xl font-extrabold text-on-surface mt-1 tabular-nums"><?= $fmt($counts['all']) ?></p>
-                    <span class="text-[11px] text-on-surface-variant"><?= $fmt($counts['approved']) ?> approved</span>
+        <section aria-label="User summary metrics" 
+        class="grid grid-cols-4 gap-2 sm:gap-3 lg:gap-4"
+        style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr))">
+
+            <!-- Total Live Users -->
+            <div class="min-w-0 bg-gradient-to-br from-primary/10 via-surface-container-lowest to-surface-container-lowest border border-outline-variant/30 rounded-2xl p-3 shadow-xs flex items-center justify-between gap-2 hover:border-primary/50 transition-all group">
+                <div class="min-w-0">
+                    <span class="block truncate text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-primary">Total Live Users</span>
+                    <p class="font-headline-md text-xl sm:text-2xl font-extrabold text-on-surface mt-1 tabular-nums"><?= $fmt($counts['all']) ?></p>
+                    <span class="block truncate text-[10px] sm:text-[11px] text-on-surface-variant"><?= $fmt($counts['approved']) ?> approved</span>
                 </div>
-                <div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                    <span class="material-symbols-outlined text-[22px]">groups</span>
+                <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-primary/10 group-hover:bg-primary/20 text-primary flex items-center justify-center shrink-0 transition-colors">
+                    <span class="material-symbols-outlined text-xl">groups</span>
                 </div>
             </div>
 
-            <a href="users.php?status=pending" class="bg-surface-container-lowest border border-outline-variant/30 hover:border-amber-400 rounded-2xl p-4 shadow-xs flex items-center justify-between transition-colors">
-                <div>
-                    <span class="text-[11px] font-bold uppercase tracking-wider text-amber-700">Pending Approval</span>
-                    <p class="font-headline-md text-2xl font-extrabold text-on-surface mt-1 tabular-nums"><?= $fmt($counts['pending']) ?></p>
-                    <span class="text-[11px] text-amber-700 font-medium"><?= $counts['pending'] > 0 ? 'Needs review →' : 'Queue clear' ?></span>
+            <!-- Pending Approval -->
+            <a href="users.php?status=pending"
+                class="min-w-0 bg-gradient-to-br from-rose-500/10 via-surface-container-lowest to-surface-container-lowest border border-outline-variant/30 hover:border-rose-500/50 rounded-2xl p-3 shadow-xs flex items-center justify-between gap-2 transition-all group">
+                <div class="min-w-0">
+                    <span class="block truncate text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-rose-700">Pending Approval</span>
+                    <p class="font-headline-md text-xl sm:text-2xl font-extrabold text-on-surface mt-1 tabular-nums"><?= $fmt($counts['pending']) ?></p>
+                    <span class="block truncate text-[10px] sm:text-[11px] text-rose-700 font-medium"><?= $counts['pending'] > 0 ? 'Needs review →' : 'Queue clear' ?></span>
                 </div>
-                <div class="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-700 flex items-center justify-center">
-                    <span class="material-symbols-outlined text-[22px]">how_to_reg</span>
+                <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-rose-500/10 group-hover:bg-rose-500/20 text-rose-700 flex items-center justify-center shrink-0 transition-colors">
+                    <span class="material-symbols-outlined text-xl">how_to_reg</span>
                 </div>
             </a>
 
-            <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-xs flex items-center justify-between">
-                <div>
-                    <span class="text-[11px] font-bold uppercase tracking-wider text-teal-700">Active (7 Days)</span>
-                    <p class="font-headline-md text-2xl font-extrabold text-on-surface mt-1 tabular-nums"><?= $fmt($counts['active7d']) ?></p>
-                    <span class="text-[11px] text-on-surface-variant">Studied this week</span>
+            <!-- Active (7 Days) -->
+            <div class="min-w-0 bg-gradient-to-br from-teal-500/10 via-surface-container-lowest to-surface-container-lowest border border-outline-variant/30 rounded-2xl p-3 shadow-xs flex items-center justify-between gap-2 hover:border-teal-500/50 transition-all group">
+                <div class="min-w-0">
+                    <span class="block truncate text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-teal-700">Active (7 Days)</span>
+                    <p class="font-headline-md text-xl sm:text-2xl font-extrabold text-on-surface mt-1 tabular-nums"><?= $fmt($counts['active7d']) ?></p>
+                    <span class="block truncate text-[10px] sm:text-[11px] text-on-surface-variant">Studied this week</span>
                 </div>
-                <div class="w-10 h-10 rounded-xl bg-teal-50 border border-teal-200/80 text-teal-600 flex items-center justify-center">
-                    <span class="material-symbols-outlined text-[22px]">bolt</span>
+                <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-teal-500/10 group-hover:bg-teal-500/20 text-teal-600 flex items-center justify-center shrink-0 transition-colors">
+                    <span class="material-symbols-outlined text-xl">bolt</span>
                 </div>
             </div>
 
-            <a href="users.php?role=admin" class="bg-surface-container-lowest border border-outline-variant/30 hover:border-primary/40 rounded-2xl p-4 shadow-xs flex items-center justify-between transition-colors">
-                <div>
-                    <span class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Administrators</span>
-                    <p class="font-headline-md text-2xl font-extrabold text-on-surface mt-1 tabular-nums"><?= $fmt($counts['admins']) ?></p>
-                    <span class="text-[11px] text-on-surface-variant"><?= $fmt($counts['deleted']) ?> archived accounts</span>
+            <!-- Administrators -->
+            <a href="users.php?role=admin"
+                class="min-w-0 bg-gradient-to-br from-indigo-500/10 via-surface-container-lowest to-surface-container-lowest border border-outline-variant/30 hover:border-indigo-500/50 rounded-2xl p-3 shadow-xs flex items-center justify-between gap-2 transition-all group">
+                <div class="min-w-0">
+                    <span class="block truncate text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-indigo-700">Administrators</span>
+                    <p class="font-headline-md text-xl sm:text-2xl font-extrabold text-on-surface mt-1 tabular-nums"><?= $fmt($counts['admins']) ?></p>
+                    <span class="block truncate text-[10px] sm:text-[11px] text-on-surface-variant"><?= $fmt($counts['deleted']) ?> archived accounts</span>
                 </div>
-                <div class="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200/80 text-indigo-600 flex items-center justify-center">
-                    <span class="material-symbols-outlined text-[22px]">shield_person</span>
+                <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-indigo-500/10 group-hover:bg-indigo-500/20 text-indigo-600 flex items-center justify-center shrink-0 transition-colors">
+                    <span class="material-symbols-outlined text-xl">shield_person</span>
                 </div>
             </a>
+
         </section>
+
 
         <?php if (!$list['available']): ?>
             <div role="alert" class="flex items-start gap-3 p-4 rounded-2xl bg-error-container/40 border border-error/20 text-sm text-on-surface">

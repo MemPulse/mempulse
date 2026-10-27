@@ -417,9 +417,8 @@ $reviewsChip = AdminOverviewService::percentChip($m['reviews7d'], $m['reviewsPre
                     <?php endif; ?>
                 </div>
 
-                <div class="flex flex-col gap-2.5 flex-1 justify-center">
-                    <?php if ($pendingUsers): foreach ($pendingUsers as $u): ?>
-                        <div class="<?= $row ?>">
+                        <div class="flex flex-col gap-2.5{ flex-1 justify-start">
+                            <?php if ($pendingUsers): foreach ($pendingUsers as $u): ?>                      <div class="<?= $row ?>">
                             <div class="flex items-center gap-3 min-w-0">
                                 <div class="w-9 h-9 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center flex-shrink-0 text-xs font-bold"><?= adminEsc($initial($u['name'])) ?></div>
                                 <div class="flex flex-col min-w-0">

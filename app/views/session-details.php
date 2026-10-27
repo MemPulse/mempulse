@@ -99,8 +99,8 @@ foreach ($logs as $log) {
                             <a href="review.php?mode=practice&amp;from=session&amp;session_id=<?= (int) $sessionId ?>"
                                title="Practice these cards again (nothing is saved)"
                                class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-sm hover:bg-primary-container transition-colors whitespace-nowrap">
-                                <span class="material-symbols-outlined text-[18px]">play_arrow</span>
-                                Practice again
+                                <span class="material-symbols-outlined text-[18px]">visibility</span>
+                                Preview Session
                             </a>
                         <?php endif; ?>
                     </div>

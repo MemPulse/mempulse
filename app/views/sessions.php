@@ -190,16 +190,8 @@ unset($s);
                 Object.assign({ title: '', field: 'practiceUrl', minWidth: 115, responsive: 0, formatter: function (c) {
                       var r = c.getRow().getData();
                       if (!r.practiceUrl) return '';
-                      return '<a href="' + esc(r.practiceUrl) + '" title="Practice these cards again without affecting spaced repetition history" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-outline-variant text-on-surface text-xs font-bold hover:bg-surface-container-low transition-colors whitespace-nowrap"><span class="material-symbols-outlined text-[15px]">play_arrow</span><span>Practice Again</span></a>';
+                      return '<a href="' + esc(r.practiceUrl) + '" title="Practice these cards again without affecting spaced repetition history" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-outline-variant bg-primary text-on-primary text-xs shadow-sm hover:bg-primary-container transition-colors whitespace-nowrap"><span class="material-symbols-outlined text-[15px]">visibility</span><span>Preview</span></a>';
                   } }, right),
-                Object.assign({ title: 'Action', field: 'detailsUrl', minWidth: 110, responsive: 0,
-                  formatter: function (c) {
-                      var r = c.getRow().getData();
-                      return '<a href="' + esc(r.detailsUrl) + '" ' +
-                             'title="View comprehensive review session breakdown, card history, and performance details for ' + esc(r.title) + '" ' +
-                             'aria-label="View session details for ' + esc(r.title) + '" ' +
-                             'class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container-high border border-outline-variant/40 text-on-surface hover:text-primary hover:border-primary/50 text-xs font-bold transition-colors whitespace-nowrap">' +
-                  } }, right)
             ], {
                 rowClick: function (e, row) {
                     if (e.target.closest('a')) return;

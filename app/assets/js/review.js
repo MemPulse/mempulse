@@ -656,10 +656,83 @@ document.addEventListener("DOMContentLoaded", () => {
             [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'translateY(0)' }],
             { duration: 350, easing: 'ease-out' });
 
-        confettiBurst({ x: 0.5, y: 0.3, count: accuracy >= 80 ? 170 : 120, power: 17 });
-        const n = accuracy >= 80 ? 90 : 60;
-        confettiBurst({ x: 0, y: 0.75, count: n, angle: -Math.PI / 3, spread: Math.PI / 3, power: 22 });
-        confettiBurst({ x: 1, y: 0.75, count: n, angle: -2 * Math.PI / 3, spread: Math.PI / 3, power: 22 });
+        celebrate(accuracy, token);
+    }
+
+    // -----------------------------------------------------------------------
+    // Celebration by accuracy tier
+    //   100%    confetti + trophy/star emoji
+    //   80-99%  confetti (unchanged)
+    //   50-79%  emoji burst instead of confetti
+    //   1-49%   emoji float up gently
+    //   0%      emoji drift down like light rain
+    // -----------------------------------------------------------------------
+    const EMOJI_SETS = {
+        perfect: ['🏆', '⭐', '🎉', '🌟'],
+        okay: ['👍', '💪', '🙂', '✨'],
+        low: ['🌱', '📚', '🔁', '💡'],
+        zero: ['😅', '🫠', '🙈', '💪']
+    };
+
+    async function celebrate(accuracy, token) {
+        const cancelled = () => token !== finishToken;
+
+        // Classic confetti: 3 bursts (center + both sides)
+        const confettiTrio = (big) => {
+            confettiBurst({ x: 0.5, y: 0.3, count: big ? 170 : 120, power: 17 });
+            const n = big ? 90 : 60;
+            confettiBurst({ x: 0, y: 0.75, count: n, angle: -Math.PI / 3, spread: Math.PI / 3, power: 22 });
+            confettiBurst({ x: 1, y: 0.75, count: n, angle: -2 * Math.PI / 3, spread: Math.PI / 3, power: 22 });
+        };
+
+        if (accuracy >= 100) {
+            confettiTrio(true);
+            confettiBurst({ x: 0.5, y: 0.3, count: 28, power: 15, emojis: EMOJI_SETS.perfect, size: 30 });
+            return;
+        }
+
+        if (accuracy >= 80) {
+            confettiTrio(true);
+            return;
+        }
+
+        if (accuracy >= 50) {
+            // Emoji burst, same layout as the confetti but fewer and slightly floatier
+            confettiBurst({ x: 0.5, y: 0.3, count: 36, power: 15, emojis: EMOJI_SETS.okay, size: 30, gravity: 0.3 });
+            confettiBurst({
+                x: 0, y: 0.75, count: 16, angle: -Math.PI / 3, spread: Math.PI / 3, power: 20,
+                emojis: EMOJI_SETS.okay, size: 28, gravity: 0.3
+            });
+            confettiBurst({
+                x: 1, y: 0.75, count: 16, angle: -2 * Math.PI / 3, spread: Math.PI / 3, power: 20,
+                emojis: EMOJI_SETS.okay, size: 28, gravity: 0.3
+            });
+            return;
+        }
+
+        if (accuracy > 0) {
+            // Gentle rise: small waves from the bottom, floating up like balloons
+            for (let i = 0; i < 5; i++) {
+                confettiBurst({
+                    x: 0.12 + i * 0.19, y: 1.02, count: 5, angle: -Math.PI / 2, spread: Math.PI / 4,
+                    power: 5, gravity: -0.07, emojis: EMOJI_SETS.low, size: 30
+                });
+                await sleep(180);
+                if (cancelled()) return;
+            }
+            return;
+        }
+
+        // 0%: light rain from the top, plus a tiny shake. Kind emoji, no burst.
+        shake(viewFinished, 3);
+        for (let i = 0; i < 7; i++) {
+            confettiBurst({
+                x: 0.1 + Math.random() * 0.8, y: -0.05, count: 4, angle: Math.PI / 2, spread: Math.PI / 6,
+                power: 2, gravity: 0.12, emojis: EMOJI_SETS.zero, size: 30
+            });
+            await sleep(220);
+            if (cancelled()) return;
+        }
     }
 
     // A number slams in from huge and blurry, squashes on impact, then settles.
@@ -714,7 +787,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const CONFETTI_COLORS = ['#10b981', '#34d399', '#6366f1', '#f59e0b', '#f43f5e', '#38bdf8'];
     let confettiCanvas = null, confettiCtx = null, confettiParts = [], confettiRaf = null;
 
-    function confettiBurst({ x = 0.5, y = 0.4, count = 120, angle = -Math.PI / 2, spread = Math.PI * 2, power = 15 } = {}) {
+    // Optional extras: `emojis` (array) draws emoji instead of colored paper,
+    // `gravity` (negative = float up), `size` (emoji font size in px).
+    function confettiBurst({ x = 0.5, y = 0.4, count = 120, angle = -Math.PI / 2, spread = Math.PI * 2, power = 15,
+        emojis = null, gravity = 0.38, size = 28 } = {}) {
         if (reduceMotion) return;
 
         const dpr = window.devicePixelRatio || 1;
@@ -739,6 +815,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 rot: Math.random() * Math.PI * 2, vr: (Math.random() - 0.5) * 0.35,
                 wobble: Math.random() * Math.PI * 2,
                 color: CONFETTI_COLORS[(Math.random() * CONFETTI_COLORS.length) | 0],
+                emoji: emojis ? emojis[(Math.random() * emojis.length) | 0] : null,
+                size: size * (0.8 + Math.random() * 0.4),
+                g: gravity,
                 life: 0, ttl: 110 + Math.random() * 60
             });
         }
@@ -754,7 +833,7 @@ document.addEventListener("DOMContentLoaded", () => {
         for (const p of confettiParts) {
             p.life++;
             p.vx *= 0.985;
-            p.vy = p.vy * 0.985 + 0.38;                 // drag + gravity
+            p.vy = p.vy * 0.985 + p.g;                  // drag + gravity
             p.wobble += 0.12;
             p.x += p.vx + Math.sin(p.wobble) * 0.6;
             p.y += p.vy;
@@ -763,10 +842,18 @@ document.addEventListener("DOMContentLoaded", () => {
             confettiCtx.save();
             confettiCtx.globalAlpha = Math.min(1, (p.ttl - p.life) / 30);
             confettiCtx.translate(p.x, p.y);
-            confettiCtx.rotate(p.rot);
-            confettiCtx.scale(1, Math.abs(Math.cos(p.wobble)));   // flutter
-            confettiCtx.fillStyle = p.color;
-            confettiCtx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+            if (p.emoji) {
+                confettiCtx.rotate(p.rot * 0.25);                 // gentle tilt, no flutter squash
+                confettiCtx.font = `${p.size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+                confettiCtx.textAlign = 'center';
+                confettiCtx.textBaseline = 'middle';
+                confettiCtx.fillText(p.emoji, 0, 0);
+            } else {
+                confettiCtx.rotate(p.rot);
+                confettiCtx.scale(1, Math.abs(Math.cos(p.wobble)));   // flutter
+                confettiCtx.fillStyle = p.color;
+                confettiCtx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+            }
             confettiCtx.restore();
         }
 
