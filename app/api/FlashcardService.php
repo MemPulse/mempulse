@@ -189,6 +189,105 @@ class FlashcardService
         return $card ?: null;
     }
 
+        /**
+     * Cards for the printable PDF reviewer.
+     * Only ACTIVE cards of a deck the user owns, in the order of $cardIds
+     * (grid order from the deck page). Read-only.
+     *
+     * @param int[] $cardIds
+     * @return array<int, array{id:int, front:string, back:string}>
+     */
+    public static function getCardsForPrint(mysqli $conn, int $deckId, int $userId, array $cardIds): array
+    {
+        $cardIds = array_values(array_unique(array_filter(
+            array_map('intval', $cardIds),
+            fn($id) => $id > 0
+        )));
+        if (!$cardIds) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($cardIds), '?'));
+        $orderList    = implode(',', $cardIds);   // integers only (cast above), safe to inline
+
+        $sql = "SELECT f.id, f.front, f.back
+                  FROM flashcards f
+                  JOIN decks d ON d.id = f.deck_id
+                 WHERE f.deck_id = ?
+                   AND d.user_id = ?
+                   AND d.deleted_at IS NULL
+                   AND f.deleted_at IS NULL
+                   AND f.id IN ($placeholders)
+                 ORDER BY FIELD(f.id, $orderList)";
+
+        $stmt = mysqli_prepare($conn, $sql);
+        if (!$stmt) {
+            return [];
+        }
+
+        $types  = 'ii' . str_repeat('i', count($cardIds));
+        $params = array_merge([$deckId, $userId], $cardIds);
+        mysqli_stmt_bind_param($stmt, $types, ...$params);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+
+        $cards = [];
+        while ($row = mysqli_fetch_assoc($result)) {
+            $cards[] = [
+                'id'    => (int) $row['id'],
+                'front' => (string) $row['front'],
+                'back'  => (string) $row['back'],
+            ];
+        }
+        mysqli_stmt_close($stmt);
+
+        return $cards;
+    }
+
+    /**
+     * ALL active (non-archived) cards of a deck, for the PDF reviewer opened
+     * from the Review Hub (no card selection). Read-only.
+     * Oldest first (creation order), which reads best on a study sheet.
+     *
+     * @param int $limit Safety cap so a huge deck cannot produce a runaway page.
+     * @return array<int, array{id:int, front:string, back:string}>
+     */
+    public static function getActiveCardsForPrint(mysqli $conn, int $deckId, int $userId, int $limit = 1000): array
+    {
+        $limit = max(1, $limit);
+
+        $sql = "SELECT f.id, f.front, f.back
+                  FROM flashcards f
+                  JOIN decks d ON d.id = f.deck_id
+                 WHERE f.deck_id = ?
+                   AND d.user_id = ?
+                   AND d.deleted_at IS NULL
+                   AND f.deleted_at IS NULL
+                 ORDER BY f.id ASC
+                 LIMIT ?";
+
+        $stmt = mysqli_prepare($conn, $sql);
+        if (!$stmt) {
+            return [];
+        }
+
+        mysqli_stmt_bind_param($stmt, 'iii', $deckId, $userId, $limit);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+
+        $cards = [];
+        while ($row = mysqli_fetch_assoc($result)) {
+            $cards[] = [
+                'id'    => (int) $row['id'],
+                'front' => (string) $row['front'],
+                'back'  => (string) $row['back'],
+            ];
+        }
+        mysqli_stmt_close($stmt);
+
+        return $cards;
+    }
+
     /**
      * Safely escape HTML string values for view rendering.
      * 

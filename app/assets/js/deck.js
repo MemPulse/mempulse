@@ -1051,7 +1051,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const bulkStatus = document.getElementById('bulk-status');
     const PRACTICE_MAX = 300;   // ids travel in the URL; review.php also cuts the list at 300
     const practiceBtn = document.getElementById('bulk-practice-btn');
+    const PDF_MAX = 300;       // ids travel in the URL; keep in sync with PDF_REVIEWER_MAX_CARDS in pdf-reviewer.php
+    const pdfBtn = document.getElementById('bulk-pdf-btn');
     const bulkActionBtns = [
+        pdfBtn,
         practiceBtn,
         document.getElementById('bulk-duplicate-btn'),
         document.getElementById('bulk-move-btn'),
@@ -1118,6 +1121,16 @@ document.addEventListener("DOMContentLoaded", () => {
         archiveActionBtns.forEach((btn) => { if (btn) { btn.hidden = !viewArchived; btn.disabled = !hasSelection; } });
 
         // Practice: needs a selection, and at most PRACTICE_MAX cards
+        // PDF: needs a selection, and at most PDF_MAX cards
+        if (pdfBtn) {
+            if (selected > PDF_MAX) {
+                pdfBtn.disabled = true;
+                pdfBtn.title = `Select up to ${PDF_MAX} cards`;
+            } else {
+                pdfBtn.title = 'Download a printable PDF of the selected cards';
+            }
+        }
+
         if (practiceBtn) {
             if (selected > PRACTICE_MAX) {
                 practiceBtn.disabled = true;
@@ -1126,6 +1139,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 practiceBtn.title = 'Practice selected cards (nothing is saved)';
             }
         }
+
 
         const moveBtn = document.getElementById('bulk-move-btn');
         if (moveBtn) {
@@ -1291,6 +1305,36 @@ document.addEventListener("DOMContentLoaded", () => {
             } catch (err) {
                 console.error('[practice] failed', err);
                 Archive.toast('Practice failed: ' + err.message, { type: 'error' });
+            }
+        });
+    }
+
+    // PDF reviewer: open the printable page in a new tab. Read-only, nothing is saved.
+    if (pdfBtn) {
+        pdfBtn.addEventListener('click', () => {
+            try {
+                if (viewArchived) return;
+                // Grid order, not click order
+                const gridOrder = tabulatorTable.getData().map(r => Number(r.id));
+                const ids = gridOrder.filter(id => checkedIds.has(id));
+                if (ids.length === 0) {
+                    Archive.toast('PDF: no matching selected cards found', { type: 'error' });
+                    return;
+                }
+                if (ids.length > PDF_MAX) {
+                    Archive.toast(`Select up to ${PDF_MAX} cards`, { type: 'error' });
+                    return;
+                }
+                const url = `pdf-reviewer.php?deck_id=${DECK_ID}&cards=${ids.join(',')}`;
+                const win = window.open(url, '_blank');
+                if (win) {
+                    win.opener = null;                 // same-origin page, but it has no need for us
+                } else {
+                    window.location.assign(url);       // popup blocked: open in this tab instead
+                }
+            } catch (err) {
+                console.error('[pdf] failed', err);
+                Archive.toast('PDF failed: ' + err.message, { type: 'error' });
             }
         });
     }

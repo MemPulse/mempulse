@@ -1,576 +1,825 @@
-deck.php
+pdf-reviewer.js
+```
+/**
+ * PDF Reviewer: layout switch, remembered options and print button.
+ * Works without a network; nothing is sent to the server.
+ *
+ * Rules for the layout:
+ *   1. ?layout=beside|end in the URL wins (server marks it with data-layout-source="url")
+ *   2. otherwise the last choice saved in localStorage
+ *   3. otherwise "beside"
+ */
+(function () {
+    'use strict';
+
+    var KEY_LAYOUT = 'mempulse.pdfReviewer.layout';
+    var KEY_LINES = 'mempulse.pdfReviewer.lines';
+
+    var sheet = document.getElementById('pr-sheet');
+    if (!sheet) return;
+
+    var radios = Array.prototype.slice.call(document.querySelectorAll('input[name="pr-layout"]'));
+    var linesBox = document.getElementById('pr-lines');
+    var linesWrap = document.getElementById('pr-lines-wrap');
+    var printBtn = document.getElementById('pr-print-btn');
+
+    // localStorage can throw (private mode, blocked storage): never let that break the page
+    function readStore(key) {
+        try { return window.localStorage.getItem(key); } catch (e) { return null; }
+    }
+    function writeStore(key, value) {
+        try { window.localStorage.setItem(key, value); } catch (e) { /* ignore */ }
+    }
+
+    function applyLayout(layout, persist) {
+        if (layout !== 'beside' && layout !== 'end') layout = 'beside';
+        sheet.setAttribute('data-layout', layout);
+
+        radios.forEach(function (r) { r.checked = (r.value === layout); });
+        if (linesWrap) linesWrap.hidden = (layout === 'beside');   // writing space only matters in "end"
+
+        if (persist) {
+            writeStore(KEY_LAYOUT, layout);
+            // keep the choice if the student refreshes or shares the link
+            try {
+                var url = new URL(window.location.href);
+                url.searchParams.set('layout', layout);
+                window.history.replaceState(null, '', url.toString());
+            } catch (e) { /* ignore */ }
+        }
+    }
+
+    function applyLines(on, persist) {
+        sheet.setAttribute('data-lines', on ? '1' : '0');
+        if (linesBox) linesBox.checked = on;
+        if (persist) writeStore(KEY_LINES, on ? '1' : '0');
+    }
+
+    // ---- initial state -------------------------------------------------------
+    var layoutFromUrl = document.body.getAttribute('data-layout-source') === 'url';
+    var startLayout = sheet.getAttribute('data-layout');
+    if (!layoutFromUrl) {
+        var saved = readStore(KEY_LAYOUT);
+        if (saved === 'beside' || saved === 'end') startLayout = saved;
+    }
+    applyLayout(startLayout, false);
+    applyLines(readStore(KEY_LINES) !== '0', false);
+
+    // ---- events --------------------------------------------------------------
+    radios.forEach(function (r) {
+        r.addEventListener('change', function () {
+            if (r.checked) applyLayout(r.value, true);
+        });
+    });
+
+    if (linesBox) {
+        linesBox.addEventListener('change', function () {
+            applyLines(linesBox.checked, true);
+        });
+    }
+
+    if (printBtn) {
+        printBtn.addEventListener('click', function () { window.print(); });
+    }
+
+    // Optional: ?autoprint=1 opens the print dialog once the page is ready
+    if (document.body.getAttribute('data-autoprint') === '1') {
+        var ready = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
+        ready.then(function () { window.setTimeout(function () { window.print(); }, 250); });
+    }
+})();
+```
+
+pdf-reviewer.css
+```
+/* ==========================================================================
+   PDF Reviewer  (app/views/pdf-reviewer.php)
+   Standalone: does not depend on app.css, Tailwind or any icon font, so the
+   printed result is identical online and offline.
+   Ideas borrowed from reports.css: print-color-adjust, break-inside: avoid,
+   a ruled print header. Left out on purpose: sidebar hiding and the
+   html.rp-printing hacks (this page has no app chrome).
+   ========================================================================== */
+
+:root {
+    --pr-ink: #1c1b2e;
+    --pr-muted: #5f5d75;
+    --pr-rule: #cfd0e3;
+    --pr-accent: #3525cd;
+    --pr-paper: #ffffff;
+    --pr-desk: #e9e9f1;
+    --pr-serif: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, "Times New Roman", serif;
+    --pr-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
+.pr-body {
+    margin: 0;
+    background: var(--pr-desk);
+    color: var(--pr-ink);
+    font: 11pt/1.5 var(--pr-serif);
+}
+
+.pr-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Toolbar (screen only)
+   -------------------------------------------------------------------------- */
+.pr-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .75rem 1.25rem;
+    padding: .75rem 1rem;
+    background: #fff;
+    border-bottom: 1px solid var(--pr-rule);
+    font: 500 .875rem/1.3 var(--pr-sans);
+}
+
+.pr-back {
+    color: var(--pr-muted);
+    text-decoration: none;
+    margin-right: auto;
+}
+
+.pr-back:hover {
+    color: var(--pr-accent);
+}
+
+.pr-options {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .75rem 1.25rem;
+}
+
+/* Segmented control */
+.pr-seg {
+    display: inline-flex;
+    gap: 2px;
+    margin: 0;
+    padding: 2px;
+    border: 0;
+    border-radius: .6rem;
+    background: rgba(53, 37, 205, .08);
+}
+
+.pr-seg-opt {
+    position: relative;
+    cursor: pointer;
+}
+
+.pr-seg-opt input {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    margin: 0;
+    cursor: pointer;
+}
+
+.pr-seg-opt span {
+    display: block;
+    padding: .45rem .8rem;
+    border-radius: .45rem;
+    color: var(--pr-muted);
+    white-space: nowrap;
+}
+
+.pr-seg-opt input:checked+span {
+    background: var(--pr-accent);
+    color: #fff;
+}
+
+.pr-seg-opt input:focus-visible+span {
+    outline: 2px solid var(--pr-accent);
+    outline-offset: 2px;
+}
+
+.pr-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    color: var(--pr-ink);
+    cursor: pointer;
+}
+
+.pr-toggle[hidden] {
+    display: none;
+}
+
+.pr-toggle input {
+    width: 1rem;
+    height: 1rem;
+    accent-color: var(--pr-accent);
+}
+
+.pr-print-btn {
+    display: inline-block;
+    padding: .55rem 1rem;
+    border: 0;
+    border-radius: .6rem;
+    background: var(--pr-accent);
+    color: #fff;
+    font: 600 .875rem/1.2 var(--pr-sans);
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.pr-print-btn:hover {
+    background: #2a1cb0;
+}
+
+.pr-print-btn:focus-visible,
+.pr-back:focus-visible {
+    outline: 2px solid var(--pr-accent);
+    outline-offset: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Paper preview (screen only)
+   -------------------------------------------------------------------------- */
+.pr-stage {
+    padding: 1.25rem 1rem 3rem;
+}
+
+.pr-hint {
+    width: min(100%, 210mm);
+    margin: 0 auto .75rem;
+    font: .8125rem/1.4 var(--pr-sans);
+    color: var(--pr-muted);
+}
+
+.pr-sheet {
+    width: min(100%, 210mm);
+    margin: 0 auto;
+    padding: 14mm 13mm;
+    background: var(--pr-paper);
+    border-radius: 2px;
+    box-shadow: 0 1px 3px rgba(20, 20, 60, .15), 0 12px 32px -16px rgba(20, 20, 60, .35);
+}
+
+.pr-empty {
+    width: min(100%, 32rem);
+    margin: 4rem auto;
+    padding: 2rem;
+    background: #fff;
+    border-radius: .75rem;
+    text-align: center;
+    font-family: var(--pr-sans);
+}
+
+.pr-empty h1 {
+    margin: 0 0 .5rem;
+    font-size: 1.25rem;
+}
+
+.pr-empty p {
+    margin: 0 0 1rem;
+    color: var(--pr-muted);
+}
+
+/* --------------------------------------------------------------------------
+   Document head
+   -------------------------------------------------------------------------- */
+.pr-doc-head {
+    margin-bottom: 5mm;
+    padding-bottom: 4mm;
+    border-bottom: 2px solid var(--pr-accent);
+}
+
+.pr-brand {
+    margin: 0 0 1.5mm;
+    font: 600 9pt/1.2 var(--pr-sans);
+    color: var(--pr-accent);
+}
+
+.pr-title {
+    margin: 0 0 2mm;
+    font: 700 20pt/1.2 var(--pr-sans);
+    overflow-wrap: anywhere;
+}
+
+.pr-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1mm 7mm;
+    margin: 0;
+    font: 9.5pt/1.4 var(--pr-sans);
+    color: var(--pr-muted);
+}
+
+.pr-tip {
+    margin: 3mm 0 0;
+    font-size: 10pt;
+    font-style: italic;
+    color: var(--pr-muted);
+}
+
+.pr-blank {
+    display: inline-block;
+    width: 14mm;
+    height: 1em;
+    margin: 0 .5mm;
+    border-bottom: 1px solid var(--pr-ink);
+    vertical-align: baseline;
+}
+
+/* --------------------------------------------------------------------------
+   Layout switch: one data attribute decides what shows
+   -------------------------------------------------------------------------- */
+.pr-sheet[data-layout="beside"] .pr-section--questions,
+.pr-sheet[data-layout="beside"] .pr-section--key,
+.pr-sheet[data-layout="beside"] .pr-only-end,
+.pr-sheet[data-layout="end"] .pr-section--beside,
+.pr-sheet[data-layout="end"] .pr-only-beside {
+    display: none;
+}
+
+/* --------------------------------------------------------------------------
+   Tables
+   -------------------------------------------------------------------------- */
+.pr-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.pr-table thead {
+    display: table-header-group;
+    /* header repeats on every printed page */
+}
+
+.pr-table th {
+    padding: 0 2.5mm 1.5mm;
+    border-bottom: 1px solid var(--pr-ink);
+    font: 600 9pt/1.3 var(--pr-sans);
+    color: var(--pr-muted);
+    text-align: left;
+}
+
+.pr-table td {
+    padding: 2.5mm;
+    border-bottom: 1px solid var(--pr-rule);
+    vertical-align: top;
+}
+
+.pr-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+.pr-col-num {
+    width: 10mm;
+}
+
+.pr-col-q {
+    width: 40%;
+}
+
+.pr-col-box {
+    width: 15mm;
+}
+
+.pr-table .pr-num {
+    text-align: right;
+    font: 9pt/1.6 var(--pr-sans);
+    font-variant-numeric: tabular-nums;
+    color: var(--pr-muted);
+}
+
+.pr-table th.pr-num {
+    font-weight: 600;
+}
+
+/* Card text: keep the student's line breaks, never overflow the cell */
+.pr-text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.pr-q {
+    font-weight: 600;
+}
+
+/* In the answer key the question is only a reminder */
+.pr-q--ref {
+    font-weight: 400;
+    font-size: 9pt;
+    color: var(--pr-muted);
+}
+
+.pr-q--ref .pr-text {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+}
+
+.pr-box-col {
+    text-align: center;
+}
+
+.pr-box {
+    display: inline-block;
+    width: 4.5mm;
+    height: 4.5mm;
+    margin-top: .6mm;
+    border: 1.2px solid var(--pr-ink);
+    border-radius: 1px;
+}
+
+/* Writing space under each question (answers-at-the-end layout) */
+.pr-write {
+    display: none;
+    margin-top: 1mm;
+}
+
+.pr-sheet[data-lines="1"] .pr-write {
+    display: block;
+}
+
+.pr-write::before,
+.pr-write::after {
+    content: "";
+    display: block;
+    height: 7mm;
+    border-bottom: 1px solid var(--pr-rule);
+}
+
+/* --------------------------------------------------------------------------
+   Answer key
+   -------------------------------------------------------------------------- */
+.pr-section--key {
+    margin-top: 10mm;
+    padding-top: 8mm;
+    border-top: 1px dashed var(--pr-rule);
+    /* on paper: always a new page */
+    break-before: page;
+    page-break-before: always;
+}
+
+.pr-key-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 2mm 8mm;
+    margin-bottom: 4mm;
+}
+
+.pr-key-head h2 {
+    margin: 0;
+    font: 700 15pt/1.2 var(--pr-sans);
+}
+
+.pr-score {
+    margin: 0;
+    font: 10pt/1.4 var(--pr-sans);
+    color: var(--pr-muted);
+}
+
+/* --------------------------------------------------------------------------
+   Small screens (preview only)
+   -------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+    .pr-sheet {
+        padding: 8mm 4mm;
+    }
+
+    .pr-title {
+        font-size: 16pt;
+    }
+
+    .pr-col-q {
+        width: 36%;
+    }
+
+    .pr-back {
+        flex: 1 0 100%;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   PRINT / SAVE AS PDF
+   size:auto lets the student pick A4, Letter, etc. in the print dialog.
+   -------------------------------------------------------------------------- */
+@page {
+    size: auto;
+    margin: 12mm 12mm 14mm;
+}
+
+/* Page numbers: Chrome / Edge 131+. Other browsers ignore this block. */
+@page {
+    @bottom-right {
+        content: counter(page) " / " counter(pages);
+        font: 8pt system-ui, sans-serif;
+        color: #5f5d75;
+    }
+
+    @bottom-left {
+        content: "MemPulse reviewer";
+        font: 8pt system-ui, sans-serif;
+        color: #5f5d75;
+    }
+}
+
+@media print {
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    html,
+    .pr-body {
+        background: #fff !important;
+        font-size: 10.5pt;
+    }
+
+    .pr-no-print {
+        display: none !important;
+    }
+
+    .pr-stage {
+        padding: 0;
+    }
+
+    .pr-sheet {
+        width: auto;
+        max-width: none;
+        margin: 0;
+        padding: 0;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    .pr-section--key {
+        margin-top: 0;
+        padding-top: 0;
+        border-top: 0;
+    }
+
+    .pr-title {
+        font-size: 18pt;
+    }
+}
+```
+
+pdf-reviewer.php
 ```
 <?php
-// 1. Initialize user session tracking
-session_start();
+/**
+ * PDF Reviewer (offline, printable study sheet)
+ *
+ * Opened from the deck page bulk-actions bar:
+ *   pdf-reviewer.php?deck_id=12&cards=5,9,3[&layout=beside|end][&autoprint=1]
+ *
+ * - Read-only: nothing is saved and no schedule data is touched.
+ * - Standalone: loads only pdf-reviewer.css / pdf-reviewer.js (no app chrome).
+ * - Cards are re-fetched server-side, so ownership and "active only" are enforced here,
+ *   whatever ids the URL carries.
+ */
 
-// 2. Route Protection: Redirect to login view if user credentials are uninitialized
+// 1. Session + route protection (same as deck.php)
+session_start();
 if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || !isset($_SESSION['user_id'])) {
     header("Location: ../../authentication/login.php");
     exit;
 }
 
-// 3. Connect to database module and load business services
 require_once __DIR__ . '/../../config/db.php';
 require_once __DIR__ . '/../api/FlashcardService.php';
 
+// Private study data: never cache it
+header('Cache-Control: private, no-store');
+
+const PDF_REVIEWER_MAX_CARDS = 300;   // keep in sync with PDF_MAX in deck.js
+
 $userId = (int) $_SESSION['user_id'];
 
-ArchiveService::purgeExpired($conn, $userId);
-
-// 4. Validate and sanitize input deck ID parameter
+// 2. Deck (ownership verified by getDeckDetails)
 $deckId = isset($_GET['deck_id']) && ctype_digit((string) $_GET['deck_id']) ? (int) $_GET['deck_id'] : 0;
-
-// 5. Fetch target deck details and verify user ownership
-$deck = FlashcardService::getDeckDetails($conn, $deckId, $userId);
-
-// Redirect to deck list if the requested deck is missing or unauthorized
+$deck   = FlashcardService::getDeckDetails($conn, $deckId, $userId);
 if (!$deck) {
     header("Location: decks.php");
     exit;
 }
 
-// 6. Fetch all active flashcards belonging to the deck
-$flashcards = FlashcardService::getDeckFlashcards($conn, $deckId);
-$archivedFlashcards = FlashcardService::getDeckFlashcards($conn, $deckId, '', true);
-
-// 6.5 Fetch user's active decks for the Move dialog
-$userDecks = FlashcardService::getUserDecks($conn, $userId);
-$otherDecks = array_filter($userDecks, fn($d) => $d['id'] !== $deckId);
-
-// 7. CSRF token initialization for card mutation requests (Add / Edit / Delete)
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+// 3. Parse the card ids: positive ints, unique, URL order kept, capped
+$ids = [];
+foreach (explode(',', (string) ($_GET['cards'] ?? '')) as $part) {
+    $part = trim($part);
+    if ($part !== '' && ctype_digit($part) && (int) $part > 0) {
+        $ids[(int) $part] = true;
+    }
 }
+$ids   = array_slice(array_keys($ids), 0, PDF_REVIEWER_MAX_CARDS);
+$cards = $ids ? FlashcardService::getCardsForPrint($conn, $deckId, $userId, $ids) : [];
+$total = count($cards);
 
-$pageTitle   = $deck['title'] . " - Flashcards";
-$currentPage = "decks";
+// 4. Options (the page also lets the student change them live)
+$layoutFromUrl = isset($_GET['layout']) && in_array($_GET['layout'], ['beside', 'end'], true);
+$layout        = $layoutFromUrl ? $_GET['layout'] : 'beside';
+$autoPrint     = (isset($_GET['autoprint']) && $_GET['autoprint'] === '1') ? '1' : '0';
+
+// Chrome/Edge use <title> as the default PDF file name
+$docTitle  = $deck['title'] . ' - MemPulse reviewer';
+$h         = fn($v) => FlashcardService::h($v);
+$backUrl   = 'deck.php?deck_id=' . $deckId;
+$dateLabel = date('F j, Y');
+$cardWord  = $total === 1 ? 'card' : 'cards';
 ?>
 <!DOCTYPE html>
 <html lang="en">
 
-<?php include __DIR__ . '/../includes/head.php'; ?>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title><?= $h($docTitle) ?></title>
+    <link rel="stylesheet" href="../assets/css/pdf-reviewer.css">
+</head>
 
-<!-- BODY: Main App Background & Styling Root -->
-<body class="bg-background font-body-md text-on-surface antialiased min-h-screen selection:bg-primary-fixed selection:text-on-primary-fixed">
+<body class="pr-body"
+      data-autoprint="<?= $autoPrint ?>"
+      data-layout-source="<?= $layoutFromUrl ? 'url' : 'default' ?>">
 
-    <?php include __DIR__ . '/../includes/sidebar.php'; ?>
+    <!-- TOOLBAR (screen only) -->
+    <header class="pr-toolbar pr-no-print">
+        <a class="pr-back" href="<?= $h($backUrl) ?>">&larr; Back to deck</a>
 
-    <!-- MAIN: Viewport Shell Offset for Mobile/Desktop Navigation Bar -->
-    <main id="main-content" 
-    class="pl-0 md:pl-72 pt-16 transition-all duration-300 ease-in-out">
-        <?php include __DIR__ . '/deck-view.php'; ?>
+        <?php if ($total > 0): ?>
+        <div class="pr-options">
+            <fieldset class="pr-seg">
+                <legend class="pr-sr">Where should the answers go?</legend>
+                <label class="pr-seg-opt">
+                    <input type="radio" name="pr-layout" value="beside" <?= $layout === 'beside' ? 'checked' : '' ?>>
+                    <span>Answers beside</span>
+                </label>
+                <label class="pr-seg-opt">
+                    <input type="radio" name="pr-layout" value="end" <?= $layout === 'end' ? 'checked' : '' ?>>
+                    <span>Answers at the end</span>
+                </label>
+            </fieldset>
+
+            <label class="pr-toggle" id="pr-lines-wrap" <?= $layout === 'beside' ? 'hidden' : '' ?>>
+                <input type="checkbox" id="pr-lines" checked>
+                <span>Space to write answers</span>
+            </label>
+        </div>
+
+        <button type="button" id="pr-print-btn" class="pr-print-btn">Print / Save as PDF</button>
+        <?php endif; ?>
+    </header>
+
+    <main class="pr-stage">
+
+        <?php if ($total === 0): ?>
+        <!-- EMPTY STATE -->
+        <section class="pr-empty">
+            <h1>No cards to print</h1>
+            <p>The selected cards could not be found. They may have been archived or moved.</p>
+            <p><a class="pr-print-btn" href="<?= $h($backUrl) ?>">Back to deck</a></p>
+        </section>
+
+        <?php else: ?>
+        <p class="pr-hint pr-no-print">
+            In the print dialog choose <strong>Save as PDF</strong>, and switch off
+            &ldquo;Headers and footers&rdquo; for a clean page.
+        </p>
+
+        <article class="pr-sheet" id="pr-sheet" data-layout="<?= $h($layout) ?>" data-lines="1">
+
+            <!-- DOCUMENT HEAD -->
+            <header class="pr-doc-head">
+                <p class="pr-brand">MemPulse reviewer</p>
+                <h1 class="pr-title"><?= $h($deck['title']) ?></h1>
+                <p class="pr-meta">
+                    <span><?= $total ?> <?= $cardWord ?></span>
+                    <span><?= $h($dateLabel) ?></span>
+                    <span class="pr-only-beside">Score <i class="pr-blank"></i> / <?= $total ?></span>
+                </p>
+                <p class="pr-tip pr-only-beside">Cover the Answer column, say each answer out loud, then check yourself and tick what you got right.</p>
+                <p class="pr-tip pr-only-end">Answer every question first. Then turn to the answer key and tick what you got right.</p>
+            </header>
+
+            <!-- LAYOUT A: answers beside the questions -->
+            <section class="pr-section pr-section--beside" aria-label="Questions and answers">
+                <table class="pr-table">
+                    <colgroup>
+                        <col class="pr-col-num"><col class="pr-col-q"><col><col class="pr-col-box">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th scope="col" class="pr-num">#</th>
+                            <th scope="col">Question</th>
+                            <th scope="col">Answer</th>
+                            <th scope="col" class="pr-box-col">Got it</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($cards as $i => $card): ?>
+                        <tr>
+                            <td class="pr-num"><?= $i + 1 ?></td>
+                            <td class="pr-q"><div class="pr-text"><?= $h($card['front']) ?></div></td>
+                            <td class="pr-a"><div class="pr-text"><?= $h($card['back']) ?></div></td>
+                            <td class="pr-box-col"><span class="pr-box" aria-hidden="true"></span></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- LAYOUT B (part 1): questions only, with optional writing space -->
+            <section class="pr-section pr-section--questions" aria-label="Questions">
+                <table class="pr-table">
+                    <colgroup>
+                        <col class="pr-col-num"><col>
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th scope="col" class="pr-num">#</th>
+                            <th scope="col">Question</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($cards as $i => $card): ?>
+                        <tr>
+                            <td class="pr-num"><?= $i + 1 ?></td>
+                            <td class="pr-q">
+                                <div class="pr-text"><?= $h($card['front']) ?></div>
+                                <div class="pr-write" aria-hidden="true"></div>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- LAYOUT B (part 2): answer key, always starts on a new page -->
+            <section class="pr-section pr-section--key" aria-label="Answer key">
+                <div class="pr-key-head">
+                    <h2>Answer key</h2>
+                    <p class="pr-score">Score <i class="pr-blank"></i> / <?= $total ?></p>
+                </div>
+                <table class="pr-table">
+                    <colgroup>
+                        <col class="pr-col-num"><col class="pr-col-q"><col><col class="pr-col-box">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th scope="col" class="pr-num">#</th>
+                            <th scope="col">Question</th>
+                            <th scope="col">Answer</th>
+                            <th scope="col" class="pr-box-col">Got it</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($cards as $i => $card): ?>
+                        <tr>
+                            <td class="pr-num"><?= $i + 1 ?></td>
+                            <td class="pr-q pr-q--ref"><div class="pr-text"><?= $h($card['front']) ?></div></td>
+                            <td class="pr-a"><div class="pr-text"><?= $h($card['back']) ?></div></td>
+                            <td class="pr-box-col"><span class="pr-box" aria-hidden="true"></span></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </section>
+
+        </article>
+        <?php endif; ?>
+
     </main>
 
-    <!-- 1. DATA INJECTION: Server-side PHP variables passed safely to client-side JS -->
-    <script>
-        window.MemPulseDeckData = Object.assign(window.MemPulseDeckData || {}, {
-            csrfToken: <?= json_encode($_SESSION['csrf_token'] ?? '') ?>,
-            deckId: <?= $deckId ?>,
-            cardCount: <?= (int) $deck['card_count'] ?>,
-            dueCount: <?= (int) $deck['due_count'] ?>,
-            archivedCount: <?= (int) $deck['archived_count'] ?>,
-            retentionDays: <?= ArchiveService::RETENTION_DAYS ?>,
-            otherDecks: <?= json_encode(array_values($otherDecks)) ?>
-        });
-    </script>
-
-    <!-- 2. CLIENT-SIDE ASSET IMPORTS: Separated standalone JavaScript module -->
-    <script src="../assets/js/archive-ui.js" defer></script>
-    <script src="../assets/js/deck.js" defer></script>
+    <?php if ($total > 0): ?>
+    <script src="../assets/js/pdf-reviewer.js" defer></script>
+    <?php endif; ?>
 </body>
+
 </html>
-```
-
-deck-view.php
-```
-<?php
-/**
- * Deck View Template with Tabulator Data Grid & Persistent Sidebar Card Editor / Mobile Modal
- */
-?>
-<link href="https://unpkg.com/tabulator-tables@5.5.0/dist/css/tabulator_simple.min.css" rel="stylesheet">
-<script type="text/javascript" src="https://unpkg.com/tabulator-tables@5.5.0/dist/js/tabulator.min.js"></script>
-
-<script>
-    window.MemPulseDeckData = window.MemPulseDeckData || {};
-    window.MemPulseDeckData.flashcards = <?= json_encode(array_values($flashcards ?? []), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
-    window.MemPulseDeckData.archivedFlashcards = <?= json_encode(array_values($archivedFlashcards ?? []), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
-</script>
-<style>
-:root{
-  --mp-g1:#4f46e5; --mp-g2:#7c3aed; --mp-g3:#d946ef;   /* change these 3 to re-theme */
-  --mp-pane-h:clamp(440px, calc(100vh - 19.5rem), 780px); /* grid + editor height */
-}
-@supports (height:100dvh){ :root{ --mp-pane-h:clamp(440px, calc(100dvh - 19.5rem), 780px); } }
-
-/* Layout: editor column exists on desktop only */
-.mp-workspace{display:grid;grid-template-columns:minmax(0,1fr);gap:1.5rem;align-items:stretch}
-@media (min-width:1024px){
-  .mp-workspace{grid-template-columns:minmax(0,1fr) clamp(340px,30vw,440px)}
-  .mp-workspace.editor-collapsed{grid-template-columns:minmax(0,1fr)}
-}
-.mp-pane{height:var(--mp-pane-h);min-height:0}
-.mp-table-pane{display:flex;flex-direction:column;overflow:hidden;border-radius:1rem}
-.mp-grid-fill{flex:1 1 0;min-height:0}
-.mp-grid-row{display:flex;flex:1 1 0;min-height:0}
-.mp-grid-row:has(#flashcards-tabulator-grid.hidden){display:none}
-.mp-grid-row > #flashcards-tabulator-grid{min-width:0}
-#flashcards-tabulator-grid .mp-rownum{color:#94a3b8;font-size:.75rem;font-variant-numeric:tabular-nums}
-.mp-editor{display:none}
-@media (min-width:1024px){ .mp-editor{display:flex} }
-.mp-editor.mp-collapsed{display:none!important}
-.mp-footer[hidden],.mp-footer [hidden],.mp-peek[hidden]{display:none!important}
-
-/* Gradient shell (editor + modal) */
-.mp-shell{padding:1.5px;border-radius:1.125rem;
-  background:linear-gradient(135deg,var(--mp-g1),var(--mp-g2) 50%,var(--mp-g3));
-  box-shadow:0 18px 40px -18px rgba(99,102,241,.55),0 6px 16px -8px rgba(0,0,0,.18)}
-.mp-shell-inner{display:flex;flex-direction:column;height:100%;height:100%;min-height:0;overflow:hidden;border-radius:calc(1.125rem - 1.5px)}
-.mp-head{position:relative;display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.9rem 1rem;color:#fff;
-  background:linear-gradient(135deg,var(--mp-g1) 0%,var(--mp-g2) 55%,var(--mp-g3) 100%)}
-.mp-head::after{content:"";position:absolute;inset:0;pointer-events:none;
-  background:radial-gradient(120% 140% at 100% 0%,rgba(255,255,255,.25),transparent 55%)}
-.mp-head>*{position:relative;z-index:1}
-.mp-head-btn{width:2rem;height:2rem;display:inline-flex;align-items:center;justify-content:center;border-radius:.6rem;
-  background:rgba(255,255,255,.16);color:#fff;transition:background .15s}
-.mp-head-btn:hover{background:rgba(255,255,255,.3)}
-.mp-body{flex:1 1 auto;min-height:0;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:1rem}
-.mp-foot{display:flex;justify-content:flex-end;gap:.5rem;padding:.75rem 1rem;border-top:1px solid rgba(124,58,237,.15);background:rgba(124,58,237,.04)}
-.mp-field:focus{outline:none;border-color:var(--mp-g2);box-shadow:0 0 0 3px rgba(124,58,237,.18)}
-
-/* Buttons */
-.mp-btn{display:inline-flex;align-items:center;gap:.375rem;padding:.5rem .9rem;border-radius:.75rem;font-size:.8125rem;font-weight:600;transition:transform .15s,box-shadow .15s,opacity .15s}
-.mp-btn-icon{padding:.45rem}
-.mp-btn-gradient{color:#fff;background:linear-gradient(135deg,var(--mp-g1),var(--mp-g2) 55%,var(--mp-g3));box-shadow:0 6px 16px -6px rgba(124,58,237,.7)}
-.mp-btn-gradient:hover{transform:translateY(-1px);box-shadow:0 10px 20px -8px rgba(124,58,237,.8)}
-.mp-btn-gradient:disabled{opacity:.6;cursor:not-allowed;transform:none}
-.mp-btn-ghost{color:var(--mp-g2);border:1px solid rgba(124,58,237,.3);background:transparent}
-.mp-btn-ghost:hover{background:rgba(124,58,237,.08)}
-.mp-spin{animation:mp-spin 1s linear infinite}
-@keyframes mp-spin{to{transform:rotate(360deg)}}
-
-/* Keyboard hint badges (hidden on touch-only devices) */
-.mp-kbd-group{display:inline-flex;align-items:center;gap:.2rem;margin-left:.35rem}
-.mp-kbd{display:inline-flex;align-items:center;padding:.05rem .35rem;border-radius:.35rem;font:600 .625rem/1.3 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  color:#fff;background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.35)}
-@media (hover:none){.mp-kbd-group{display:none}}
-
-/* Pagination footer */
-.mp-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;padding:.75rem .875rem;
-  border-top:1px solid rgba(124,58,237,.18);background:linear-gradient(90deg,rgba(79,70,229,.06),rgba(217,70,239,.06))}
-.mp-footer-info{display:flex;align-items:center;flex-wrap:wrap;gap:.6rem;min-width:0;flex:1}
-.mp-page-size{border:1px solid rgba(124,58,237,.25);border-radius:.5rem;background:var(--color-surface-container-lowest,#fff);padding:.35rem .5rem;font-size:.75rem;color:inherit}
-.mp-pagination{display:flex;align-items:center;justify-content:flex-end;gap:.25rem;min-width:0;max-width:100%;flex-wrap:wrap}
-.mp-pagination .tabulator-pages{display:flex;align-items:center;gap:.2rem;flex-wrap:wrap}
-.mp-pagination .tabulator-page{min-width:2rem;height:2rem;padding:0 .45rem;border:1px solid rgba(124,58,237,.22);border-radius:.5rem;background:transparent;color:inherit;font-size:.75rem;font-weight:600;cursor:pointer}
-.mp-pagination .tabulator-page:hover:not(:disabled){background:rgba(124,58,237,.1);border-color:rgba(124,58,237,.45)}
-.mp-pagination .tabulator-page.active,.mp-pagination .tabulator-page[aria-current="page"]{background:linear-gradient(135deg,var(--mp-g1),var(--mp-g2));border-color:transparent;color:#fff}
-.mp-pagination .tabulator-page:disabled{opacity:.35;cursor:not-allowed}
-.mp-pagination .tabulator-page:focus-visible,.mp-page-size:focus-visible{outline:2px solid var(--mp-g2);outline-offset:2px}
-@media(max-width:640px){.mp-footer{align-items:stretch}.mp-footer-info{justify-content:space-between}.mp-pagination{justify-content:center;width:100%}.mp-pagination .tabulator-page{min-width:1.85rem;height:1.9rem;padding:0 .35rem}}
-
-/* Peek tab (collapsed editor, desktop only) */
-.mp-peek{position:fixed;right:0;top:50%;z-index:40;transform:translate(8px,-50%);display:flex;flex-direction:column;align-items:center;gap:.5rem;
-  padding:.9rem .55rem;border-radius:.9rem 0 0 .9rem;color:#fff;font-weight:700;font-size:.75rem;letter-spacing:.08em;
-  background:linear-gradient(180deg,var(--mp-g1),var(--mp-g2) 55%,var(--mp-g3));box-shadow:-8px 8px 24px -8px rgba(99,102,241,.6);transition:transform .2s}
-.mp-peek:hover,.mp-peek:focus-visible{transform:translate(0,-50%)}
-.mp-peek-label{writing-mode:vertical-rl;text-transform:uppercase}
-@media (max-width:1023.98px){ .mp-peek{display:none!important} }
-
-/* Modal (mobile + tablet) */
-dialog.mp-modal{position:fixed;inset:0;margin:auto;padding:0;border:0;background:transparent;color:inherit;
-  width:min(94vw,38rem);max-width:none;max-height:92vh;max-height:92dvh;overflow:visible}
-dialog.mp-modal::backdrop{background:rgba(15,23,42,.6);backdrop-filter:blur(6px)}
-dialog.mp-modal[open]{animation:mp-pop .18s ease-out}
-dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dvh - 3px)}
-@keyframes mp-pop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
-
-/* Grid: view-only look */
-#flashcards-tabulator-grid .tabulator-row{cursor:pointer}
-#flashcards-tabulator-grid .tabulator-row.tabulator-selected,
-#flashcards-tabulator-grid .tabulator-row.tabulator-selected:hover{
-  background:linear-gradient(90deg,rgba(99,102,241,.22),rgba(217,70,239,.10))!important;box-shadow:inset 3px 0 0 var(--mp-g2)}
-
-/* Layout toggle (table / tiles) */
-.mp-seg{display:inline-flex;align-items:center;gap:2px;padding:2px;border-radius:.7rem;background:rgba(128,128,128,.14)}
-.mp-seg button{display:inline-flex;align-items:center;justify-content:center;width:2.25rem;height:2.1rem;border-radius:.55rem;color:#64748b;transition:background .15s,color .15s}
-.mp-seg button:hover{color:var(--mp-g2);background:rgba(124,58,237,.1)}
-.mp-seg button[aria-pressed="true"]{color:#fff;background:linear-gradient(135deg,var(--mp-g1),var(--mp-g2) 55%,var(--mp-g3));box-shadow:0 4px 10px -4px rgba(124,58,237,.6)}
-.mp-seg button:focus-visible{outline:2px solid var(--mp-g2);outline-offset:1px}
-
-/* Tiles layout: Tabulator rows become cards in a responsive grid (the header is hidden, rendering is "basic") */
-#flashcards-tabulator-grid.mp-tiles .tabulator-header{display:none}
-#flashcards-tabulator-grid.mp-tiles .tabulator-tableholder{overflow-x:hidden}
-#flashcards-tabulator-grid.mp-tiles .tabulator-table{
-  display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,16rem),1fr));gap:.75rem;
-  padding:.75rem;box-sizing:border-box;width:100%!important;min-width:0!important}
-#flashcards-tabulator-grid.mp-tiles .tabulator-row,
-#flashcards-tabulator-grid.mp-tiles .tabulator-row.tabulator-row-even,
-#flashcards-tabulator-grid.mp-tiles .tabulator-row.tabulator-row-odd{
-  display:block;min-height:0;height:auto!important;width:auto!important;
-  border:1px solid rgba(128,128,128,.28);border-radius:1rem;background:#fff;overflow:hidden;
-  transition:border-color .15s,box-shadow .15s,transform .15s}
-#flashcards-tabulator-grid.mp-tiles .tabulator-row.tabulator-selectable:hover{
-  background:#fff;border-color:rgba(124,58,237,.5);box-shadow:0 8px 18px -10px rgba(99,102,241,.55)}
-#flashcards-tabulator-grid.mp-tiles .tabulator-row.tabulator-selected,
-#flashcards-tabulator-grid.mp-tiles .tabulator-row.tabulator-selected:hover{
-  background:linear-gradient(135deg,rgba(99,102,241,.14),rgba(217,70,239,.08))!important;
-  border-color:var(--mp-g2);box-shadow:0 0 0 2px rgba(124,58,237,.35)!important}
-#flashcards-tabulator-grid.mp-tiles .tabulator-row .tabulator-cell{
-  display:block;width:100%!important;height:auto!important;padding:0;border:0;white-space:normal;overflow:visible}
-.mp-tile{display:flex;flex-direction:column;gap:.5rem;padding:.7rem .85rem .8rem;min-height:7.5rem;text-align:left}
-.mp-tile-top{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
-.mp-tile-num{font-size:.6875rem;font-weight:600;font-variant-numeric:tabular-nums;color:#94a3b8}
-.mp-tile-check{display:inline-flex;align-items:center;justify-content:center;width:2.75rem;height:2.75rem;margin:-.8rem -.8rem -.8rem 0;cursor:pointer}
-.mp-tile-front,.mp-tile-back{white-space:pre-line;overflow-wrap:anywhere;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical}
-.mp-tile-front{font-weight:600;font-size:.9375rem;line-height:1.35;-webkit-line-clamp:3;line-clamp:3}
-.mp-tile-back{font-size:.8125rem;line-height:1.35;opacity:.7;-webkit-line-clamp:2;line-clamp:2}
-.mp-tile-meta{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:auto;padding-top:.15rem}
-.mp-chip{display:inline-flex;align-items:center;gap:.2rem;padding:.1rem .5rem;border-radius:999px;font-size:.6875rem;font-weight:600;line-height:1.4;background:rgba(128,128,128,.14);color:#64748b}
-.mp-chip .material-symbols-outlined{font-size:14px}
-.mp-chip.is-due{background:rgba(245,158,11,.16);color:#d97706}
-.mp-chip.is-warn{background:rgba(244,63,94,.12);color:#be123c}
-.mp-check { width: 1.1rem; height: 1.1rem; accent-color: var(--mp-g2); cursor: pointer; }
-.workspace-editing { --mp-pane-h: clamp(380px, calc(100vh - 23.5rem), 720px); }
-
-#bulk-panel { 
-    display: flex; 
-    align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; 
-    padding: 0.25rem 1rem; 
-    border: 1px solid rgba(124, 58, 237, 0.2); 
-    border-radius: 0.75rem; 
-    margin-bottom: -10px; 
-    color: inherit;
-    background: rgba(128, 128, 128, 0.08); /* Neutral background */
-}
-
-#bulk-panel [hidden] { display: none !important; }
-
-</style>
-
-<div class="w-full px-2 sm:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
-    <div class="flex flex-col w-full gap-4 sm:gap-6">
-        <!-- DECK HEADER: breadcrumb + action bar -->
-        <div class="flex flex-col gap-3">
-
-            <!-- BREADCRUMB -->
-            <nav aria-label="Breadcrumb" class="flex items-center gap-2 min-w-0 px-1 text-sm text-on-surface-variant">
-                <a href="decks.php" class="hover:text-primary transition-colors">Decks</a>
-                <span class="material-symbols-outlined text-[16px] text-outline">chevron_right</span>
-                <h1 class="font-headline-sm text-headline-sm font-bold tracking-tight text-on-surface truncate"
-                    title="<?= FlashcardService::h($deck['title']) ?>">
-                    <?= FlashcardService::h($deck['title']) ?>
-                </h1>
-            </nav>
-
-            <!-- ACTION BAR -->
-            <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-surface-container-lowest border border-outline-variant/30 shadow-xs">
-                <div class="flex items-center gap-3 min-w-0 text-sm text-on-surface-variant">
-                    <span class="inline-flex items-center gap-1 font-semibold text-on-surface whitespace-nowrap">
-                        <span class="material-symbols-outlined text-primary text-[18px]">style</span>
-                        <span id="deck-card-count-label"><?= $deck['card_count'] ?> <?= $deck['card_count'] === 1 ? 'Card' : 'Cards' ?></span>
-                    </span>
-                    <span class="text-outline">•</span>
-                    <span id="deck-due-label" class="text-primary font-semibold whitespace-nowrap"><span id="deck-due-count"><?= (int) $deck['due_count'] ?></span> Due<span class="hidden sm:inline"> Now</span></span>
-                </div>
-
-                <div class="flex items-center gap-2 shrink-0">
-                    <div id="layout-toggle" class="mp-seg" role="group" aria-label="Card layout">
-                        <button type="button" data-layout="table" aria-pressed="true" title="Table view" aria-label="Table view">
-                            <span class="material-symbols-outlined text-[19px]">table_rows</span>
-                        </button>
-                        <button type="button" data-layout="tiles" aria-pressed="false" title="Tile view" aria-label="Tile view">
-                            <span class="material-symbols-outlined text-[19px]">grid_view</span>
-                        </button>
-                    </div>
-                    <button type="button" id="toggle-archive-btn"
-                            title="View archive" aria-label="View archive" aria-pressed="false"
-                            class="inline-flex items-center justify-center gap-2 px-2.5 lg:px-3.5 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-sm transition-colors">
-                        <span id="toggle-archive-icon" class="material-symbols-outlined text-[19px]">inventory_2</span>
-                        <span id="toggle-archive-label" class="hidden lg:inline">Archive</span>
-                        <span id="archived-count-label" class="text-xs px-1.5 py-0.5 rounded-full bg-surface-container-highest"><?= (int) $deck['archived_count'] ?></span>
-                    </button>
-                    <a href="review.php?deck_id=<?= $deck['id'] ?>"
-                        id="start-review-btn"
-                        title="Start Review" aria-label="Start Review"
-                        class="<?= (int) $deck['due_count'] > 0 ? '' : 'hidden ' ?>inline-flex items-center justify-center gap-2 px-2.5 lg:px-4 py-2 rounded-lg bg-primary hover:bg-primary-container text-on-primary font-semibold text-sm shadow-sm transition-all">
-                        <span class="material-symbols-outlined text-[19px]">play_arrow</span>
-                        <span class="hidden lg:inline">Start Review</span>
-                    </a>
-
-                    <button type="button" id="open-add-card-btn"
-                            title="Create Card" aria-label="Create Card"
-                            class="inline-flex items-center justify-center gap-2 px-2.5 lg:px-4 py-2 rounded-lg bg-primary hover:bg-primary-container text-on-primary font-semibold text-sm transition-all shadow-xs">
-                        <span class="material-symbols-outlined text-[19px]">add</span>
-                        <span class="hidden lg:inline">Create Card</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- ARCHIVE NOTICE -->
-        <div id="archive-banner" class="hidden flex items-center gap-2 px-4 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm">
-            <span class="material-symbols-outlined text-[18px]">info</span>
-            <span>Archived cards are permanently deleted after <?= ArchiveService::RETENTION_DAYS ?> days. Restore a card to keep it.</span>
-        </div>
-
-        <!-- MAIN WORKSPACE: view-only grid + desktop-only card editor -->
-        <!-- BULK ACTIONS PANEL -->
-        <div id="bulk-panel">
-            <div class="flex items-center gap-3 font-semibold text-sm text-on-surface">                
-                <!-- Explicit Select All trigger (hidden by default) -->
-                <label id="bulk-select-wrapper" class="hidden flex items-center gap-2 cursor-pointer select-none text-primary hover:text-primary-container transition-colors">
-                    <input type="checkbox" id="bulk-select-all" class="mp-check">
-                    <span>Select all</span>
-                </label>
-                
-                <!-- Visual Divider (hidden by default) -->
-                <div id="bulk-select-separator" class="hidden w-px h-4 bg-outline-variant/60"></div>
-
-                <!-- Status Tracker -->
-                <div class="flex items-center gap-2 text-on-surface-variant">
-                    <span class="material-symbols-outlined text-[20px]">checklist</span>
-                    <span id="bulk-status">0 selected</span>
-                </div>
-                <button type="button" id="bulk-done-btn" hidden
-                    class="mp-btn px-2 py-1 bg-transparent hover:bg-surface-container-high text-primary transition-colors"
-                    title="Clear selection">Clear
-                </button>
-            </div>
-            
-            <div class="flex items-center gap-2">
-                <button type="button" id="bulk-practice-btn" class="mp-btn mp-btn-icon lg:mp-btn-text bg-transparent hover:bg-surface-container-high active:bg-surface-container-highest text-on-surface-variant hover:text-on-surface disabled:opacity-50 transition-colors" title="Practice selected cards (nothing is saved)">
-                    <span class="material-symbols-outlined text-[18px]">visibility</span>
-                    <span class="hidden lg:inline">Preview Cards</span>
-                </button>
-                <button type="button" id="bulk-duplicate-btn" class="mp-btn mp-btn-icon lg:mp-btn-text bg-transparent hover:bg-surface-container-high active:bg-surface-container-highest text-on-surface-variant hover:text-on-surface disabled:opacity-50 transition-colors" title="Duplicate selected">
-                    <span class="material-symbols-outlined text-[18px]">content_copy</span>
-                    <span class="hidden lg:inline">Duplicate</span>
-                </button>
-                <button type="button" id="bulk-move-btn" class="mp-btn mp-btn-icon lg:mp-btn-text bg-transparent hover:bg-surface-container-high active:bg-surface-container-highest text-on-surface-variant hover:text-on-surface disabled:opacity-50 transition-colors" title="Move to deck...">
-                    <span class="material-symbols-outlined text-[18px]">drive_file_move</span>
-                    <span class="hidden lg:inline">Move...</span>
-                </button>
-                <button type="button" id="bulk-archive-btn" class="mp-btn mp-btn-icon lg:mp-btn-text bg-transparent hover:bg-surface-container-high active:bg-surface-container-highest text-on-surface-variant hover:text-on-surface disabled:opacity-50 transition-colors" title="Archive selected">
-                    <span class="material-symbols-outlined text-[18px]">inventory_2</span>
-                    <span class="hidden lg:inline">Archive</span>
-                </button>
-                <button type="button" id="bulk-reset-btn" class="mp-btn mp-btn-icon lg:mp-btn-text bg-transparent hover:bg-surface-container-high active:bg-surface-container-highest text-on-surface-variant hover:text-on-surface disabled:opacity-50 transition-colors" title="Reset progress">
-                    <span class="material-symbols-outlined text-[18px]">restart_alt</span>
-                    <span class="hidden lg:inline">Reset</span>
-                </button>
-                <button type="button" id="bulk-restore-btn" hidden class="mp-btn mp-btn-icon lg:mp-btn-text bg-transparent hover:bg-surface-container-high active:bg-surface-container-highest text-on-surface-variant hover:text-on-surface disabled:opacity-50 transition-colors" title="Restore selected">
-                    <span class="material-symbols-outlined text-[18px]">restore_from_trash</span>
-                    <span class="hidden lg:inline">Restore</span>
-                </button>
-                <button type="button" id="bulk-delete-btn" hidden class="mp-btn mp-btn-icon lg:mp-btn-text bg-transparent hover:bg-rose-50 active:bg-rose-100 text-rose-700 disabled:opacity-50 transition-colors" title="Delete permanently">
-                    <span class="material-symbols-outlined text-[18px]">delete_forever</span>
-                    <span class="hidden lg:inline">Delete</span>
-                </button>
-            </div>
-        </div>         
-
-
-        <div id="mp-workspace" class="mp-workspace editor-collapsed">
-
-            <!-- LEFT: VIEW-ONLY TABULATOR GRID -->
-            <div id="table-wrapper" class="mp-pane mp-table-pane bg-surface-container-lowest border border-outline-variant/30 shadow-xs">
-                <div id="no-cards-empty-state" class="flex-1 p-12 flex-col items-center justify-center gap-3 text-center bg-surface-container-low/20 <?= empty($flashcards) ? 'flex' : 'hidden' ?>">
-                    <h3 id="empty-state-title" class="font-bold text-on-surface">No flashcards yet</h3>
-                    <p id="empty-state-text" class="text-on-surface-variant text-sm">Click "Create Card" to add your first card.</p>
-                </div>
-
-                <div class="mp-grid-row">
-                    <div id="flashcards-tabulator-grid" class="mp-grid-fill w-full <?= empty($flashcards) ? 'hidden' : '' ?>"></div>
-                </div>
-                <!-- Standard pagination: range, page size, and numbered wayfinding controls -->
-                <div id="grid-footer" class="mp-footer" <?= empty($flashcards) ? 'hidden' : '' ?>>
-                    <div class="mp-footer-info">
-                        <span id="grid-range-label" class="text-xs font-semibold text-on-surface-variant" aria-live="polite">Showing cards…</span>
-                        <label for="grid-page-size" class="text-xs font-semibold text-on-surface-variant">Rows per page</label>
-                        <select id="grid-page-size" class="mp-page-size" aria-label="Rows per page">
-                            <option value="10">10</option>
-                            <option value="25" selected>25</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                        </select>
-                    </div>
-                    <nav id="grid-pagination-controls" class="mp-pagination" aria-label="Flashcard pages"></nav>
-                </div>
-            </div>
-
-            <!-- RIGHT: CARD EDITOR (desktop only, hidden below 1024px via CSS) -->
-            <aside id="card-editor-sidebar" class="mp-editor mp-pane mp-shell mp-collapsed" aria-label="Card editor">
-                <div class="mp-shell-inner bg-surface-container-lowest w-full flex-1">
-
-                    <div class="mp-head">
-                        <div class="flex items-center gap-2.5 min-w-0">
-                            <span class="material-symbols-outlined text-[24px]">edit_note</span>
-                            <div class="min-w-0">
-                                <h3 id="sidebar-title" class="text-[15px] font-bold leading-tight truncate">Card Editor</h3>
-                                <p id="sidebar-position" class="text-[11px] text-white/80 leading-tight truncate">Use ↑ ↓ to browse</p>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-1.5">
-                            <button type="button" id="sidebar-prev-btn" class="mp-head-btn" title="Previous card (↑)" aria-label="Previous card">
-                                <span class="material-symbols-outlined text-[20px]">keyboard_arrow_up</span>
-                            </button>
-                            <button type="button" id="sidebar-next-btn" class="mp-head-btn" title="Next card (↓)" aria-label="Next card">
-                                <span class="material-symbols-outlined text-[20px]">keyboard_arrow_down</span>
-                            </button>
-                            <button type="button" id="toggle-sidebar-collapse" class="mp-head-btn" title="Collapse editor" aria-label="Collapse editor">
-                                <span id="toggle-sidebar-icon" class="material-symbols-outlined text-[20px]">chevron_right</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div id="sidebar-content-wrapper" class="flex flex-col flex-1 min-h-0">
-                        <form id="sidebar-card-form" class="flex flex-col flex-1 min-h-0" novalidate>
-                            <div class="mp-body">
-                                <input type="hidden" id="sidebar-card-id" value="">
-
-                                <div class="flex flex-col gap-1.5">
-                                    <label for="sidebar-card-front" class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Front Content</label>
-                                    <textarea id="sidebar-card-front" rows="4" maxlength="5000" placeholder="Select a card to edit..." class="mp-field w-full p-3 rounded-xl border border-outline-variant/50 bg-surface text-on-surface text-base font-medium resize-y transition-colors"></textarea>
-                                </div>
-
-                                <div class="flex flex-col gap-1.5">
-                                    <label for="sidebar-card-back" class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Back Content</label>
-                                    <textarea id="sidebar-card-back" rows="4" maxlength="5000" placeholder="Select a card to edit..." class="mp-field w-full p-3 rounded-xl border border-outline-variant/50 bg-surface text-on-surface text-base font-medium resize-y transition-colors"></textarea>
-                                </div>
-
-                                <div class="flex flex-col gap-1.5">
-                                    <label for="sidebar-card-due" class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Next Review Date (Due)</label>
-                                    <input type="datetime-local" id="sidebar-card-due" class="mp-field w-full p-2.5 rounded-xl border border-outline-variant/50 bg-surface text-on-surface text-sm transition-colors">
-                                </div>
-
-                                <p id="sidebar-card-error" class="hidden text-rose-700 text-[13px]" role="alert"></p>
-
-                                <div id="sidebar-card-details" class="flex flex-col gap-2 pt-3 border-t border-outline-variant/20 text-xs text-on-surface-variant">
-                                    <span class="font-bold uppercase tracking-wider text-[10px] text-on-surface">Card Details</span>
-                                    <div class="grid grid-cols-2 gap-2 bg-surface-container-low p-3 rounded-xl border border-outline-variant/20">
-                                        <div><span class="text-outline">Last Reviewed:</span> <span id="det-last-reviewed" class="font-semibold text-on-surface">Never</span></div>
-                                        <div><span class="text-outline">Accuracy:</span> <span id="det-accuracy" class="font-semibold text-on-surface">—</span></div>
-                                        <div><span class="text-outline">Speed:</span> <span id="det-speed" class="font-semibold text-on-surface">—</span></div>
-                                        <div><span class="text-outline">Interval:</span> <span id="det-interval" class="font-semibold text-on-surface">—</span></div>
-                                        <div><span class="text-outline">Reviews:</span> <span id="det-reviews" class="font-semibold text-on-surface">0</span></div>
-                                        <div><span class="text-outline">Lapses:</span> <span id="det-lapses" class="font-semibold text-on-surface">0</span></div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="mp-foot">
-                                <button type="submit" id="sidebar-save-btn" class="mp-btn mp-btn-gradient disabled:opacity-60" title="Save Changes (Ctrl+Return)">
-                                    <span id="sidebar-save-label">Save Changes</span>
-                                    <span class="mp-kbd-group" aria-hidden="true"><kbd class="mp-kbd mp-kbd-mod">Ctrl</kbd><kbd class="mp-kbd">Return</kbd></span>
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </aside>
-        </div>
-
-        <!-- Peek tab: shown only when the editor is collapsed (desktop) -->
-        <button type="button" id="editor-peek-tab" class="mp-peek" title="Open card editor" aria-label="Open card editor">
-            <span class="material-symbols-outlined text-[20px]">edit_note</span>
-            <span class="mp-peek-label">Card Editor</span>
-            <span class="material-symbols-outlined text-[18px]">chevron_left</span>
-        </button>
-    </div>
-</div>
-
-<!-- CARD MODAL (mobile + tablet) -->
-<dialog id="card-editor-modal" class="mp-modal">
-    <div class="mp-shell">
-        <div class="mp-shell-inner bg-surface-container-lowest">
-            <div class="mp-head">
-                <div class="flex items-center gap-2.5 min-w-0">
-                    <span class="material-symbols-outlined text-[24px]">style</span>
-                    <h3 id="modal-title" class="text-[17px] font-bold truncate">View / Edit Flashcard</h3>
-                </div>
-                <button type="button" id="close-modal-btn" class="mp-head-btn" title="Close" aria-label="Close">
-                    <span class="material-symbols-outlined text-[22px]">close</span>
-                </button>
-            </div>
-
-            <form id="modal-card-form" class="flex flex-col flex-1 min-h-0" novalidate>
-                <div class="mp-body">
-                    <input type="hidden" id="modal-card-id" value="">
-
-                    <div class="flex flex-col gap-1.5">
-                        <label for="modal-card-front" class="text-[12px] font-bold uppercase tracking-wider text-on-surface-variant">Front Content</label>
-                        <textarea id="modal-card-front" rows="4" maxlength="5000" placeholder="Type front side content..." class="mp-field w-full p-3 rounded-xl border border-outline-variant/50 bg-surface text-on-surface text-base font-medium resize-y transition-colors"></textarea>
-                    </div>
-
-                    <div class="flex flex-col gap-1.5">
-                        <label for="modal-card-back" class="text-[12px] font-bold uppercase tracking-wider text-on-surface-variant">Back Content</label>
-                        <textarea id="modal-card-back" rows="4" maxlength="5000" placeholder="Type back side content..." class="mp-field w-full p-3 rounded-xl border border-outline-variant/50 bg-surface text-on-surface text-base font-medium resize-y transition-colors"></textarea>
-                    </div>
-
-                    <div class="flex flex-col gap-1.5">
-                        <label for="modal-card-due" class="text-[12px] font-bold uppercase tracking-wider text-on-surface-variant">Next Review Date (Due)</label>
-                        <input type="datetime-local" id="modal-card-due" class="mp-field w-full p-2.5 rounded-xl border border-outline-variant/50 bg-surface text-on-surface text-sm transition-colors">
-                    </div>
-
-                    <p id="modal-card-error" class="hidden text-rose-700 text-[13px]" role="alert"></p>
-                </div>
-
-                <div class="mp-foot">
-                    <button type="button" id="modal-cancel-btn" data-close-dialog class="mp-btn mp-btn-ghost">Cancel</button>
-                    <button type="submit" id="modal-save-btn" class="mp-btn mp-btn-gradient">
-                        <span class="material-symbols-outlined text-[18px]">save</span>
-                        <span id="modal-save-label">Save</span>
-                        <span class="mp-kbd-group" aria-hidden="true"><kbd class="mp-kbd mp-kbd-mod">Ctrl</kbd><kbd class="mp-kbd">Return</kbd></span>
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</dialog>
-
-<!-- DELETE CONFIRMATION DIALOG -->
-<dialog id="delete-card-dialog" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 m-0 rounded-lg p-0 w-full max-w-md bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
-    <div class="p-6 flex flex-col gap-4">
-        <h3 class="font-headline-sm text-[18px] font-bold text-rose-700 flex items-center gap-2">
-            <span class="material-symbols-outlined text-[22px]">warning</span>
-            <span>Delete permanently?</span>
-        </h3>
-        <p id="delete-card-message" class="text-on-surface-variant text-[14px]">
-            This card will be permanently deleted. This action cannot be undone.
-        </p>
-        <p id="delete-card-error" class="hidden text-rose-700 text-[13px]" role="alert"></p>
-        <div class="flex justify-end gap-2.5">
-            <button type="button" data-close-dialog class="px-4 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-[14px] transition-colors">Cancel</button>
-            <button type="button" id="delete-card-confirm" class="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold text-[14px] transition-colors disabled:opacity-60">Delete Card</button>
-        </div>
-    </div>
-</dialog>
-
-<!-- BULK MOVE DIALOG -->
-<dialog id="move-cards-dialog" class="fixed inset-0 m-auto rounded-xl p-0 w-full max-w-sm bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
-    <div class="p-5 flex flex-col gap-4">
-        <h3 class="font-bold text-[16px] text-on-surface">Move Cards</h3>
-        <select id="move-deck-select" class="mp-field w-full p-2.5 rounded-lg border border-outline-variant/50 bg-surface text-on-surface text-sm"></select>
-        <div class="flex justify-end gap-2 pt-2">
-            <button type="button" data-close-dialog class="px-4 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-sm font-semibold">Cancel</button>
-            <button type="button" id="confirm-move-btn" class="px-4 py-2 rounded-lg bg-primary hover:bg-primary-container text-on-primary text-sm font-semibold">Move</button>
-        </div>
-    </div>
-</dialog>
-
-<!-- BULK RESET DIALOG -->
-<dialog id="reset-cards-dialog" class="fixed inset-0 m-auto rounded-xl p-0 w-full max-w-sm bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-xl backdrop:bg-black/40">
-    <div class="p-5 flex flex-col gap-4">
-        <h3 class="font-bold text-[16px] text-rose-700">Reset Progress?</h3>
-        <p class="text-sm text-on-surface-variant">This will reset scheduling and history for the selected cards. They will be due immediately. This cannot be undone.</p>
-        <div class="flex justify-end gap-2 pt-2">
-            <button type="button" data-close-dialog class="px-4 py-2 rounded-lg bg-surface-container hover:bg-surface-container-high text-sm font-semibold">Cancel</button>
-            <button type="button" id="confirm-reset-btn" class="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold">Reset Progress</button>
-        </div>
-    </div>
-</dialog>
 ```
 
 deck.js
@@ -1628,7 +1877,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const bulkStatus = document.getElementById('bulk-status');
     const PRACTICE_MAX = 300;   // ids travel in the URL; review.php also cuts the list at 300
     const practiceBtn = document.getElementById('bulk-practice-btn');
+    const PDF_MAX = 300;       // ids travel in the URL; keep in sync with PDF_REVIEWER_MAX_CARDS in pdf-reviewer.php
+    const pdfBtn = document.getElementById('bulk-pdf-btn');
     const bulkActionBtns = [
+        pdfBtn,
         practiceBtn,
         document.getElementById('bulk-duplicate-btn'),
         document.getElementById('bulk-move-btn'),
@@ -1695,6 +1947,16 @@ document.addEventListener("DOMContentLoaded", () => {
         archiveActionBtns.forEach((btn) => { if (btn) { btn.hidden = !viewArchived; btn.disabled = !hasSelection; } });
 
         // Practice: needs a selection, and at most PRACTICE_MAX cards
+        // PDF: needs a selection, and at most PDF_MAX cards
+        if (pdfBtn) {
+            if (selected > PDF_MAX) {
+                pdfBtn.disabled = true;
+                pdfBtn.title = `Select up to ${PDF_MAX} cards`;
+            } else {
+                pdfBtn.title = 'Download a printable PDF of the selected cards';
+            }
+        }
+
         if (practiceBtn) {
             if (selected > PRACTICE_MAX) {
                 practiceBtn.disabled = true;
@@ -1703,6 +1965,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 practiceBtn.title = 'Practice selected cards (nothing is saved)';
             }
         }
+
 
         const moveBtn = document.getElementById('bulk-move-btn');
         if (moveBtn) {
@@ -1872,6 +2135,36 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // PDF reviewer: open the printable page in a new tab. Read-only, nothing is saved.
+    if (pdfBtn) {
+        pdfBtn.addEventListener('click', () => {
+            try {
+                if (viewArchived) return;
+                // Grid order, not click order
+                const gridOrder = tabulatorTable.getData().map(r => Number(r.id));
+                const ids = gridOrder.filter(id => checkedIds.has(id));
+                if (ids.length === 0) {
+                    Archive.toast('PDF: no matching selected cards found', { type: 'error' });
+                    return;
+                }
+                if (ids.length > PDF_MAX) {
+                    Archive.toast(`Select up to ${PDF_MAX} cards`, { type: 'error' });
+                    return;
+                }
+                const url = `pdf-reviewer.php?deck_id=${DECK_ID}&cards=${ids.join(',')}`;
+                const win = window.open(url, '_blank');
+                if (win) {
+                    win.opener = null;                 // same-origin page, but it has no need for us
+                } else {
+                    window.location.assign(url);       // popup blocked: open in this tab instead
+                }
+            } catch (err) {
+                console.error('[pdf] failed', err);
+                Archive.toast('PDF failed: ' + err.message, { type: 'error' });
+            }
+        });
+    }
+
     // Reset
     const resetDialog = document.getElementById('reset-cards-dialog');
     document.getElementById('bulk-reset-btn').addEventListener('click', () => {
@@ -1991,553 +2284,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     updateBulkUI();   // initial render of the panel (must stay last)
 });
-```
-
-app.css
-```
-@layer base {
-
-    html,
-    body {
-        margin: 0;
-        padding: 0;
-        height: 100%;
-        overflow-y: auto !important;
-        overscroll-behavior-y: auto;
-    }
-
-    body {
-        overscroll-behavior: none;
-    }
-
-    main {
-        min-height: 100vh;
-        overflow-y: auto !important;
-    }
-
-    main>:first-child {
-        margin-top: 0 !important;
-    }
-
-    main>:last-child {
-        margin-bottom: 0 !important;
-    }
-}
-
-/* In app/assets/css/app.css, add/update inside @layer base or below it: */
-#main-content {
-    padding-top: 4rem !important;
-    /* 64px offset for fixed #app-header across all views */
-}
-
-/* Inside @media (min-width: 768px) in app/assets/css/app.css, update #sidebar-toggle: */
-@media (min-width: 768px) {
-
-    /* Keep the toggle attached to the sidebar edge below the header */
-    #sidebar-toggle {
-        position: absolute !important;
-        right: -14px !important;
-        top: 1.5rem !important;
-        z-index: 60 !important;
-    }
-}
-
-@layer utilities {
-
-    /* Premium diffused shadow for structural panels */
-    .shadow-premium-panel {
-        box-shadow: 0 8px 30px -4px rgba(0, 0, 0, 0.04), 0 4px 10px -2px rgba(0, 0, 0, 0.02);
-    }
-
-    /* Subtle interactive lift for metric cards */
-    .hover-lift {
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
-    }
-
-    .hover-lift:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 12px 35px -4px rgba(0, 0, 0, 0.06);
-    }
-
-    /* Elevated backdrop blur for the drawer overlay */
-    .drawer-backdrop {
-        background-color: rgba(15, 23, 42, 0.4);
-        backdrop-filter: blur(4px);
-    }
-}
-
-/* Subtle custom scrollbar for page scrolling */
-html,
-body,
-main {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
-}
-
-html {
-    scroll-behavior: smooth;
-}
-
-html::-webkit-scrollbar,
-body::-webkit-scrollbar,
-main::-webkit-scrollbar {
-    display: block;
-    width: 6px;
-}
-
-html::-webkit-scrollbar-track,
-body::-webkit-scrollbar-track,
-main::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-html::-webkit-scrollbar-thumb,
-body::-webkit-scrollbar-thumb,
-main::-webkit-scrollbar-thumb {
-    background: rgba(148, 163, 184, 0.35);
-    border-radius: 9999px;
-}
-
-html::-webkit-scrollbar-thumb:hover,
-body::-webkit-scrollbar-thumb:hover,
-main::-webkit-scrollbar-thumb:hover {
-    background: rgba(148, 163, 184, 0.6);
-}
-
-/* Sidebar section divider */
-#sidebar .sidebar-section-divider {
-    flex-shrink: 0;
-    margin: 0 1rem;
-    border: 0;
-    border-top: 1px solid var(--color-outline-variant, #cbd5e1);
-    opacity: 0.4;
-    transition: margin 0.3s ease;
-}
-
-
-/* Sidebar Toggle */
-/* --- Base Collapsed Sidebar Rules (Desktop Only) --- */
-@media (min-width: 768px) {
-
-    /* Prevent initial main-content layout shift */
-    html.sidebar-collapsed #main-content {
-        padding-left: 80px !important;
-    }
-
-    html.sidebar-collapsed #main-content header {
-        left: 80px !important;
-    }
-
-    #sidebar.collapsed {
-        box-sizing: border-box !important;
-        width: 80px !important;
-        min-width: 80px !important;
-        max-width: 80px !important;
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-        /* Allow the desktop toggle to protrude beyond the sidebar edge. */
-        overflow-x: visible !important;
-        overflow-y: visible !important;
-    }
-
-    /* Keep the toggle attached to the sidebar edge in either state. */
-    #sidebar-toggle {
-        position: absolute !important;
-        right: -14px !important;
-        top: 2rem !important;
-        z-index: 60 !important;
-    }
-
-    #sidebar.collapsed .sidebar-section-divider {
-        margin-left: 12px;
-        margin-right: 12px;
-    }
-
-    #sidebar.collapsed>.flex.flex-col.gap-4 {
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-        align-items: center !important;
-    }
-
-    #sidebar.collapsed .sidebar-navigation {
-        box-sizing: border-box !important;
-        min-width: 0 !important;
-        width: 100% !important;
-        padding-left: 8px !important;
-        padding-right: 8px !important;
-        overflow-x: hidden !important;
-        overflow-y: auto !important;
-        scrollbar-width: thin;
-    }
-
-    #sidebar.collapsed .sidebar-navigation>.sidebar-row {
-        width: 44px !important;
-        min-width: 44px !important;
-        max-width: 44px !important;
-        flex: 0 0 44px !important;
-    }
-
-    /* Hide standard layout text elements */
-    #sidebar.collapsed .sidebar-text {
-        opacity: 0 !important;
-        display: none !important;
-    }
-
-    /* Hide the logo name text string when collapsed */
-    #sidebar.collapsed .logo-text {
-        opacity: 0 !important;
-        width: 0 !important;
-        display: none !important;
-    }
-
-    /* Change header layout structure from a row grid to vertical stack */
-    #sidebar.collapsed #sidebar-header {
-        flex-direction: column !important;
-        gap: 16px !important;
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-        align-items: center !important;
-    }
-
-    #sidebar.collapsed #sidebar-header>div {
-        order: 1 !important;
-    }
-
-    #sidebar.collapsed #sidebar-toggle {
-        order: 2 !important;
-    }
-
-    /* ─── NEW: FORCE MAIN CONTENT AND FIXED HEADER TO SHIFT LEFT ─── */
-    main.collapsed {
-        padding-left: 80px !important;
-        /* Shakes off the pl-72 padding */
-    }
-
-    main.collapsed header {
-        left: 80px !important;
-        /* Shakes off the left-72 fixed offset */
-    }
-}
-
-/* --- Streak Heatmap Tooltip Styles (Pure CSS Absolute Positioning) --- */
-#heatmap-scroll {
-    position: relative;
-    overflow-x: auto;
-}
-
-#heatmap-scroll .heatmap-cell {
-    position: relative;
-    cursor: pointer;
-    outline: none !important;
-    -webkit-tap-highlight-color: transparent;
-}
-
-#heatmap-scroll .heatmap-cell:hover {
-    z-index: 100;
-}
-
-/* Tooltip box */
-#heatmap-scroll .heatmap-cell::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    bottom: calc(100% + 8px);
-    left: 50%;
-    transform: translateX(-50%);
-    background: #1e293b;
-    color: #ffffff;
-    font-size: 11px;
-    line-height: 1.3;
-    padding: 6px 10px;
-    border-radius: 8px;
-    white-space: nowrap;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.15s ease;
-    z-index: 9999;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-}
-
-/* Tooltip arrow */
-#heatmap-scroll .heatmap-cell::before {
-    content: '';
-    position: absolute;
-    bottom: calc(100% + 2px);
-    left: 50%;
-    transform: translateX(-50%);
-    border: 4px solid transparent;
-    border-top-color: #1e293b;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.15s ease;
-    z-index: 101;
-}
-
-#heatmap-scroll .heatmap-cell:hover::after,
-#heatmap-scroll .heatmap-cell:hover::before {
-    opacity: 1;
-}
-
-/* --- Universal Heatmap Scrollbar Rules (Visible in All Views) --- */
-#heatmap-scroll {
-    overflow-x: auto !important;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
-}
-
-#heatmap-scroll::-webkit-scrollbar {
-    display: block !important;
-    height: 6px;
-}
-
-#heatmap-scroll::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-#heatmap-scroll::-webkit-scrollbar-thumb {
-    background: rgba(100, 116, 139, 0.35);
-    border-radius: 999px;
-}
-
-#heatmap-scroll::-webkit-scrollbar-thumb:hover {
-    background: rgba(100, 116, 139, 0.6);
-}
-
-/* --- Archived Decks Button Pulse Animation --- */
-@keyframes archivePulse {
-    0% {
-        transform: scale(1);
-        box-shadow: 0 0 0 0 rgba(var(--color-primary, 59, 130, 246), 0.7);
-    }
-
-    50% {
-        transform: scale(1.05);
-        box-shadow: 0 0 12px 4px rgba(var(--color-primary, 59, 130, 246), 0.5);
-    }
-
-    100% {
-        transform: scale(1);
-        box-shadow: 0 0 0 0 rgba(var(--color-primary, 59, 130, 246), 0);
-    }
-}
-
-.animate-archive-pulse {
-    animation: archivePulse 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) 2;
-    color: currentColor !important;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-}
-
-/* ==========================================================================
-   Flashcard Table & Resizable Columns
-   ========================================================================== */
-
-/* Resizable Header Cell Handle */
-.resizable-col {
-    position: relative;
-    user-select: none;
-}
-
-.resizer {
-    position: absolute;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    width: 6px;
-    cursor: col-resize;
-    user-select: none;
-    touch-action: none;
-    z-index: 10;
-    transition: background-color 0.15s ease;
-}
-
-.resizer:hover,
-.resizer.resizing {
-    background-color: var(--color-primary, #3b82f6);
-}
-
-/* Selected Row Highlighting */
-#flashcards-table-body tr.selected-row {
-    background-color: rgba(var(--color-primary-rgb, 59, 130, 246), 0.08) !important;
-    border-left: 3px solid var(--color-primary, #3b82f6);
-}
-
-/* Custom Scrollbars for Table Header & Body Cells */
-#flashcard-table-scroll-container {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
-}
-
-#flashcard-table-scroll-container::-webkit-scrollbar {
-    height: 6px;
-}
-
-#flashcard-table-scroll-container::-webkit-scrollbar-thumb {
-    background: rgba(100, 116, 139, 0.35);
-    border-radius: 999px;
-}
-
-/* ==========================================================================
-   Card Editor Panel Drawer
-   ========================================================================== */
-
-#card-editor-panel {
-    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-        opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-        margin 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-        width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    will-change: transform, opacity;
-}
-
-#card-editor-panel.collapsed {
-    display: none !important;
-}
-
-/* ==========================================================================
-   Tabulator Grid - MemPulse Custom Styling
-   ========================================================================== */
-
-/* Main Table Container Override */
-.tabulator {
-    background-color: transparent !important;
-    border: none !important;
-    font-family: inherit !important;
-    font-size: 0.875rem !important;
-    /* 14px */
-}
-
-/* Header Styling */
-.tabulator .tabulator-header {
-    background-color: var(--color-surface-container-low, #f1f5f9) !important;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.25) !important;
-    color: var(--color-on-surface-variant, #64748b) !important;
-    font-weight: 700 !important;
-    font-size: 0.75rem !important;
-    /* 12px */
-    text-transform: uppercase !important;
-    letter-spacing: 0.05em !important;
-}
-
-.tabulator .tabulator-header .tabulator-col {
-    background-color: transparent !important;
-    border-right: 1px solid rgba(148, 163, 184, 0.15) !important;
-    padding: 8px 12px !important;
-}
-
-.tabulator .tabulator-header .tabulator-col-content {
-    padding: 0 !important;
-}
-
-/* Header Resizer Drag Handles */
-.tabulator .tabulator-header .tabulator-col .tabulator-col-resize-handle {
-    width: 6px !important;
-    right: 0 !important;
-    opacity: 0;
-    transition: opacity 0.15s ease, background-color 0.15s ease;
-}
-
-.tabulator .tabulator-header .tabulator-col:hover .tabulator-col-resize-handle,
-.tabulator .tabulator-header .tabulator-col .tabulator-col-resize-handle:hover {
-    opacity: 1;
-    background-color: var(--color-primary, #3b82f6) !important;
-}
-
-/* Row Styling (Non-Compact Readable Format) */
-.tabulator .tabulator-tableholder .tabulator-table .tabulator-row {
-    background-color: var(--color-surface-container-lowest, #ffffff) !important;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.2) !important;
-    color: var(--color-on-surface, #0f172a) !important;
-    transition: background-color 0.15s ease;
-    min-height: 36px !important;
-}
-
-/* Alternate Row Hover */
-.tabulator .tabulator-tableholder .tabulator-table .tabulator-row:hover {
-    background-color: rgba(241, 245, 249, 0.6) !important;
-    cursor: pointer;
-}
-
-/* Selected Row Highlight */
-.tabulator .tabulator-tableholder .tabulator-table .tabulator-row.tabulator-selected {
-    background-color: rgba(59, 130, 246, 0.08) !important;
-    border-left: 3px solid var(--color-primary, #3b82f6) !important;
-}
-
-/* Cell Padding & Alignment */
-.tabulator .tabulator-cell {
-    padding: 6px 12px !important;
-    border-right: 1px solid rgba(148, 163, 184, 0.12) !important;
-    display: inline-block !important;
-    vertical-align: middle !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    line-height: 24px !important;
-}
-
-/* Cell Editing Focus State */
-.tabulator .tabulator-cell.tabulator-editing {
-    outline: 2px solid var(--color-primary, #3b82f6) !important;
-    outline-offset: -2px !important;
-    padding: 8px !important;
-    background-color: #ffffff !important;
-}
-
-.tabulator .tabulator-cell.tabulator-editing textarea,
-.tabulator .tabulator-cell.tabulator-editing input {
-    font-family: inherit !important;
-    font-size: 0.875rem !important;
-    color: #0f172a !important;
-    background: transparent !important;
-    border: none !important;
-    outline: none !important;
-    width: 100% !important;
-    resize: vertical !important;
-}
-
-/* Frozen Actions column: opaque, so scrolled content never shows through */
-.tabulator .tabulator-cell.tabulator-frozen {
-    background-color: #ffffff !important;
-    box-shadow: 2px 0 6px rgba(0, 0, 0, 0.06) !important;
-    z-index: 2;
-}
-
-.tabulator .tabulator-row:hover .tabulator-cell.tabulator-frozen {
-    background-color: #f6f8fb !important;
-}
-
-.tabulator .tabulator-row.tabulator-selected .tabulator-cell.tabulator-frozen {
-    background-color: #eff5fe !important;
-}
-
-.tabulator .tabulator-header .tabulator-col.tabulator-frozen {
-    background-color: #f1f5f9 !important;
-    /* same as the header background */
-    box-shadow: 2px 0 6px rgba(0, 0, 0, 0.06) !important;
-    z-index: 3;
-}
-
-/* Custom Scrollbar for Grid Container */
-.tabulator .tabulator-tableholder {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(100, 116, 139, 0.35) transparent;
-}
-
-.tabulator .tabulator-tableholder::-webkit-scrollbar {
-    height: 8px;
-    width: 8px;
-}
-
-.tabulator .tabulator-tableholder::-webkit-scrollbar-thumb {
-    background: rgba(100, 116, 139, 0.35);
-    /* border-radius: 999px; */
-}
-
-
-/* ==========================================================================
-   Sidebar Card Editor Collapse State
-   ========================================================================== */
-#card-editor-sidebar.collapsed #sidebar-content-wrapper {
-    display: none !important;
-}
 ```
 
 FlashcardService.php
@@ -2733,6 +2479,61 @@ class FlashcardService
         return $card ?: null;
     }
 
+        /**
+     * Cards for the printable PDF reviewer.
+     * Only ACTIVE cards of a deck the user owns, in the order of $cardIds
+     * (grid order from the deck page). Read-only.
+     *
+     * @param int[] $cardIds
+     * @return array<int, array{id:int, front:string, back:string}>
+     */
+    public static function getCardsForPrint(mysqli $conn, int $deckId, int $userId, array $cardIds): array
+    {
+        $cardIds = array_values(array_unique(array_filter(
+            array_map('intval', $cardIds),
+            fn($id) => $id > 0
+        )));
+        if (!$cardIds) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($cardIds), '?'));
+        $orderList    = implode(',', $cardIds);   // integers only (cast above), safe to inline
+
+        $sql = "SELECT f.id, f.front, f.back
+                  FROM flashcards f
+                  JOIN decks d ON d.id = f.deck_id
+                 WHERE f.deck_id = ?
+                   AND d.user_id = ?
+                   AND d.deleted_at IS NULL
+                   AND f.deleted_at IS NULL
+                   AND f.id IN ($placeholders)
+                 ORDER BY FIELD(f.id, $orderList)";
+
+        $stmt = mysqli_prepare($conn, $sql);
+        if (!$stmt) {
+            return [];
+        }
+
+        $types  = 'ii' . str_repeat('i', count($cardIds));
+        $params = array_merge([$deckId, $userId], $cardIds);
+        mysqli_stmt_bind_param($stmt, $types, ...$params);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+
+        $cards = [];
+        while ($row = mysqli_fetch_assoc($result)) {
+            $cards[] = [
+                'id'    => (int) $row['id'],
+                'front' => (string) $row['front'],
+                'back'  => (string) $row['back'],
+            ];
+        }
+        mysqli_stmt_close($stmt);
+
+        return $cards;
+    }
+
     /**
      * Safely escape HTML string values for view rendering.
      * 
@@ -2901,513 +2702,468 @@ class FlashcardService
 }
 ```
 
-flashcard-actions.php
+review-hub-view.php
+```
+<?php
+/** Review Hub dashboard. */
+$h = [ReviewHubService::class, 'h'];
+$upcomingRows = [];
+foreach ($upcomingDecks as $d) {
+    $upcomingRows[] = $d;
+}
+?>
+<div class="w-full px-2 sm:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
+  <div class="flex flex-col w-full gap-5 sm:gap-6">
+    <h1 class="font-headline-md text-2xl font-bold tracking-tight text-on-surface">Review</h1>
+
+    <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3" aria-label="Review quick actions">
+      <a href="<?= $dueTotal > 0 && !empty($dueDecks) ? 'review.php?deck_id=' . (int)$dueDecks[0]['id'] : 'review.php' ?>" class="bg-gradient-to-br from-primary/10 via-surface-container-lowest to-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-xs flex flex-col justify-between relative group hover:border-primary/50 hover:shadow-md transition-all min-h-[110px]">
+        <div class="absolute right-0 bottom-0 w-16 h-16 bg-primary/10 rounded-br-2xl rounded-tl-full blur-md pointer-events-none group-hover:bg-primary/20 transition-all"></div>
+        <div class="relative z-10 flex items-center justify-between w-full">
+          <span class="material-symbols-outlined text-primary text-2xl">play_circle</span>
+        </div>
+        <div class="relative z-10 mt-2">
+          <h2 class="font-bold text-on-surface">Review Scheduled Cards</h2>
+          <p class="text-sm text-on-surface-variant mt-1"><?= (int)$dueTotal ?> card<?= $dueTotal === 1 ? '' : 's' ?> due now</p>
+        </div>
+      </a>
+      <button type="button" data-open-modal="random-practice-modal" class="text-left bg-gradient-to-br from-teal-500/10 via-surface-container-lowest to-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-xs flex flex-col justify-between relative group hover:border-teal-500/50 hover:shadow-md transition-all min-h-[110px]">
+        <div class="absolute right-0 bottom-0 w-16 h-16 bg-teal-500/10 rounded-br-2xl rounded-tl-full blur-md pointer-events-none group-hover:bg-teal-500/20 transition-all"></div>
+        <div class="relative z-10 flex items-center justify-between w-full">
+          <span class="material-symbols-outlined text-teal-600 text-2xl">shuffle</span>
+        </div>
+        <div class="relative z-10 mt-2">
+          <h2 class="font-bold text-on-surface">Review Deck in Random</h2>
+          <p class="text-sm text-on-surface-variant mt-1">Practice any active cards in shuffled order</p>
+        </div>
+      </button>
+      <button type="button" data-open-modal="upcoming-modal" class="text-left bg-gradient-to-br from-rose-500/10 via-surface-container-lowest to-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-xs flex flex-col justify-between relative group hover:border-error/50 hover:shadow-md transition-all min-h-[110px]">
+        <div class="absolute right-0 bottom-0 w-16 h-16 bg-rose-500/10 rounded-br-2xl rounded-tl-full blur-md pointer-events-none group-hover:bg-rose-500/20 transition-all"></div>
+        <div class="relative z-10 flex items-center justify-between w-full">
+          <span class="material-symbols-outlined text-error text-2xl">event_upcoming</span>
+        </div>
+        <div class="relative z-10 mt-2">
+          <h2 class="font-bold text-on-surface">View Upcoming</h2>
+          <p class="text-sm text-on-surface-variant mt-1"><?= array_sum(array_column($upcomingDecks, 'upcomingCount')) ?> cards scheduled in the next <?= (int)ReviewHubService::UPCOMING_DAYS ?> days</p>
+        </div>
+      </button>
+      <a href="sessions.php" class="bg-gradient-to-br from-indigo-500/10 via-surface-container-lowest to-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-xs flex flex-col justify-between relative group hover:border-indigo-500/50 hover:shadow-md transition-all min-h-[110px]">
+        <div class="absolute right-0 bottom-0 w-16 h-16 bg-indigo-500/10 rounded-br-2xl rounded-tl-full blur-md pointer-events-none group-hover:bg-indigo-500/20 transition-all"></div>
+        <div class="relative z-10 flex items-center justify-between w-full">
+          <span class="material-symbols-outlined text-indigo-600 text-2xl">history</span>
+        </div>
+        <div class="relative z-10 mt-2">
+          <h2 class="font-bold text-on-surface">View Session History</h2>
+          <p class="text-sm text-on-surface-variant mt-1">Browse completed review sessions</p>
+        </div>
+      </a>
+    </section>
+
+    <section class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest overflow-hidden">
+      <div class="p-4 sm:p-5 border-b border-outline-variant/20 flex items-center justify-between gap-3">
+        <div><h2 class="text-lg font-bold text-on-surface">Due Now</h2><p class="text-sm text-on-surface-variant mt-1">Choose a deck to start its scheduled review.</p></div>
+        <span class="rounded-full px-3 py-1 bg-primary/10 text-primary text-sm font-bold tabular-nums"><?= (int)$dueTotal ?></span>
+      </div>
+      <?php if (empty($dueDecks)): ?>
+        <p class="p-6 text-sm text-on-surface-variant">No cards are due right now. You can use Random Practice or check upcoming cards.</p>
+      <?php else: ?>
+      <div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-surface-container-low text-on-surface-variant"><tr><th class="text-left font-semibold px-4 py-3">Deck</th><th class="text-right font-semibold px-4 py-3">New</th><th class="text-right font-semibold px-4 py-3">Learning</th><th class="text-right font-semibold px-4 py-3">Young</th><th class="text-right font-semibold px-4 py-3">Mastered</th><th class="text-right font-semibold px-4 py-3">Due</th></tr></thead><tbody>
+      <?php foreach ($dueDecks as $d): ?><tr class="border-t border-outline-variant/20 hover:bg-surface-container-low/40"><td class="px-4 py-3"><a class="font-semibold text-primary hover:underline" href="review.php?deck_id=<?= (int)$d['id'] ?>"><?= $h($d['title']) ?></a></td><td class="px-4 py-3 text-right tabular-nums"><?= (int)$d['newDueCount'] ?></td><td class="px-4 py-3 text-right tabular-nums"><?= (int)$d['learningDueCount'] ?></td><td class="px-4 py-3 text-right tabular-nums"><?= (int)$d['youngDueCount'] ?></td><td class="px-4 py-3 text-right tabular-nums"><?= (int)$d['masteredDueCount'] ?></td><td class="px-4 py-3 text-right font-bold tabular-nums"><?= (int)$d['dueCount'] ?></td></tr><?php endforeach; ?>
+      </tbody></table></div><?php endif; ?>
+    </section>
+
+    <section class="rounded-2xl border border-outline-variant/30 bg-surface-container-lowest overflow-hidden">
+      <div class="p-4 sm:p-5 border-b border-outline-variant/20 flex items-center justify-between gap-3"><div><h2 class="text-lg font-bold text-on-surface">Recent Sessions</h2><p class="text-sm text-on-surface-variant mt-1">Read-only overview of your latest sessions. Random Practice is stored separately from SRS statistics.</p></div><a href="sessions.php" class="text-sm font-semibold text-primary hover:underline">All history</a></div>
+      <?php if (empty($recentSessions)): ?><p class="p-6 text-sm text-on-surface-variant">No completed scheduled review sessions yet.</p><?php else: ?>
+      <div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-surface-container-low text-on-surface-variant"><tr><th class="text-left font-semibold px-4 py-3">Deck</th><th class="text-right font-semibold px-4 py-3">Cards</th><th class="text-right font-semibold px-4 py-3">Accuracy</th><th class="text-right font-semibold px-4 py-3">Duration</th><th class="text-right font-semibold px-4 py-3">When</th></tr></thead><tbody>
+      <?php foreach ($recentSessions as $s): ?><tr class="border-t border-outline-variant/20"><td class="px-4 py-3"><a class="font-semibold text-primary hover:underline" href="<?= $s['sessionType'] === 'random' ? 'deck.php?deck_id=' . (int)$s['deckId'] : 'session-details.php?id=' . (int)$s['sessionID'] ?>"><?= $s['sessionType'] === 'random' ? $h($s['sessionLabel'] . ' · ' . $s['deckTitle']) : $h($s['deckTitle']) ?></a></td><td class="px-4 py-3 text-right tabular-nums"><?= (int)$s['cardsReviewed'] ?></td><td class="px-4 py-3 text-right tabular-nums"><?= (int)$s['accuracy'] ?>%</td><td class="px-4 py-3 text-right tabular-nums"><?= $h(ReviewHubService::formatDuration($s['durationSeconds'])) ?></td><td class="px-4 py-3 text-right text-on-surface-variant whitespace-nowrap"><?= $h($s['formattedTime']) ?></td></tr><?php endforeach; ?>
+      </tbody></table></div><?php endif; ?>
+    </section>
+  </div>
+</div>
+
+<!-- Upcoming cards modal -->
+<div id="upcoming-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/50 p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="upcoming-modal-title">
+ <div class="w-full max-w-3xl max-h-[90dvh] overflow-hidden rounded-2xl bg-surface-container-lowest border border-outline-variant/30 shadow-xl flex flex-col">
+  <div class="flex items-start justify-between gap-4 p-5 border-b border-outline-variant/20"><div><h2 id="upcoming-modal-title" class="text-lg font-bold text-on-surface">Upcoming Cards</h2><p class="text-sm text-on-surface-variant mt-1">Cards scheduled within the next <?= (int)ReviewHubService::UPCOMING_DAYS ?> days.</p></div><button type="button" data-close-modal class="rounded-lg p-2 hover:bg-surface-container-high" aria-label="Close upcoming cards"><span class="material-symbols-outlined">close</span></button></div>
+  <div class="overflow-auto p-4 sm:p-5">
+   <?php if (empty($upcomingDecks)): ?><p class="text-sm text-on-surface-variant py-8 text-center">No upcoming cards in the next <?= (int)ReviewHubService::UPCOMING_DAYS ?> days.</p><?php else: ?>
+   <table class="w-full text-sm"><thead class="bg-surface-container-low text-on-surface-variant"><tr><th class="text-left px-3 py-3">Deck</th><th class="text-right px-3 py-3">Cards soon</th><th class="text-right px-3 py-3">Next due</th></tr></thead><tbody>
+   <?php foreach ($upcomingDecks as $d): ?><tr class="border-t border-outline-variant/20"><td class="px-3 py-3"><a class="font-semibold text-primary hover:underline" href="review.php?deck_id=<?= (int)$d['id'] ?>"><?= $h($d['title']) ?></a><?php if ((int)$d['dueCount'] > 0): ?><span class="ml-2 text-xs text-rose-700 font-semibold">Due now too</span><?php endif; ?></td><td class="px-3 py-3 text-right tabular-nums"><?= (int)$d['upcomingCount'] ?></td><td class="px-3 py-3 text-right text-on-surface-variant whitespace-nowrap"><?= $d['nextDueSeconds'] !== null ? $h(ReviewHubService::formatSpan((int)$d['nextDueSeconds'])) : '—' ?></td></tr><?php endforeach; ?>
+   </tbody></table><?php endif; ?>
+  </div>
+  <div class="p-4 border-t border-outline-variant/20 flex justify-end"><button type="button" data-close-modal class="px-4 py-2 rounded-xl border border-outline-variant text-sm font-semibold hover:bg-surface-container-low">Close</button></div>
+ </div>
+</div>
+
+<!-- Random Practice deck selector -->
+<div id="random-practice-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/50 p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="random-practice-title">
+ <form id="random-practice-form" class="w-full max-w-lg rounded-2xl bg-surface-container-lowest border border-outline-variant/30 shadow-xl overflow-hidden">
+  <div class="flex items-start justify-between gap-4 p-5 border-b border-outline-variant/20"><div><h2 id="random-practice-title" class="text-lg font-bold text-on-surface">Review Deck in Random</h2><p class="text-sm text-on-surface-variant mt-1">All active cards are shuffled. This practice is saved with a label but never changes SRS scheduling or statistics.</p></div><button type="button" data-close-modal class="rounded-lg p-2 hover:bg-surface-container-high" aria-label="Close deck selector"><span class="material-symbols-outlined">close</span></button></div>
+  <div class="p-5"><label for="random-practice-deck" class="block text-sm font-semibold text-on-surface mb-2">Choose a deck</label><select id="random-practice-deck" required class="w-full rounded-xl border border-outline-variant bg-surface-container-lowest p-3 text-sm text-on-surface"><option value="">Select a deck</option><?php foreach ($practiceDecks as $d): ?><option value="<?= (int)$d['id'] ?>"><?= $h($d['title']) ?> (<?= (int)$d['activeCount'] ?> active cards)</option><?php endforeach; ?></select><?php if (empty($practiceDecks)): ?><p class="text-sm text-on-surface-variant mt-3">No decks have active cards yet.</p><?php endif; ?></div>
+  <div class="p-4 border-t border-outline-variant/20 flex justify-end gap-2"><button type="button" data-close-modal class="px-4 py-2 rounded-xl border border-outline-variant text-sm font-semibold hover:bg-surface-container-low">Cancel</button><button type="submit" <?= empty($practiceDecks) ? 'disabled' : '' ?> class="px-4 py-2 rounded-xl bg-primary text-on-primary text-sm font-bold disabled:opacity-50">Start Random Practice</button></div>
+ </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('[data-open-modal]').forEach(function (btn) { btn.addEventListener('click', function () { var m = document.getElementById(btn.dataset.openModal); if (m) { m.classList.remove('hidden'); m.classList.add('flex'); var focus = m.querySelector('button,select'); if (focus) focus.focus(); } }); });
+  document.querySelectorAll('[data-close-modal]').forEach(function (btn) { btn.addEventListener('click', function () { var m = btn.closest('[role="dialog"]'); if (m) { m.classList.add('hidden'); m.classList.remove('flex'); } }); });
+  document.querySelectorAll('[role="dialog"]').forEach(function (m) { m.addEventListener('click', function (e) { if (e.target === m) { m.classList.add('hidden'); m.classList.remove('flex'); } }); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') document.querySelectorAll('[role="dialog"]:not(.hidden)').forEach(function (m) { m.classList.add('hidden'); m.classList.remove('flex'); }); });
+  var form = document.getElementById('random-practice-form');
+  if (form) form.addEventListener('submit', function (e) { e.preventDefault(); var id = document.getElementById('random-practice-deck').value; if (id) window.location.href = 'review.php?mode=random&deck_id=' + encodeURIComponent(id); });
+});
+</script>
+```
+
+ReviewHubService.php
 ```
 <?php
 /**
- * Flashcard Actions API Endpoint
- * 
- * Secure HTTP POST JSON endpoint handling asynchronous flashcard mutations 
- * including addition, editing, and soft-deletion.
+ * ReviewHubService
+ *
+ * Read-only data + formatting helpers for the Review Hub page (review.php, no deck_id).
+ * All "seconds" values are computed in SQL (TIMESTAMPDIFF) so PHP/MySQL timezone
+ * differences cannot skew them.
+ *
+ * Place next to FlashcardService.php (the api/ folder).
  */
-
-session_start();
-header('Content-Type: application/json; charset=utf-8');
-
-require_once __DIR__ . '/../../config/db.php';
-require_once __DIR__ . '/FlashcardService.php'; 
-require_once __DIR__ . '/ArchiveService.php';   
-
-/**
- * Send a structured JSON HTTP response and terminate request execution.
- * 
- * @param int $status HTTP status code.
- * @param array $body Response payload data.
- * @return void
- */
-function respond(int $status, array $body): void
+class ReviewHubService
 {
-    http_response_code($status);
-    echo json_encode($body);
-    exit;
-}
+    /** Cards scheduled within this many days count as "upcoming". */
+    public const UPCOMING_DAYS = 2;
 
-// 1. Request Method Verification
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    respond(405, ['error' => 'Method not allowed.']);
-}
+    /**
+     * Schema-derived card buckets used by the Due Now table.
+     *
+     * The schema has no explicit learning/young/mastered state column, so these
+     * buckets are inferred from review_count and interval_days:
+     * - new: never reviewed
+     * - learning: reviewed and interval_days <= 1
+     * - young: interval_days 2..20
+     * - mastered: interval_days >= 21
+     *
+     * Adjust these thresholds if the application defines different SRS rules.
+     */
+    public const YOUNG_MAX_INTERVAL_DAYS = 20;
+    public const MASTERED_MIN_INTERVAL_DAYS = 21;
 
-// 2. Authentication Check
-if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true || !isset($_SESSION['user_id'])) {
-    respond(401, ['error' => 'Please log in again.']);
-}
+    // -----------------------------------------------------------------------
+    // Queries
+    // -----------------------------------------------------------------------
 
-// 3. Input Data Parsing
-$input = json_decode(file_get_contents('php://input'), true);
-if (!is_array($input)) {
-    respond(400, ['error' => 'Invalid request structure.']);
-}
+    /**
+     * Every non-archived deck that has cards due now or coming up soon.
+     *
+     * @return array<int, array{
+     *   id:int, title:string, totalCards:int, dueCount:int, upcomingCount:int,
+     *   newDueCount:int, learningDueCount:int, youngDueCount:int, masteredDueCount:int,
+     *   overdueSeconds:?int, nextDueSeconds:?int
+     * }>
+     */
+    public static function getHubDecks(mysqli $conn, int $userId): array
+    {
+        $days = (int) self::UPCOMING_DAYS;
+        $youngMax = (int) self::YOUNG_MAX_INTERVAL_DAYS;
+        $masteredMin = (int) self::MASTERED_MIN_INTERVAL_DAYS;
 
-// 4. Anti-CSRF Token Verification
-$token = $input['csrf_token'] ?? '';
-if (empty($_SESSION['csrf_token']) || !is_string($token) || !hash_equals($_SESSION['csrf_token'], $token)) {
-    respond(403, ['error' => 'Security check failed. Refresh the page and try again.']);
-}
+        $sql = "SELECT d.id, d.title,
+                       COUNT(f.id) AS total_cards,
+                       COALESCE(SUM(f.next_review_at <= NOW()), 0) AS due_count,
+                       COALESCE(SUM(f.next_review_at <= NOW() AND f.review_count = 0), 0) AS new_due_count,
+                       COALESCE(SUM(f.next_review_at <= NOW()
+                                    AND f.review_count > 0 AND f.interval_days <= 1), 0) AS learning_due_count,
+                       COALESCE(SUM(f.next_review_at <= NOW()
+                                    AND f.review_count > 0 AND f.interval_days BETWEEN 2 AND $youngMax), 0) AS young_due_count,
+                       COALESCE(SUM(f.next_review_at <= NOW()
+                                    AND f.review_count > 0 AND f.interval_days >= $masteredMin), 0) AS mastered_due_count,
+                       COALESCE(SUM(f.next_review_at > NOW()
+                                    AND f.next_review_at <= DATE_ADD(NOW(), INTERVAL $days DAY)), 0) AS upcoming_count,
+                       TIMESTAMPDIFF(SECOND,
+                           MIN(CASE WHEN f.next_review_at <= NOW() THEN f.next_review_at END),
+                           NOW()) AS overdue_seconds,
+                       TIMESTAMPDIFF(SECOND, NOW(),
+                           MIN(CASE WHEN f.next_review_at > NOW()
+                                     AND f.next_review_at <= DATE_ADD(NOW(), INTERVAL $days DAY)
+                                    THEN f.next_review_at END)) AS next_due_seconds
+                FROM decks d
+                LEFT JOIN flashcards f ON f.deck_id = d.id AND f.deleted_at IS NULL
+                WHERE d.user_id = ? AND d.deleted_at IS NULL
+                GROUP BY d.id, d.title
+                HAVING due_count > 0 OR upcoming_count > 0";
 
-require_once __DIR__ . '/../../config/db.php';
-
-$user_id = (int) $_SESSION['user_id'];
-$action  = $input['action'] ?? '';
-$deck_id = filter_var($input['deck_id'] ?? null, FILTER_VALIDATE_INT);
-
-if (!$deck_id || $deck_id < 1) {
-    respond(400, ['error' => 'Invalid deck selection.']);
-}
-
-// 5. Verify User Ownership of Target Deck
-$checkStmt = mysqli_prepare($conn, "SELECT id FROM decks WHERE id = ? AND user_id = ? AND deleted_at IS NULL");
-mysqli_stmt_bind_param($checkStmt, "ii", $deck_id, $user_id);
-mysqli_stmt_execute($checkStmt);
-mysqli_stmt_store_result($checkStmt);
-$ownsDeck = mysqli_stmt_num_rows($checkStmt) === 1;
-mysqli_stmt_close($checkStmt);
-
-if (!$ownsDeck) {
-    respond(404, ['error' => 'Deck not found or access denied.']);
-}
-
-// ---------------------------------------------------------------------------
-// Action Processor
-// ---------------------------------------------------------------------------
-try {
-    // Action: Add Flashcard
-    if ($action === 'add') {
-        $front = trim((string) ($input['front'] ?? ''));
-        $back  = trim((string) ($input['back'] ?? ''));
-
-        if ($front === '' || $back === '') {
-            respond(422, ['error' => 'Both the front and back of the card are required.']);
+        $decks = [];
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "i", $userId);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            while ($row = mysqli_fetch_assoc($result)) {
+                $decks[] = [
+                    'id'             => (int) $row['id'],
+                    'title'          => (string) $row['title'],
+                    'totalCards'     => (int) $row['total_cards'],
+                    'dueCount'       => (int) $row['due_count'],
+                    'newDueCount'    => (int) $row['new_due_count'],
+                    'learningDueCount' => (int) $row['learning_due_count'],
+                    'youngDueCount'  => (int) $row['young_due_count'],
+                    'masteredDueCount' => (int) $row['mastered_due_count'],
+                    'upcomingCount'  => (int) $row['upcoming_count'],
+                    'overdueSeconds' => $row['overdue_seconds'] === null ? null : (int) $row['overdue_seconds'],
+                    'nextDueSeconds' => $row['next_due_seconds'] === null ? null : (int) $row['next_due_seconds'],
+                ];
+            }
+            mysqli_stmt_close($stmt);
         }
-        if (mb_strlen($front, 'UTF-8') > 5000 || mb_strlen($back, 'UTF-8') > 5000) {
-            respond(422, ['error' => 'Each side must be 5000 characters or fewer.']);
-        }
-
-        $stmt = mysqli_prepare($conn, "INSERT INTO flashcards (deck_id, front, back) VALUES (?, ?, ?)");
-        mysqli_stmt_bind_param($stmt, "iss", $deck_id, $front, $back);
-        mysqli_stmt_execute($stmt);
-        $newCardId = mysqli_insert_id($conn);
-        mysqli_stmt_close($stmt);
-
-        // Fetch newly created card record with defaults
-        $fetchStmt = mysqli_prepare($conn, "SELECT id, deck_id, front, back, interval_days, next_review_at, review_count, lapses, created_at, updated_at FROM flashcards WHERE id = ?");
-        mysqli_stmt_bind_param($fetchStmt, "i", $newCardId);
-        mysqli_stmt_execute($fetchStmt);
-        $card = mysqli_fetch_assoc(mysqli_stmt_get_result($fetchStmt));
-        mysqli_stmt_close($fetchStmt);
-
-        respond(200, [
-            'ok'   => true,
-            'card' => $card,
-            'counts' => FlashcardService::getDeckCounts($conn, $deck_id)
-        ]);
+        return $decks;
     }
 
-    // Action: Update Flashcard
-    if ($action === 'update') {
-        $card_id        = filter_var($input['card_id'] ?? null, FILTER_VALIDATE_INT);
-        $front          = trim((string) ($input['front'] ?? ''));
-        $back           = trim((string) ($input['back'] ?? ''));
-        $next_review_at = trim((string) ($input['next_review_at'] ?? ''));
+    /**
+     * Decks that have at least one active card, for the Random Practice picker.
+     *
+     * @return array<int, array{id:int, title:string, activeCount:int}>
+     */
+    public static function getPracticeDecks(mysqli $conn, int $userId): array
+    {
+        $sql = "SELECT d.id, d.title, COUNT(f.id) AS active_count
+                FROM decks d
+                JOIN flashcards f ON f.deck_id = d.id AND f.deleted_at IS NULL
+                WHERE d.user_id = ? AND d.deleted_at IS NULL
+                GROUP BY d.id, d.title
+                HAVING active_count > 0
+                ORDER BY d.title ASC";
 
-        if (!$card_id || $card_id < 1) {
-            respond(400, ['error' => 'Invalid card specified.']);
+        $decks = [];
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "i", $userId);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            while ($row = mysqli_fetch_assoc($result)) {
+                $decks[] = [
+                    'id'          => (int) $row['id'],
+                    'title'       => (string) $row['title'],
+                    'activeCount' => (int) $row['active_count'],
+                ];
+            }
+            mysqli_stmt_close($stmt);
         }
-        if ($front === '' || $back === '') {
-            respond(422, ['error' => 'Both the front and back of the card are required.']);
+        return $decks;
+    }
+
+    /**
+     * Seconds until the user's next card becomes due (no 48h limit), or null
+     * when there are no scheduled cards at all.
+     */
+    public static function getNextDueSeconds(mysqli $conn, int $userId): ?int
+    {
+        $sql = "SELECT TIMESTAMPDIFF(SECOND, NOW(), MIN(f.next_review_at))
+                FROM flashcards f
+                JOIN decks d ON d.id = f.deck_id
+                WHERE d.user_id = ? AND d.deleted_at IS NULL
+                  AND f.deleted_at IS NULL AND f.next_review_at > NOW()";
+
+        $secs = null;
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "i", $userId);
+            mysqli_stmt_execute($stmt);
+            mysqli_stmt_bind_result($stmt, $secs);
+            mysqli_stmt_fetch($stmt);
+            mysqli_stmt_close($stmt);
         }
-        if (mb_strlen($front, 'UTF-8') > 5000 || mb_strlen($back, 'UTF-8') > 5000) {
-            respond(422, ['error' => 'Each side must be 5000 characters or fewer.']);
+        return $secs === null ? null : (int) $secs;
+    }
+
+    /**
+     * Latest completed sessions: scheduled reviews plus Random Practice
+     * (stored separately in random_practice_sessions).
+     *
+     * @return array<int, array{
+     *   sessionType:string, sessionLabel:string, sessionID:int, deckId:int,
+     *   deckTitle:string, cardsReviewed:int, rememberedCount:int,
+     *   accuracy:int, durationSeconds:?int, formattedTime:string
+     * }>
+     */
+    public static function getRecentSessions(mysqli $conn, int $userId, int $limit = 8): array
+    {
+        $limit = max(1, min($limit, 50));
+
+        $sql = "SELECT * FROM (
+                    SELECT 'srs' AS session_type, 'Review' AS session_label,
+                           rs.id AS session_id, rs.deck_id, d.title AS deck_title,
+                           rs.total_reviewed AS cards, rs.remembered_count,
+                           rs.accuracy_percentage AS accuracy,
+                           TIMESTAMPDIFF(SECOND, rs.started_at, rs.ended_at) AS duration_seconds,
+                           rs.ended_at,
+                           TIMESTAMPDIFF(SECOND, rs.ended_at, NOW()) AS ended_ago_seconds
+                    FROM review_sessions rs
+                    JOIN decks d ON d.id = rs.deck_id
+                    WHERE rs.user_id = ? AND rs.ended_at IS NOT NULL
+                    UNION ALL
+                    SELECT 'random', rp.label,
+                           rp.id, rp.deck_id, d.title,
+                           rp.total_rated, rp.remembered_count,
+                           rp.accuracy_percentage,
+                           rp.duration_seconds,
+                           rp.ended_at,
+                           TIMESTAMPDIFF(SECOND, rp.ended_at, NOW())
+                    FROM random_practice_sessions rp
+                    JOIN decks d ON d.id = rp.deck_id
+                    WHERE rp.user_id = ?
+                ) t
+                ORDER BY ended_at DESC, session_id DESC
+                LIMIT ?";
+
+        $sessions = [];
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "iii", $userId, $userId, $limit);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            while ($row = mysqli_fetch_assoc($result)) {
+                $sessions[] = [
+                    'sessionType'     => (string) $row['session_type'],
+                    'sessionLabel'    => (string) $row['session_label'],
+                    'sessionID'       => (int) $row['session_id'],
+                    'deckId'          => (int) $row['deck_id'],
+                    'deckTitle'       => (string) $row['deck_title'],
+                    'cardsReviewed'   => (int) $row['cards'],
+                    'rememberedCount' => (int) $row['remembered_count'],
+                    'accuracy'        => (int) $row['accuracy'],
+                    'durationSeconds' => $row['duration_seconds'] === null ? null : (int) $row['duration_seconds'],
+                    'formattedTime'   => self::formatAgo((int) $row['ended_ago_seconds']),
+                ];
+            }
+            mysqli_stmt_close($stmt);
+        }
+        return $sessions;
+    }
+
+    /**
+     * Cards reviewed today and the current study-day streak.
+     * Same rules as the dashboard: a day counts when a completed session
+     * reviewed at least one card; the streak is alive if the latest study day
+     * is today or yesterday.
+     *
+     * @return array{reviewedToday:int, currentStreak:int}
+     */
+    public static function getStreakInfo(mysqli $conn, int $userId): array
+    {
+        $sql = "SELECT DATE(started_at) AS study_date, SUM(total_reviewed) AS reviewed
+                FROM review_sessions
+                WHERE user_id = ? AND ended_at IS NOT NULL
+                GROUP BY DATE(started_at)
+                HAVING SUM(total_reviewed) > 0
+                ORDER BY study_date DESC";
+
+        $days = [];
+        if ($stmt = mysqli_prepare($conn, $sql)) {
+            mysqli_stmt_bind_param($stmt, "i", $userId);
+            mysqli_stmt_execute($stmt);
+            $result = mysqli_stmt_get_result($stmt);
+            while ($row = mysqli_fetch_assoc($result)) {
+                $days[$row['study_date']] = (int) $row['reviewed'];
+            }
+            mysqli_stmt_close($stmt);
         }
 
-        // Validate and sanitize custom next_review_at if provided
-        $formattedNextReview = null;
-        if ($next_review_at !== '') {
-            $dt = DateTime::createFromFormat('Y-m-d\TH:i', $next_review_at) 
-               ?: DateTime::createFromFormat('Y-m-d H:i:s', $next_review_at);
-            if ($dt !== false) {
-                $formattedNextReview = $dt->format('Y-m-d H:i:s');
+        $today     = date('Y-m-d');
+        $yesterday = date('Y-m-d', strtotime('-1 day'));
+
+        $streak = 0;
+        if (isset($days[$today]) || isset($days[$yesterday])) {
+            $cursor = new DateTime(isset($days[$today]) ? $today : $yesterday);
+            while (isset($days[$cursor->format('Y-m-d')])) {
+                $streak++;
+                $cursor->modify('-1 day');
             }
         }
 
-        if ($formattedNextReview !== null) {
-            $stmt = mysqli_prepare($conn, "UPDATE flashcards SET front = ?, back = ?, next_review_at = ? WHERE id = ? AND deck_id = ? AND deleted_at IS NULL");
-            mysqli_stmt_bind_param($stmt, "sssii", $front, $back, $formattedNextReview, $card_id, $deck_id);
-        } else {
-            $stmt = mysqli_prepare($conn, "UPDATE flashcards SET front = ?, back = ? WHERE id = ? AND deck_id = ? AND deleted_at IS NULL");
-            mysqli_stmt_bind_param($stmt, "ssii", $front, $back, $card_id, $deck_id);
+        return [
+            'reviewedToday' => $days[$today] ?? 0,
+            'currentStreak' => $streak,
+        ];
+    }
+
+    // -----------------------------------------------------------------------
+    // Table helpers (pure PHP, no DB)
+    // -----------------------------------------------------------------------
+
+    /** Decks with cards due, most due first (oldest overdue breaks ties). */
+    public static function dueDecks(array $hubDecks): array
+    {
+        $due = array_values(array_filter($hubDecks, fn($d) => $d['dueCount'] > 0));
+        usort($due, function ($a, $b) {
+            return [$b['dueCount'], $b['overdueSeconds'] ?? 0]
+               <=> [$a['dueCount'], $a['overdueSeconds'] ?? 0];
+        });
+        return $due;
+    }
+
+    /** Decks with cards coming up soon, soonest first. */
+    public static function upcomingDecks(array $hubDecks): array
+    {
+        $up = array_values(array_filter($hubDecks, fn($d) => $d['upcomingCount'] > 0));
+        usort($up, fn($a, $b) => ($a['nextDueSeconds'] ?? PHP_INT_MAX) <=> ($b['nextDueSeconds'] ?? PHP_INT_MAX));
+        return $up;
+    }
+
+    // -----------------------------------------------------------------------
+    // Formatting
+    // -----------------------------------------------------------------------
+
+    /** "5 min", "3 h", "2 d" (never shows 0). */
+    public static function formatSpan(int $seconds): string
+    {
+        $seconds = max(0, $seconds);
+        if ($seconds < 3600)  return max(1, (int) floor($seconds / 60)) . ' min';
+        if ($seconds < 86400) return (int) floor($seconds / 3600) . ' h';
+        return (int) floor($seconds / 86400) . ' d';
+    }
+
+    /** "just now", "5 mins ago", "1 hour ago", "3 days ago". */
+    public static function formatAgo(int $seconds): string
+    {
+        $seconds = max(0, $seconds);
+        if ($seconds < 60) return 'just now';
+
+        if ($seconds < 3600) {
+            $n = (int) floor($seconds / 60);
+            return $n . ($n === 1 ? ' min ago' : ' mins ago');
         }
-
-        mysqli_stmt_execute($stmt);
-        mysqli_stmt_close($stmt);
-
-        // Fetch refreshed card record
-        $fetchStmt = mysqli_prepare($conn, "SELECT id, deck_id, front, back, interval_days, next_review_at, review_count, lapses, created_at, updated_at FROM flashcards WHERE id = ?");
-        mysqli_stmt_bind_param($fetchStmt, "i", $card_id);
-        mysqli_stmt_execute($fetchStmt);
-        $card = mysqli_fetch_assoc(mysqli_stmt_get_result($fetchStmt));
-        mysqli_stmt_close($fetchStmt);
-
-        respond(200, [
-            'ok'   => true,
-            'card' => $card,
-            'counts' => FlashcardService::getDeckCounts($conn, $deck_id)
-        ]);
-    }
-
-        // Actions: Archive / Restore / Permanent delete
-    if (in_array($action, ['archive', 'restore', 'delete_permanent'], true)) {
-        $card_id = filter_var($input['card_id'] ?? null, FILTER_VALIDATE_INT);
-        if (!$card_id || $card_id < 1) {
-            respond(400, ['error' => 'Invalid card specified.']);
+        if ($seconds < 86400) {
+            $n = (int) floor($seconds / 3600);
+            return $n . ($n === 1 ? ' hour ago' : ' hours ago');
         }
+        $n = (int) floor($seconds / 86400);
+        return $n . ($n === 1 ? ' day ago' : ' days ago');
+    }
 
-        if ($action === 'archive') {
-            $ok = ArchiveService::archive($conn, 'flashcards', $card_id, $user_id);
-        } elseif ($action === 'restore') {
-            $ok = ArchiveService::restore($conn, 'flashcards', $card_id, $user_id);
-        } else {
-            $ok = ArchiveService::deletePermanently($conn, 'flashcards', $card_id, $user_id);
+    /** "45s", "4m 12s", "1h 5m", or an em dash when unknown. */
+    public static function formatDuration(?int $seconds): string
+    {
+        if ($seconds === null || $seconds <= 0) return '—';
+        if ($seconds < 60) return $seconds . 's';
+        if ($seconds < 3600) {
+            $m = (int) floor($seconds / 60);
+            $s = $seconds % 60;
+            return $s > 0 ? "{$m}m {$s}s" : "{$m}m";
         }
-
-        if (!$ok) {
-            respond(404, ['error' => 'Card not found.']);
-        }
-        respond(200, ['ok' => true, 'card_id' => $card_id, 'counts' => FlashcardService::getDeckCounts($conn, $deck_id)]);
+        $h = (int) floor($seconds / 3600);
+        $m = (int) floor(($seconds % 3600) / 60);
+        return $m > 0 ? "{$h}h {$m}m" : "{$h}h";
     }
 
-    // Action: Bulk Duplicate
-    if ($action === 'bulk_duplicate') {
-        $card_ids = $input['card_ids'] ?? [];
-        if (!is_array($card_ids) || empty($card_ids)) respond(400, ['error' => 'No cards selected.']);
-        $card_ids = array_filter(array_map('intval', $card_ids), fn($id) => $id > 0);
-        if (count($card_ids) > 1000) respond(400, ['error' => 'Batch size limited to 1000.']);
-
-        $newCards = FlashcardService::bulkDuplicate($conn, $deck_id, $card_ids, $user_id);
-        respond(200, ['ok' => true, 'cards' => $newCards, 'counts' => FlashcardService::getDeckCounts($conn, $deck_id)]);
+    /** Tailwind classes for an accuracy badge (matches the deck grid thresholds). */
+    public static function accuracyBadgeClass(int $accuracy): string
+    {
+        if ($accuracy >= 80) return 'text-emerald-700 bg-emerald-50 border-emerald-200/80';
+        if ($accuracy >= 50) return 'text-amber-700 bg-amber-50 border-amber-200/80';
+        return 'text-rose-700 bg-rose-50 border-rose-200/80';
     }
 
-    // Action: Bulk Move
-    if ($action === 'bulk_move') {
-        $card_ids = $input['card_ids'] ?? [];
-        $target_deck_id = filter_var($input['target_deck_id'] ?? null, FILTER_VALIDATE_INT);
-        if (!$target_deck_id) respond(400, ['error' => 'Invalid target deck.']);
-        if (!is_array($card_ids) || empty($card_ids)) respond(400, ['error' => 'No cards selected.']);
-        $card_ids = array_filter(array_map('intval', $card_ids), fn($id) => $id > 0);
-        if (count($card_ids) > 1000) respond(400, ['error' => 'Batch size limited to 1000.']);
-
-        $affected = FlashcardService::bulkMove($conn, $deck_id, $target_deck_id, $card_ids, $user_id);
-        respond(200, ['ok' => true, 'affected' => $affected, 'counts' => FlashcardService::getDeckCounts($conn, $deck_id)]);
-    }
-
-    // Action: Bulk Reset
-    if ($action === 'bulk_reset') {
-        $card_ids = $input['card_ids'] ?? [];
-        if (!is_array($card_ids) || empty($card_ids)) respond(400, ['error' => 'No cards selected.']);
-        $card_ids = array_filter(array_map('intval', $card_ids), fn($id) => $id > 0);
-        if (count($card_ids) > 1000) respond(400, ['error' => 'Batch size limited to 1000.']);
-
-        $affected = FlashcardService::bulkReset($conn, $deck_id, $card_ids, $user_id);
-        respond(200, ['ok' => true, 'affected' => $affected, 'counts' => FlashcardService::getDeckCounts($conn, $deck_id)]);
-    }
-
-    // Action: Bulk Archive
-    if ($action === 'bulk_archive') {
-        $card_ids = $input['card_ids'] ?? [];
-        if (!is_array($card_ids) || empty($card_ids)) respond(400, ['error' => 'No cards selected.']);
-        $card_ids = array_filter(array_map('intval', $card_ids), fn($id) => $id > 0);
-        if (count($card_ids) > 1000) respond(400, ['error' => 'Batch size limited to 1000.']);
-
-        $archivedCount = 0;
-        foreach ($card_ids as $id) {
-            if (ArchiveService::archive($conn, 'flashcards', $id, $user_id)) {
-                $archivedCount++;
-            }
-        }
-        respond(200, ['ok' => true, 'affected' => $archivedCount, 'counts' => FlashcardService::getDeckCounts($conn, $deck_id)]);
-    }
-
-        // Actions: Bulk Restore / Bulk Permanent Delete (archive view)
-    if (in_array($action, ['bulk_restore', 'bulk_delete_permanent'], true)) {
-        $card_ids = $input['card_ids'] ?? [];
-        if (!is_array($card_ids) || empty($card_ids)) respond(400, ['error' => 'No cards selected.']);
-        $card_ids = array_filter(array_map('intval', $card_ids), fn($id) => $id > 0);
-        if (count($card_ids) > 1000) respond(400, ['error' => 'Batch size limited to 1000.']);
-
-        $affected = 0;
-        foreach ($card_ids as $id) {
-            $ok = $action === 'bulk_restore'
-                ? ArchiveService::restore($conn, 'flashcards', $id, $user_id)
-                : ArchiveService::deletePermanently($conn, 'flashcards', $id, $user_id);
-            if ($ok) $affected++;
-        }
-        respond(200, ['ok' => true, 'affected' => $affected, 'counts' => FlashcardService::getDeckCounts($conn, $deck_id)]);
-    }
-    
-    respond(400, ['error' => 'Unknown action.']);
-
-} catch (Throwable $e) {
-    error_log('flashcard-actions.php: ' . $e->getMessage());
-    respond(500, ['error' => 'Something went wrong. Please try again.']);
-}
-```
-
-reports.css
-```
-/* ==========================================================================
-   Reports page
-   ========================================================================== */
-
-/* Screen: print-only elements and chart snapshots stay hidden */
-.rp-print-only {
-    display: none;
-}
-
-.rp-chart-img {
-    display: none;
-}
-
-/* Never split a card or chart across two printed pages */
-.rp-avoid-break {
-    break-inside: avoid;
-    page-break-inside: avoid;
-}
-
-/* Sortable table headers */
-.rp-sort-btn {
-    background: none;
-    border: 0;
-    padding: 0;
-    cursor: pointer;
-    color: inherit;
-    font: inherit;
-    letter-spacing: inherit;
-    text-transform: inherit;
-}
-
-.rp-sort-btn:hover {
-    color: #3525cd;
-}
-
-th[aria-sort="ascending"] .rp-sort-btn::after {
-    content: " \25B2";
-    font-size: 0.7em;
-}
-
-th[aria-sort="descending"] .rp-sort-btn::after {
-    content: " \25BC";
-    font-size: 0.7em;
-}
-
-/* Export menu: hide the default <details> marker */
-#rp-export-menu>summary {
-    list-style: none;
-}
-
-#rp-export-menu>summary::-webkit-details-marker {
-    display: none;
-}
-
-/* ==========================================================================
-   PRINT / SAVE AS PDF
-   ========================================================================== */
-@page {
-    size: A4;
-    margin: 12mm;
-}
-
-@media print {
-
-    /* Keep colours (chart bars, badges) in the PDF */
-    * {
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-    }
-
-    html,
-    body {
-        height: auto !important;
-        min-height: 0 !important;
-        overflow: visible !important;
-        background: #ffffff !important;
-        color: #0b1c30 !important;
-    }
-
-    /* App chrome: everything the sidebar include adds next to <main>
-       (sidebar, floating mobile menu button, overlay, tooltip, dialogs) */
-    body> :not(main),
-    #sidebar,
-    #floating-mobile-toggle,
-    #mobile-sidebar-overlay,
-    #sidebar-floating-tooltip,
-    aside,
-    nav,
-    header,
-    body [id*="sidebar"],
-    body [class*="sidebar"],
-    .rp-no-print {
-        display: none !important;
-    }
-
-    /* The page sits beside the sidebar on screen; use the full page when printing */
-    main {
-        padding: 0 !important;
-        margin: 0 !important;
-        min-height: 0 !important;
-        overflow: visible !important;
-    }
-
-    /* app.css adds 80px of left padding when the sidebar is collapsed */
-    html.rp-printing #main-content,
-    html.rp-printing.sidebar-collapsed #main-content,
-    html.rp-printing main.collapsed {
-        padding: 0 !important;
-    }
-
-    #reports-root {
-        padding: 0 !important;
-    }
-
-    /* Show every tab, stacked, whichever one was open on screen */
-    .rp-panel,
-    .rp-panel.hidden {
-        display: block !important;
-    }
-
-    .rp-panel+.rp-panel {
-        margin-top: 8mm;
-    }
-
-    .rp-print-only {
-        display: block !important;
-    }
-
-    /* Print header */
-    .rp-print-header {
-        border-bottom: 2px solid #3525cd;
-        padding-bottom: 4mm;
-        margin-bottom: 4mm;
-    }
-
-    .rp-print-header h1 {
-        font-size: 20pt;
-        font-weight: 700;
-        margin: 0 0 3mm;
-    }
-
-    .rp-print-header table {
-        border-collapse: collapse;
-        font-size: 10pt;
-    }
-
-    .rp-print-header th {
-        text-align: left;
-        padding: 0.5mm 6mm 0.5mm 0;
-        color: #464555;
-        font-weight: 600;
-    }
-
-    .rp-print-header td {
-        padding: 0.5mm 0;
-    }
-
-    .rp-print-section {
-        font-size: 14pt;
-        font-weight: 700;
-        margin: 0 0 3mm;
-        padding-bottom: 1mm;
-        border-bottom: 1px solid #c7c4d8;
-        break-after: avoid;
-    }
-
-    /* Cards: flat, bordered, no shadows */
-    .rp-avoid-break,
-    .rp-kpi-grid>div {
-        box-shadow: none !important;
-        break-inside: avoid;
-        page-break-inside: avoid;
-    }
-
-    /* KPI cards: 3 per row on paper */
-    .rp-kpi-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-        gap: 3mm !important;
-    }
-
-    /* Charts: swap the live canvas for the snapshot <img> made in reports.js */
-    .rp-chart-box {
-        height: auto !important;
-    }
-
-    .rp-printing .rp-chart-box canvas {
-        display: none !important;
-    }
-
-    .rp-printing .rp-chart-img {
-        display: block !important;
-        width: 100% !important;
-        height: auto !important;
-    }
-
-    /* Tables: repeat header row on each page, don't split rows */
-    thead {
-        display: table-header-group;
-    }
-
-    tr {
-        break-inside: avoid;
-        page-break-inside: avoid;
-    }
-
-    /* Report tables on paper */
-    .rp-table-wrap {
-        overflow: visible !important;
-    }
-
-    .rp-table {
-        font-size: 8.5pt;
-        width: 100%;
-        border-collapse: collapse;
-    }
-
-    .rp-table th,
-    .rp-table td {
-        padding: 1.5mm 2mm !important;
-        border-bottom: 1px solid #c7c4d8;
-    }
-
-    .rp-table thead th {
-        background: #eff4ff !important;
-        color: #0b1c30 !important;
-    }
-
-    .rp-table tfoot td {
-        border-top: 1.5px solid #464555;
-        background: #eff4ff !important;
-    }
-
-    .rp-sort-btn::after {
-        content: none !important;
-    }
-
-    /* Remove link underlines/URLs */
-    a {
-        color: inherit !important;
-        text-decoration: none !important;
-    }
-
-    /* Session history: only the first 25 rows go on paper */
-    .rp-print-extra {
-        display: none !important;
+    /** Shorthand for htmlspecialchars with the project's flags. */
+    public static function h($value): string
+    {
+        return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
     }
 }
 ```

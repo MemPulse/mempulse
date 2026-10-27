@@ -1,0 +1,493 @@
+/* ==========================================================================
+   PDF Reviewer  (app/views/pdf-reviewer.php)
+   Standalone: does not depend on app.css, Tailwind or any icon font, so the
+   printed result is identical online and offline.
+   Ideas borrowed from reports.css: print-color-adjust, break-inside: avoid,
+   a ruled print header. Left out on purpose: sidebar hiding and the
+   html.rp-printing hacks (this page has no app chrome).
+   ========================================================================== */
+
+:root {
+    --pr-ink: #1c1b2e;
+    --pr-muted: #5f5d75;
+    --pr-rule: #cfd0e3;
+    --pr-accent: #3525cd;
+    --pr-paper: #ffffff;
+    --pr-desk: #e9e9f1;
+    --pr-serif: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, "Times New Roman", serif;
+    --pr-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
+.pr-body {
+    margin: 0;
+    background: var(--pr-desk);
+    color: var(--pr-ink);
+    font: 11pt/1.5 var(--pr-serif);
+}
+
+.pr-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Toolbar (screen only)
+   -------------------------------------------------------------------------- */
+.pr-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .75rem 1.25rem;
+    padding: .75rem 1rem;
+    background: #fff;
+    border-bottom: 1px solid var(--pr-rule);
+    font: 500 .875rem/1.3 var(--pr-sans);
+}
+
+.pr-back {
+    color: var(--pr-muted);
+    text-decoration: none;
+    margin-right: auto;
+}
+
+.pr-back:hover {
+    color: var(--pr-accent);
+}
+
+.pr-options {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .75rem 1.25rem;
+}
+
+/* Segmented control */
+.pr-seg {
+    display: inline-flex;
+    gap: 2px;
+    margin: 0;
+    padding: 2px;
+    border: 0;
+    border-radius: .6rem;
+    background: rgba(53, 37, 205, .08);
+}
+
+.pr-seg-opt {
+    position: relative;
+    cursor: pointer;
+}
+
+.pr-seg-opt input {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    margin: 0;
+    cursor: pointer;
+}
+
+.pr-seg-opt span {
+    display: block;
+    padding: .45rem .8rem;
+    border-radius: .45rem;
+    color: var(--pr-muted);
+    white-space: nowrap;
+}
+
+.pr-seg-opt input:checked+span {
+    background: var(--pr-accent);
+    color: #fff;
+}
+
+.pr-seg-opt input:focus-visible+span {
+    outline: 2px solid var(--pr-accent);
+    outline-offset: 2px;
+}
+
+.pr-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    color: var(--pr-ink);
+    cursor: pointer;
+}
+
+.pr-toggle[hidden] {
+    display: none;
+}
+
+.pr-toggle input {
+    width: 1rem;
+    height: 1rem;
+    accent-color: var(--pr-accent);
+}
+
+.pr-print-btn {
+    display: inline-block;
+    padding: .55rem 1rem;
+    border: 0;
+    border-radius: .6rem;
+    background: var(--pr-accent);
+    color: #fff;
+    font: 600 .875rem/1.2 var(--pr-sans);
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.pr-print-btn:hover {
+    background: #2a1cb0;
+}
+
+.pr-print-btn:focus-visible,
+.pr-back:focus-visible {
+    outline: 2px solid var(--pr-accent);
+    outline-offset: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Paper preview (screen only)
+   -------------------------------------------------------------------------- */
+.pr-stage {
+    padding: 1.25rem 1rem 3rem;
+}
+
+.pr-hint {
+    width: min(100%, 210mm);
+    margin: 0 auto .75rem;
+    font: .8125rem/1.4 var(--pr-sans);
+    color: var(--pr-muted);
+}
+
+.pr-sheet {
+    width: min(100%, 210mm);
+    margin: 0 auto;
+    padding: 14mm 13mm;
+    background: var(--pr-paper);
+    border-radius: 2px;
+    box-shadow: 0 1px 3px rgba(20, 20, 60, .15), 0 12px 32px -16px rgba(20, 20, 60, .35);
+}
+
+.pr-empty {
+    width: min(100%, 32rem);
+    margin: 4rem auto;
+    padding: 2rem;
+    background: #fff;
+    border-radius: .75rem;
+    text-align: center;
+    font-family: var(--pr-sans);
+}
+
+.pr-empty h1 {
+    margin: 0 0 .5rem;
+    font-size: 1.25rem;
+}
+
+.pr-empty p {
+    margin: 0 0 1rem;
+    color: var(--pr-muted);
+}
+
+/* --------------------------------------------------------------------------
+   Document head
+   -------------------------------------------------------------------------- */
+.pr-doc-head {
+    margin-bottom: 5mm;
+    padding-bottom: 4mm;
+    border-bottom: 2px solid var(--pr-accent);
+}
+
+.pr-brand {
+    margin: 0 0 1.5mm;
+    font: 600 9pt/1.2 var(--pr-sans);
+    color: var(--pr-accent);
+}
+
+.pr-title {
+    margin: 0 0 2mm;
+    font: 700 20pt/1.2 var(--pr-sans);
+    overflow-wrap: anywhere;
+}
+
+.pr-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1mm 7mm;
+    margin: 0;
+    font: 9.5pt/1.4 var(--pr-sans);
+    color: var(--pr-muted);
+}
+
+.pr-tip {
+    margin: 3mm 0 0;
+    font-size: 10pt;
+    font-style: italic;
+    color: var(--pr-muted);
+}
+
+.pr-blank {
+    display: inline-block;
+    width: 14mm;
+    height: 1em;
+    margin: 0 .5mm;
+    border-bottom: 1px solid var(--pr-ink);
+    vertical-align: baseline;
+}
+
+/* --------------------------------------------------------------------------
+   Layout switch: one data attribute decides what shows
+   -------------------------------------------------------------------------- */
+.pr-sheet[data-layout="beside"] .pr-section--questions,
+.pr-sheet[data-layout="beside"] .pr-section--key,
+.pr-sheet[data-layout="beside"] .pr-only-end,
+.pr-sheet[data-layout="end"] .pr-section--beside,
+.pr-sheet[data-layout="end"] .pr-only-beside {
+    display: none;
+}
+
+/* --------------------------------------------------------------------------
+   Tables
+   -------------------------------------------------------------------------- */
+.pr-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.pr-table thead {
+    display: table-header-group;
+    /* header repeats on every printed page */
+}
+
+.pr-table th {
+    padding: 0 2.5mm 1.5mm;
+    border-bottom: 1px solid var(--pr-ink);
+    font: 600 9pt/1.3 var(--pr-sans);
+    color: var(--pr-muted);
+    text-align: left;
+}
+
+.pr-table td {
+    padding: 2.5mm;
+    border-bottom: 1px solid var(--pr-rule);
+    vertical-align: top;
+}
+
+.pr-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+.pr-col-num {
+    width: 10mm;
+}
+
+.pr-col-q {
+    width: 40%;
+}
+
+.pr-col-box {
+    width: 15mm;
+}
+
+.pr-table .pr-num {
+    text-align: right;
+    font: 9pt/1.6 var(--pr-sans);
+    font-variant-numeric: tabular-nums;
+    color: var(--pr-muted);
+}
+
+.pr-table th.pr-num {
+    font-weight: 600;
+}
+
+/* Card text: keep the student's line breaks, never overflow the cell */
+.pr-text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.pr-q {
+    font-weight: 600;
+}
+
+/* In the answer key the question is only a reminder */
+.pr-q--ref {
+    font-weight: 400;
+    font-size: 9pt;
+    color: var(--pr-muted);
+}
+
+.pr-q--ref .pr-text {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+}
+
+.pr-box-col {
+    text-align: center;
+}
+
+.pr-box {
+    display: inline-block;
+    width: 4.5mm;
+    height: 4.5mm;
+    margin-top: .6mm;
+    border: 1.2px solid var(--pr-ink);
+    border-radius: 1px;
+}
+
+/* Writing space under each question (answers-at-the-end layout) */
+.pr-write {
+    display: none;
+    margin-top: 1mm;
+}
+
+.pr-sheet[data-lines="1"] .pr-write {
+    display: block;
+}
+
+.pr-write::before,
+.pr-write::after {
+    content: "";
+    display: block;
+    height: 7mm;
+    border-bottom: 1px solid var(--pr-rule);
+}
+
+/* --------------------------------------------------------------------------
+   Answer key
+   -------------------------------------------------------------------------- */
+.pr-section--key {
+    margin-top: 10mm;
+    padding-top: 8mm;
+    border-top: 1px dashed var(--pr-rule);
+    /* on paper: always a new page */
+    break-before: page;
+    page-break-before: always;
+}
+
+.pr-key-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 2mm 8mm;
+    margin-bottom: 4mm;
+}
+
+.pr-key-head h2 {
+    margin: 0;
+    font: 700 15pt/1.2 var(--pr-sans);
+}
+
+.pr-score {
+    margin: 0;
+    font: 10pt/1.4 var(--pr-sans);
+    color: var(--pr-muted);
+}
+
+/* --------------------------------------------------------------------------
+   Small screens (preview only)
+   -------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+    .pr-sheet {
+        padding: 8mm 4mm;
+    }
+
+    .pr-title {
+        font-size: 16pt;
+    }
+
+    .pr-col-q {
+        width: 36%;
+    }
+
+    .pr-back {
+        flex: 1 0 100%;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   PRINT / SAVE AS PDF
+   size:auto lets the student pick A4, Letter, etc. in the print dialog.
+   -------------------------------------------------------------------------- */
+@page {
+    size: auto;
+    margin: 12mm 12mm 14mm;
+}
+
+/* Page numbers: Chrome / Edge 131+. Other browsers ignore this block. */
+@page {
+    @bottom-right {
+        content: counter(page) " / " counter(pages);
+        font: 8pt system-ui, sans-serif;
+        color: #5f5d75;
+    }
+
+    @bottom-left {
+        content: "MemPulse reviewer";
+        font: 8pt system-ui, sans-serif;
+        color: #5f5d75;
+    }
+}
+
+@media print {
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    html,
+    .pr-body {
+        background: #fff !important;
+        font-size: 10.5pt;
+    }
+
+    .pr-no-print {
+        display: none !important;
+    }
+
+    .pr-stage {
+        padding: 0;
+    }
+
+    .pr-sheet {
+        width: auto;
+        max-width: none;
+        margin: 0;
+        padding: 0;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    .pr-section--key {
+        margin-top: 0;
+        padding-top: 0;
+        border-top: 0;
+    }
+
+    .pr-title {
+        font-size: 18pt;
+    }
+}

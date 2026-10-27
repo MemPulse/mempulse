@@ -254,6 +254,10 @@ dialog.mp-modal .mp-shell-inner{max-height:calc(92vh - 3px);max-height:calc(92dv
             </div>
             
             <div class="flex items-center gap-2">
+                <button type="button" id="bulk-pdf-btn" class="mp-btn mp-btn-icon lg:mp-btn-text bg-transparent hover:bg-surface-container-high active:bg-surface-container-highest text-on-surface-variant hover:text-on-surface disabled:opacity-50 transition-colors" title="Download a printable PDF of the selected cards">
+                    <span class="material-symbols-outlined text-[18px]">picture_as_pdf</span>
+                    <span class="hidden lg:inline">Download PDF</span>
+                </button>
                 <button type="button" id="bulk-practice-btn" class="mp-btn mp-btn-icon lg:mp-btn-text bg-transparent hover:bg-surface-container-high active:bg-surface-container-highest text-on-surface-variant hover:text-on-surface disabled:opacity-50 transition-colors" title="Practice selected cards (nothing is saved)">
                     <span class="material-symbols-outlined text-[18px]">visibility</span>
                     <span class="hidden lg:inline">Preview Cards</span>
