@@ -532,7 +532,8 @@
                                 $key = $date->format('Y-m-d');
                                 $reviews = $streakData['heatmapData'][$key] ?? 0;
                                 $tooltip = $date->format('M j, Y') . ' • ' . ($reviews === 0 ? 'No reviews' : ($reviews === 1 ? '1 review' : $reviews . ' reviews'));
-                                echo '<div class="heatmap-cell rounded-[4px] transition-transform hover:scale-110" style="grid-row: ' . ($d + 2) . '; grid-column: ' . ($w + 2) . '; ' . heatmap_level_style($reviews) . '" data-tooltip="' . htmlspecialchars($tooltip, ENT_QUOTES) . '"></div>';                            }
+                                echo '<div class="heatmap-cell rounded-[4px] transition-transform hover:scale-110" data-level="' . heatmap_level($reviews) . '" style="grid-row: ' . ($d + 2) . '; grid-column: ' . ($w + 2) . '; ' . heatmap_level_style($reviews) . '" data-tooltip="' . htmlspecialchars($tooltip, ENT_QUOTES) . '"></div>';
+                            }
                             $weekStart->modify('+7 days');
                         }
                         ?>

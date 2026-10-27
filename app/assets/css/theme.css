@@ -143,7 +143,7 @@ html.dark .tabulator .tabulator-header .tabulator-col.tabulator-frozen {
     box-shadow: 2px 0 6px rgba(0, 0, 0, 0.35) !important;
 }
 
-/* Again button classes (temporary until Tailwind is rebuilt) */
+/* Light-mode fallbacks used by the archive banner. */
 .bg-amber-50 {
     background-color: #fffbeb;
 }
@@ -166,4 +166,298 @@ html.dark .tabulator .tabulator-header .tabulator-col.tabulator-frozen {
 
 .max-w-lg {
     max-width: 32rem;
+}
+
+/*
+ * Dark-mode compatibility for components that still use fixed Tailwind palette
+ * utilities instead of semantic theme tokens.
+ */
+html.dark .bg-white {
+    background-color: rgb(var(--c-surface-container-high)) !important;
+}
+
+html.dark .bg-slate-100 {
+    background-color: rgb(var(--c-surface-container-high)) !important;
+}
+
+html.dark .bg-amber-50,
+html.dark .bg-amber-100 {
+    background-color: #3b2b13 !important;
+}
+
+html.dark .bg-rose-50,
+html.dark .bg-rose-100,
+html.dark .bg-red-50 {
+    background-color: #3e1c2a !important;
+}
+
+html.dark .bg-teal-50,
+html.dark .bg-emerald-50,
+html.dark .bg-emerald-100 {
+    background-color: #12362f !important;
+}
+
+html.dark .bg-indigo-50,
+html.dark .bg-violet-50 {
+    background-color: #292447 !important;
+}
+
+html.dark .text-amber-600,
+html.dark .text-amber-700,
+html.dark .text-amber-800,
+html.dark .text-amber-900 {
+    color: #fcd34d !important;
+}
+
+html.dark .text-rose-600,
+html.dark .text-rose-700,
+html.dark .text-rose-800 {
+    color: #fda4af !important;
+}
+
+html.dark .text-teal-600,
+html.dark .text-teal-700,
+html.dark .text-teal-700\/60,
+html.dark .text-teal-800 {
+    color: #5eead4 !important;
+}
+
+html.dark .text-emerald-600,
+html.dark .text-emerald-700,
+html.dark .text-emerald-800 {
+    color: #6ee7b7 !important;
+}
+
+html.dark .text-indigo-600,
+html.dark .text-indigo-700,
+html.dark .text-indigo-700\/60,
+html.dark .text-violet-700 {
+    color: #c4b5fd !important;
+}
+
+html.dark .text-slate-900 {
+    color: rgb(var(--c-on-surface)) !important;
+}
+
+html.dark .border-amber-200,
+html.dark .border-amber-200\/80 {
+    border-color: rgb(245 158 11 / 0.38) !important;
+}
+
+html.dark .border-rose-200,
+html.dark .border-rose-200\/50,
+html.dark .border-rose-200\/80,
+html.dark .border-red-200,
+html.dark .border-red-200\/80 {
+    border-color: rgb(251 113 133 / 0.38) !important;
+}
+
+html.dark .border-teal-200,
+html.dark .border-teal-200\/80,
+html.dark .border-emerald-200,
+html.dark .border-emerald-200\/80 {
+    border-color: rgb(45 212 191 / 0.38) !important;
+}
+
+html.dark .border-indigo-200,
+html.dark .border-indigo-200\/80,
+html.dark .border-violet-200 {
+    border-color: rgb(167 139 250 / 0.38) !important;
+}
+
+html.dark .hover\:bg-amber-50:hover,
+html.dark .hover\:bg-amber-100:hover,
+html.dark .hover\:bg-slate-100:hover {
+    background-color: #503a18 !important;
+}
+
+html.dark .hover\:bg-rose-50:hover,
+html.dark .hover\:bg-rose-100:hover {
+    background-color: #542337 !important;
+}
+
+html.dark .hover\:bg-teal-50:hover,
+html.dark .hover\:bg-teal-100:hover,
+html.dark .hover\:bg-emerald-100:hover {
+    background-color: #19493e !important;
+}
+
+html.dark .hover\:bg-amber-500\/5:hover {
+    background-color: rgb(245 158 11 / 0.12) !important;
+}
+
+html.dark .hover\:bg-teal-500\/5:hover {
+    background-color: rgb(45 212 191 / 0.12) !important;
+}
+
+html.dark .hover\:bg-indigo-500\/20:hover {
+    background-color: rgb(129 140 248 / 0.24) !important;
+}
+
+html.dark .hover\:text-indigo-700:hover {
+    color: #c4b5fd !important;
+}
+
+html.dark .hover\:text-rose-600:hover {
+    color: #fda4af !important;
+}
+
+html.dark .hover\:text-teal-700:hover {
+    color: #5eead4 !important;
+}
+
+html.dark .bg-rose-500\/10,
+html.dark .bg-rose-500\/20,
+html.dark .hover\:bg-rose-500\/20:hover {
+    background-color: rgb(251 113 133 / 0.16) !important;
+}
+
+html.dark .bg-teal-500\/10,
+html.dark .bg-teal-500\/20,
+html.dark .hover\:bg-teal-500\/10:hover,
+html.dark .hover\:bg-teal-500\/20:hover {
+    background-color: rgb(45 212 191 / 0.16) !important;
+}
+
+html.dark .bg-indigo-500\/10,
+html.dark .bg-indigo-500\/20 {
+    background-color: rgb(167 139 250 / 0.16) !important;
+}
+
+html.dark .from-rose-500\/10 {
+    --tw-gradient-from: rgb(251 113 133 / 0.16) var(--tw-gradient-from-position);
+    --tw-gradient-to: rgb(251 113 133 / 0) var(--tw-gradient-to-position);
+}
+
+html.dark .from-teal-500\/10 {
+    --tw-gradient-from: rgb(45 212 191 / 0.16) var(--tw-gradient-from-position);
+    --tw-gradient-to: rgb(45 212 191 / 0) var(--tw-gradient-to-position);
+}
+
+html.dark .from-indigo-500\/10 {
+    --tw-gradient-from: rgb(129 140 248 / 0.16) var(--tw-gradient-from-position);
+    --tw-gradient-to: rgb(129 140 248 / 0) var(--tw-gradient-to-position);
+}
+
+html.dark #hero-carousel {
+    background: linear-gradient(135deg, #0b1220, #1e293b 52%, #0b1220);
+    color: rgb(var(--c-on-surface));
+}
+
+html.dark #flashcards-tabulator-grid.mp-tiles .tabulator-row,
+html.dark #flashcards-tabulator-grid.mp-tiles .tabulator-row.tabulator-selectable:hover {
+    background: rgb(var(--c-surface-container-lowest)) !important;
+    color: rgb(var(--c-on-surface));
+}
+
+html.dark #flashcards-tabulator-grid.mp-tiles .tabulator-row.tabulator-selected,
+html.dark #flashcards-tabulator-grid.mp-tiles .tabulator-row.tabulator-selected:hover {
+    background: linear-gradient(135deg, rgb(129 140 248 / 0.22), rgb(217 70 239 / 0.14)) !important;
+}
+
+html.dark .mp-seg button {
+    color: rgb(var(--c-on-surface-variant));
+}
+
+html.dark .mp-chip {
+    color: rgb(var(--c-on-surface-variant));
+}
+
+html.dark .mp-chip.is-due {
+    background: rgb(245 158 11 / 0.18);
+    color: #fcd34d;
+}
+
+html.dark .mp-chip.is-warn {
+    background: rgb(251 113 133 / 0.18);
+    color: #fda4af;
+}
+
+html.dark #heatmap-scroll .heatmap-cell[data-level="0"] {
+    background-color: rgb(var(--c-surface-container-high)) !important;
+    border-color: rgb(var(--c-outline-variant) / 0.7) !important;
+}
+
+html.dark #heatmap-scroll .heatmap-cell[data-level="1"] {
+    background-color: #14532d !important;
+}
+
+html.dark #heatmap-scroll .heatmap-cell[data-level="2"] {
+    background-color: #15803d !important;
+}
+
+html.dark #heatmap-scroll .heatmap-cell[data-level="3"] {
+    background-color: #16a34a !important;
+}
+
+html.dark #heatmap-scroll .heatmap-cell[data-level="4"] {
+    background-color: #22c55e !important;
+}
+
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="hidden"]):not([type="file"]):not([type="color"]):not([type="range"]):not(.bg-transparent),
+html.dark select:not(.bg-transparent),
+html.dark textarea:not(.bg-transparent) {
+    color-scheme: dark;
+    background-color: rgb(var(--c-surface-container-low)) !important;
+    border-color: rgb(var(--c-outline-variant)) !important;
+    color: rgb(var(--c-on-surface)) !important;
+}
+
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="hidden"]):not([type="file"]):not([type="color"]):not([type="range"]):not(.bg-transparent)::placeholder,
+html.dark textarea:not(.bg-transparent)::placeholder {
+    color: rgb(var(--c-on-surface-variant)) !important;
+    opacity: 1;
+}
+
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="hidden"]):not([type="file"]):not([type="color"]):not([type="range"]):not(.bg-transparent):focus,
+html.dark select:not(.bg-transparent):focus,
+html.dark textarea:not(.bg-transparent):focus {
+    border-color: rgb(var(--c-primary)) !important;
+    box-shadow: 0 0 0 3px rgb(var(--c-primary) / 0.2) !important;
+}
+
+html.dark input[type="checkbox"],
+html.dark input[type="radio"] {
+    accent-color: rgb(var(--c-primary));
+    background-color: rgb(var(--c-surface-container-low));
+    border-color: rgb(var(--c-outline));
+}
+
+html.dark input:-webkit-autofill,
+html.dark input:-webkit-autofill:focus {
+    -webkit-text-fill-color: rgb(var(--c-on-surface));
+    box-shadow: 0 0 0 1000px rgb(var(--c-surface-container-low)) inset;
+}
+
+html.dark select option {
+    background-color: rgb(var(--c-surface-container-low));
+    color: rgb(var(--c-on-surface));
+}
+
+html.dark .bg-sky-50,
+html.dark .bg-sky-100 {
+    background-color: #102f45 !important;
+}
+
+html.dark .text-sky-500,
+html.dark .text-sky-600,
+html.dark .text-sky-700,
+html.dark .text-sky-800,
+html.dark .text-sky-900 {
+    color: #7dd3fc !important;
+}
+
+html.dark .border-sky-100,
+html.dark .border-sky-200,
+html.dark .border-sky-300 {
+    border-color: rgb(56 189 248 / 0.38) !important;
+}
+
+html.dark .hover\:bg-sky-50:hover,
+html.dark .hover\:bg-sky-100:hover {
+    background-color: #16415d !important;
+}
+
+html.dark .bg-sky-500 {
+    background-color: #38bdf8 !important;
 }

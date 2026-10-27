@@ -38,6 +38,15 @@ if (!function_exists('heatmap_level_style')) {
         return 'background-color: #15803d;';
     }
 }
+if (!function_exists('heatmap_level')) {
+    function heatmap_level(int $reviews): int {
+        if ($reviews <= 0) return 0;
+        if ($reviews <= 7) return 1;
+        if ($reviews <= 14) return 2;
+        if ($reviews <= 21) return 3;
+        return 4;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">

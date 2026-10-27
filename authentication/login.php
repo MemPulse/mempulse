@@ -465,6 +465,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         Your account has been approved. You can now log in.
                     </div>
                 <?php endif; ?>
+                <?php if (isset($_GET['reset']) && $_GET['reset'] === 'complete'): ?>
+                    <div class="auth-message auth-message-success" role="status">
+                        Your password has been updated. You can now log in.
+                    </div>
+                <?php endif; ?>
 
                 <form class="auth-form" id="form-login" action="login.php" method="POST" autocomplete="off" novalidate>
                     <div class="form-group">
@@ -483,7 +488,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <input type="checkbox" onchange="document.getElementById('login-password').type = this.checked ? 'text' : 'password'">
                             <span>Show password</span>
                         </label>
-                        <a href="#forgot">Forgot password?</a>
+                        <a href="request-password-reset.php">Forgot password?</a>
                     </div>
 
                     <button class="btn-primary" type="submit">Log In</button>

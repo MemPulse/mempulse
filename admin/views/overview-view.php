@@ -417,18 +417,23 @@ $reviewsChip = AdminOverviewService::percentChip($m['reviews7d'], $m['reviewsPre
                     <?php endif; ?>
                 </div>
 
-                        <div class="flex flex-col gap-2.5{ flex-1 justify-start">
-                            <?php if ($pendingUsers): foreach ($pendingUsers as $u): ?>                      <div class="<?= $row ?>">
-                            <div class="flex items-center gap-3 min-w-0">
-                                <div class="w-9 h-9 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center flex-shrink-0 text-xs font-bold"><?= adminEsc($initial($u['name'])) ?></div>
-                                <div class="flex flex-col min-w-0">
-                                    <span class="text-xs font-bold text-on-surface truncate"><?= adminEsc($u['name']) ?></span>
-                                    <span class="text-[11px] text-on-surface-variant truncate"><?= adminEsc($u['email']) ?></span>
+                <div class="flex flex-1 flex-col justify-start gap-2.5">
+                    <?php if ($pendingUsers): ?>
+                        <?php foreach ($pendingUsers as $u): ?>
+                            <div class="<?= $row ?>">
+                                <div class="flex min-w-0 items-center gap-3">
+                                    <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-amber-50 text-xs font-bold text-amber-700">
+                                        <?= adminEsc($initial($u['name'])) ?>
+                                    </div>
+                                    <div class="flex min-w-0 flex-col">
+                                        <span class="truncate text-xs font-bold text-on-surface"><?= adminEsc($u['name']) ?></span>
+                                        <span class="truncate text-[11px] text-on-surface-variant"><?= adminEsc($u['email']) ?></span>
+                                    </div>
                                 </div>
+                                <span class="flex-shrink-0 whitespace-nowrap text-[10px] text-on-surface-variant/70"><?= adminEsc($u['age']) ?></span>
                             </div>
-                            <span class="text-[10px] text-on-surface-variant/70 whitespace-nowrap flex-shrink-0"><?= adminEsc($u['age']) ?></span>
-                        </div>
-                    <?php endforeach; else: ?>
+                        <?php endforeach; ?>
+                    <?php else: ?>
                         <div class="flex flex-col items-center justify-center p-6 text-center text-on-surface-variant h-full">
                             <span class="material-symbols-outlined text-[32px] text-outline mb-2" aria-hidden="true">task_alt</span>
                             <span class="text-sm font-medium">You're all caught up.</span>
