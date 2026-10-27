@@ -1,6 +1,6 @@
 <?php
 session_start();
-if (empty($_SESSION['demo_pending_user_id']) || empty($_SESSION['demo_approval_token'])) {
+if (empty($_SESSION['demo_pending_user_id'])) {
     header('Location: login.php#login');
     exit;
 }
@@ -130,30 +130,7 @@ if (empty($_SESSION['demo_pending_user_id']) || empty($_SESSION['demo_approval_t
             margin: 0 0 2rem 0;
         }
 
-        .btn-primary {
-            width: 100%;
-            min-height: 3rem;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border: none;
-            border-radius: 999px;
-            padding: 0.7rem 1.25rem;
-            background: var(--primary);
-            color: #fff;
-            font: 700 0.95rem/1.2 "Plus Jakarta Sans", sans-serif;
-            cursor: pointer;
-            transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
-            box-shadow: 0 8px 22px rgba(53, 37, 205, 0.22);
-        }
-
-        .btn-primary:hover {
-            background: var(--secondary);
-            transform: translateY(-2px);
-            box-shadow: 0 12px 26px rgba(75, 65, 225, 0.28);
-        }
-
-        .demo-note {
+        .approval-note {
             margin-top: 1.5rem;
             color: #8c92a4;
             font-size: 0.8rem;
@@ -190,16 +167,11 @@ if (empty($_SESSION['demo_pending_user_id']) || empty($_SESSION['demo_approval_t
         </div>
 
         <p class="status-message">
-            Your account has been registered but cannot log in until it is approved. For this development session, use the temporary button below to simulate admin approval.
+            Your account has been registered and is waiting for administrator approval. You will be redirected to log in as soon as it is approved.
         </p>
 
-        <form method="POST" action="confirm-registration.php">
-            <input type="hidden" name="approval_token" value="<?php echo htmlspecialchars($_SESSION['demo_approval_token'], ENT_QUOTES, 'UTF-8'); ?>">
-            <button class="btn-primary" type="submit">Confirm Registered Account</button>
-        </form>
-
-        <p class="demo-note">
-            <strong>Demo only:</strong> this button is not a secure substitute for a real administrator approval workflow.
+        <p id="approval-status" class="approval-note" role="status" aria-live="polite">
+            Checking approval status…
         </p>
         
         <a href="login.php#login" class="back-link">
@@ -208,5 +180,44 @@ if (empty($_SESSION['demo_pending_user_id']) || empty($_SESSION['demo_approval_t
         </a>
     </main>
 
+    <script>
+        (function () {
+            var statusMessage = document.getElementById('approval-status');
+
+            async function checkApprovalStatus() {
+                try {
+                    var response = await fetch('registration-status.php', {
+                        headers: { Accept: 'application/json' },
+                        cache: 'no-store'
+                    });
+                    if (!response.ok) {
+                        throw new Error('Approval status request failed: ' + response.status);
+                    }
+
+                    var result = await response.json();
+                    if (result.status === 'approved') {
+                        window.location.replace('login.php?registered=approved#login');
+                        return;
+                    }
+                    if (result.status === 'rejected') {
+                        window.location.replace('login.php?error=account_rejected#login');
+                        return;
+                    }
+                    if (result.status !== 'pending') {
+                        throw new Error('Unexpected approval status response.');
+                    }
+
+                    statusMessage.textContent = 'Your account is still awaiting review. This page will redirect automatically once it is approved.';
+                } catch (error) {
+                    console.error('Unable to check registration approval status.', error);
+                    statusMessage.textContent = 'We could not check your approval status right now. We will keep trying automatically.';
+                }
+
+                window.setTimeout(checkApprovalStatus, 5000);
+            }
+
+            checkApprovalStatus();
+        })();
+    </script>
 </body>
 </html>

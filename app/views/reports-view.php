@@ -51,8 +51,8 @@ $periodLabel = ($filters['range'] === 'all' ? 'All time' : $rangeLabels[$filters
             </table>
         </div>
 
-        <!-- PAGE HEADER -->
-        <div class="rp-no-print flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+        <!-- PAGE HEADER above the filter bar so the export menu stays on top -->
+        <div class="rp-page-header rp-no-print relative flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
             <div>
                 <h1 class="font-headline-md text-2xl font-bold text-on-surface">Reports</h1>
                 <!-- <p class="text-sm text-on-surface-variant mt-0.5">Your study activity, retention and card progress.</p> -->
@@ -64,7 +64,7 @@ $periodLabel = ($filters['range'] === 'all' ? 'All time' : $rangeLabels[$filters
                         <span>Export CSV</span>
                         <span class="material-symbols-outlined text-[18px]">expand_more</span>
                     </summary>
-                    <div class="absolute right-0 mt-2 w-80 max-w-[90vw] z-30 rounded-xl border border-outline-variant/40 bg-surface-container-lowest shadow-lg p-2">
+                    <div id="export-index" class="absolute right-0 mt-2 w-80 max-w-[90vw] rounded-xl border border-outline-variant/40 bg-surface-container-lowest shadow-lg p-2">
                         <?php foreach ($exportDatasets as $key => [$label, $hint]): ?>
                             <a data-export="<?= $h($key) ?>"
                                href="../api/report-export.php?<?= $h($exportBase . '&dataset=' . $key) ?>"
@@ -78,7 +78,8 @@ $periodLabel = ($filters['range'] === 'all' ? 'All time' : $rangeLabels[$filters
                             Add student, period and filters at the top
                         </label>
                     </div>
-                </details>                <button type="button" id="rp-print-btn"
+                </details>
+                <button type="button" id="rp-print-btn"
                         class="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-outline-variant/40 bg-surface-container-lowest text-sm font-semibold text-on-surface hover:bg-surface-container-low transition-colors">
                     <span class="material-symbols-outlined text-[18px]">print</span>
                     <span>Print / Save as PDF</span>
@@ -86,9 +87,9 @@ $periodLabel = ($filters['range'] === 'all' ? 'All time' : $rangeLabels[$filters
             </div>
         </div>
 
-        <!-- FILTER BAR -->
+        <!-- FILTER BAR above the page header and report content so the tooltip stays readable -->
         <form id="rp-filters" method="get" action="reports.php"
-              class="rp-no-print flex flex-wrap items-end gap-3 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-3 sm:p-4">
+              class="rp-no-print relative flex flex-wrap items-end gap-3 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-3 sm:p-4">
             <input type="hidden" name="tab" id="rp-filter-tab" value="<?= $h($activeTab) ?>">
 
             <label class="flex flex-col gap-1 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
@@ -131,6 +132,21 @@ $periodLabel = ($filters['range'] === 'all' ? 'All time' : $rangeLabels[$filters
                        class="rounded border-outline-variant/60 text-primary focus:ring-primary">
                 Include archived decks
             </label>
+
+            <!-- Filter info tooltip (hover, keyboard focus or tap; no JS needed) -->
+            <div class="rp-filter-tooltip relative ml-auto pb-2">
+                <button type="button"
+                        aria-label="About these filters"
+                        aria-describedby="rp-filters-tip"
+                        class="flex items-center justify-center w-8 h-8 rounded-full text-on-surface-variant hover:text-primary hover:bg-surface-container-low focus:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors">
+                    <span class="material-symbols-outlined text-[20px]">info</span>
+                </button>
+                <div id="rp-filters-tip" role="tooltip"
+                     class="rp-filter-tooltip-tip rounded-xl bg-on-surface text-surface text-xs leading-relaxed font-medium normal-case tracking-normal p-3 shadow-lg">
+                    These filters apply to everything on screen and to the CSV and PDF exports.
+                    Review forecast, card maturity and streak always show current or all-time data.
+                </div>
+            </div>
         </form>
 
         <!-- TAB BAR -->
@@ -165,16 +181,14 @@ $periodLabel = ($filters['range'] === 'all' ? 'All time' : $rangeLabels[$filters
 
         <section role="tabpanel" id="panel-cards" data-tab="cards" aria-labelledby="tab-cards"
                  class="rp-panel <?= $activeTab === 'cards' ? '' : 'hidden' ?>">
-            <?php /* include __DIR__ . '/reports-cards.php'; (task 3) */ ?>
             <h2 class="rp-print-only rp-print-section">Cards</h2>
-            <?php include __DIR__ . '/reports-cards.php'; ?>        
+            <?php include __DIR__ . '/reports-cards.php'; ?>
         </section>
 
         <section role="tabpanel" id="panel-sessions" data-tab="sessions" aria-labelledby="tab-sessions"
                  class="rp-panel <?= $activeTab === 'sessions' ? '' : 'hidden' ?>">
-            <?php /* include __DIR__ . '/reports-sessions.php'; (task 4) */ ?>
             <h2 class="rp-print-only rp-print-section">Sessions</h2>
-            <?php include __DIR__ . '/reports-sessions.php'; ?>        
+            <?php include __DIR__ . '/reports-sessions.php'; ?>
         </section>
 
     </div>

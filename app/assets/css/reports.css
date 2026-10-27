@@ -11,6 +11,42 @@
     display: none;
 }
 
+#rp-filters {
+    z-index: 60;
+}
+
+.rp-page-header {
+    z-index: 70;
+}
+
+#export-index {
+    z-index: 1000000;
+}
+
+.rp-filter-tooltip-tip {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 999999;
+    width: 18rem;
+    max-width: 85vw;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 150ms ease;
+}
+
+#rp-filters-tip {
+    opacity: 1;
+    background: white;
+}
+
+
+.rp-filter-tooltip:hover .rp-filter-tooltip-tip,
+.rp-filter-tooltip:focus-within .rp-filter-tooltip-tip {
+    visibility: visible;
+    opacity: 1;
+}
+
 /* Never split a card or chart across two printed pages */
 .rp-avoid-break {
     break-inside: avoid;

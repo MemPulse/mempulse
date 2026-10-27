@@ -463,7 +463,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let gridReady = false;
 
     function updatePaginationUI() {
-        if (!gridFooter || !tabulatorTable) return;
+        if (!gridFooter || !tabulatorTable || !gridReady) return;
 
         const total = tabulatorTable.getDataCount('active');
         const currentPage = tabulatorTable.getPage() || 1;
@@ -510,7 +510,7 @@ document.addEventListener("DOMContentLoaded", () => {
         pageSizeSelect.addEventListener('change', async () => {
             const requested = Number(pageSizeSelect.value);
 
-            if (![10, 25, 50, 100].includes(requested) || !tabulatorTable) {
+            if (![10, 25, 50, 100].includes(requested) || !tabulatorTable || !gridReady) {
                 return;
             }
 
@@ -759,6 +759,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function createGrid(mode, list, onLoaded) {
         layoutMode = mode;
         gridReady = false;
+        if (paginationControls) paginationControls.replaceChildren();
         gridContainer.classList.toggle('mp-tiles', mode === 'tiles');
         syncLayoutToggle();
 

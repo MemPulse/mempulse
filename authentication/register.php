@@ -40,7 +40,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     mysqli_stmt_store_result($check_stmt);
 
     if (mysqli_stmt_num_rows($check_stmt) > 0) {
-        die("Error: This email is already registered.");
+        mysqli_stmt_close($check_stmt);
+        mysqli_close($conn);
+        header("Location: registration-email-exists.php");
+        exit;
     }
     mysqli_stmt_close($check_stmt);
 
@@ -67,7 +70,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         session_start();
         $_SESSION['demo_pending_user_id'] = $new_user_id;
-        $_SESSION['demo_approval_token']  = bin2hex(random_bytes(32));
         header("Location: registration-pending.php");
         exit;
     } else {

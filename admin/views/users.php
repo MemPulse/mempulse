@@ -41,8 +41,9 @@ foreach ($list['rows'] as $row) {
 
 // Static for the life of the page: set once on a full load.
 $jsPayload = [
-    'csrf'     => adminCsrfToken(),
-    'endpoint' => ADMIN_URL . 'api/user-actions.php',
+    'csrf'            => adminCsrfToken(),
+    'endpoint'        => ADMIN_URL . 'api/user-actions.php',
+    'learningEndpoint'=> ADMIN_URL . 'api/user-learning-data.php',
 ];
 
 // Changes on every filter / sort / page / search. Rendered by users-view.php

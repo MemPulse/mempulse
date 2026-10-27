@@ -16,7 +16,13 @@
     var FLASH_KEY = 'adminUsersFlash';
 
     // `endpoint` and `csrf` are fixed for the page; `users` and `order` change on every swap.
-    var data = { users: {}, order: [], endpoint: cfg.endpoint, csrf: cfg.csrf };
+    var data = {
+        users: {},
+        order: [],
+        endpoint: cfg.endpoint,
+        learningEndpoint: cfg.learningEndpoint,
+        csrf: cfg.csrf
+    };
 
     function loadTableData() {
         var el = document.getElementById('users-data');
@@ -48,6 +54,9 @@
     var toastTimer = null;
     var closeTimer = null;
     var pending = null; // { payload, trigger, ids }
+    var learningRequest = null;
+    var loadedSessionPage = 0;
+    var totalSessionPages = 0;
 
     // ---- Toast --------------------------------------------------------------
     function toast(message, ok) {
@@ -181,6 +190,206 @@
         });
     }
 
+    function makeLearningElement(tag, className, text) {
+        var element = document.createElement(tag);
+        if (className) element.className = className;
+        if (text !== undefined && text !== null) element.textContent = String(text);
+        return element;
+    }
+
+    function renderPreferences(preferences) {
+        var container = document.getElementById('drawer-preferences');
+        if (!container) return;
+        container.textContent = '';
+
+        [
+            ['Theme', preferences.theme.charAt(0).toUpperCase() + preferences.theme.slice(1)],
+            ['Remember multiplier', Number(preferences.rememberMultiplier).toLocaleString() + '×'],
+            ['Forgot multiplier', Number(preferences.forgotMultiplier).toLocaleString() + '×'],
+            ['Starting interval', preferences.initialIntervalDays + (Number(preferences.initialIntervalDays) === 1 ? ' day' : ' days')],
+            ['Maximum interval', Number(preferences.maximumIntervalDays).toLocaleString() + ' days']
+        ].forEach(function (item) {
+            var card = makeLearningElement('div', 'p-3 rounded-xl bg-surface-container-low border border-outline-variant/30');
+            card.appendChild(makeLearningElement('dt', 'text-[10px] font-bold uppercase tracking-wider text-on-surface-variant', item[0]));
+            card.appendChild(makeLearningElement('dd', 'text-sm font-bold text-on-surface mt-1', item[1]));
+            container.appendChild(card);
+        });
+
+        container.classList.remove('hidden');
+    }
+
+    function renderDecks(decks) {
+        var container = document.getElementById('drawer-decks');
+        var count = document.getElementById('drawer-deck-count');
+        if (!container || !count) return;
+        container.textContent = '';
+        count.textContent = decks.length + (decks.length === 1 ? ' deck' : ' decks');
+
+        if (!decks.length) {
+            container.appendChild(makeLearningElement('p', 'text-xs text-on-surface-variant italic', 'No decks found.'));
+            return;
+        }
+
+        decks.forEach(function (deck) {
+            var details = makeLearningElement('details', 'rounded-xl border border-outline-variant/30 bg-surface-container-lowest');
+            var summary = makeLearningElement('summary', 'flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-xs font-semibold text-on-surface');
+            var title = makeLearningElement('span', 'min-w-0 truncate', deck.title);
+            if (deck.archived) {
+                title.appendChild(makeLearningElement('span', 'ml-2 rounded bg-surface-container-high px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-on-surface-variant', 'Archived'));
+            }
+            summary.appendChild(title);
+            summary.appendChild(makeLearningElement('span', 'shrink-0 text-[11px] font-medium text-on-surface-variant', deck.cards.length + (deck.cards.length === 1 ? ' card' : ' cards')));
+            details.appendChild(summary);
+
+            var cards = makeLearningElement('div', 'flex flex-col gap-2 border-t border-outline-variant/20 p-3');
+            if (!deck.cards.length) {
+                cards.appendChild(makeLearningElement('p', 'text-xs text-on-surface-variant italic', 'This deck has no flashcards.'));
+            }
+
+            deck.cards.forEach(function (card, index) {
+                var cardDetails = makeLearningElement('details', 'rounded-lg border border-outline-variant/20 bg-surface-container-low');
+                var cardSummaryText = (card.front || '').replace(/\s+/g, ' ').trim() || 'Empty front';
+                var cardSummary = makeLearningElement('summary', 'cursor-pointer px-3 py-2 text-xs font-semibold text-on-surface');
+                cardSummary.appendChild(makeLearningElement('span', 'mr-2 text-[10px] text-on-surface-variant', '#' + (index + 1)));
+                cardSummary.appendChild(document.createTextNode(cardSummaryText));
+                if (card.archived) {
+                    cardSummary.appendChild(makeLearningElement('span', 'ml-2 rounded bg-surface-container-high px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-on-surface-variant', 'Archived'));
+                }
+                cardDetails.appendChild(cardSummary);
+
+                var cardBody = makeLearningElement('div', 'flex flex-col gap-2 border-t border-outline-variant/20 px-3 py-2.5 text-xs');
+                [['Front', card.front], ['Back', card.back]].forEach(function (side) {
+                    var content = makeLearningElement('div', 'learning-card-content break-words');
+                    content.appendChild(makeLearningElement('span', 'mb-1 block text-[10px] font-bold uppercase tracking-wider text-on-surface-variant', side[0]));
+                    content.appendChild(makeLearningElement('p', 'm-0 text-on-surface', side[1] || ''));
+                    cardBody.appendChild(content);
+                });
+                cardBody.appendChild(makeLearningElement(
+                    'p',
+                    'm-0 text-[10px] text-on-surface-variant',
+                    'Interval: ' + card.intervalDays + ' days · Reviews: ' + card.reviews +
+                    ' · Lapses: ' + card.lapses + ' · Next review: ' + (card.nextReviewAt || '—')
+                ));
+                cardDetails.appendChild(cardBody);
+                cards.appendChild(cardDetails);
+            });
+
+            details.appendChild(cards);
+            container.appendChild(details);
+        });
+    }
+
+    function formatDuration(seconds) {
+        if (seconds === null || seconds === undefined) return 'In progress';
+        var total = Math.max(0, Number(seconds));
+        var hours = Math.floor(total / 3600);
+        var minutes = Math.floor((total % 3600) / 60);
+        var remainingSeconds = total % 60;
+        return hours
+            ? hours + 'h ' + minutes + 'm'
+            : (minutes ? minutes + 'm ' : '') + remainingSeconds + 's';
+    }
+
+    function renderSessions(sessions, append) {
+        var container = document.getElementById('drawer-sessions');
+        var empty = document.getElementById('drawer-sessions-empty');
+        if (!container || !empty) return;
+        if (!append) container.textContent = '';
+        sessions.forEach(function (session) {
+            var row = document.createElement('tr');
+            [
+                session.label,
+                session.deck,
+                session.startedAt || '—',
+                Number(session.cardsReviewed).toLocaleString(),
+                session.accuracy + '%',
+                formatDuration(session.durationSeconds)
+            ].forEach(function (value) {
+                row.appendChild(makeLearningElement('td', 'py-2 pr-3 align-top text-on-surface', value));
+            });
+            container.appendChild(row);
+        });
+        empty.classList.toggle('hidden', container.children.length > 0);
+    }
+
+    function loadLearningData(userId, page, append) {
+        if (learningRequest) learningRequest.abort();
+
+        var status = drawer && drawer.querySelector('[data-learning-status]');
+        var error = drawer && drawer.querySelector('[data-learning-error]');
+        var more = document.getElementById('drawer-sessions-more');
+        if (!data.learningEndpoint || !status || !error) {
+            if (status) status.textContent = 'Learning data is unavailable.';
+            return;
+        }
+
+        if (!append) {
+            loadedSessionPage = 0;
+            totalSessionPages = 0;
+            var preferences = document.getElementById('drawer-preferences');
+            var decks = document.getElementById('drawer-decks');
+            var sessions = document.getElementById('drawer-sessions');
+            var deckCount = document.getElementById('drawer-deck-count');
+            var sessionCount = document.getElementById('drawer-session-count');
+            if (preferences) { preferences.textContent = ''; preferences.classList.add('hidden'); }
+            if (decks) decks.textContent = '';
+            if (sessions) sessions.textContent = '';
+            if (deckCount) deckCount.textContent = '';
+            if (sessionCount) sessionCount.textContent = '';
+            if (more) more.classList.add('hidden');
+        }
+
+        status.textContent = append ? 'Loading older sessions…' : 'Loading user learning data…';
+        status.classList.remove('hidden');
+        error.textContent = '';
+        error.classList.add('hidden');
+
+        var controller = new AbortController();
+        learningRequest = controller;
+        var url = new URL(data.learningEndpoint, window.location.href);
+        url.searchParams.set('user_id', String(userId));
+        url.searchParams.set('page', String(page));
+
+        fetch(url.toString(), {
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+            cache: 'no-store',
+            signal: controller.signal
+        }).then(function (response) {
+            return response.json().catch(function () { return {}; }).then(function (body) {
+                if (!response.ok || body.success !== true) {
+                    throw new Error(body.message || 'Unable to load this user’s learning data.');
+                }
+                return body;
+            });
+        }).then(function (body) {
+            if (String(currentId) !== String(userId)) return;
+            if (!append) {
+                renderPreferences(body.preferences);
+                renderDecks(body.decks || []);
+            }
+            renderSessions(body.sessions || [], append);
+            loadedSessionPage = Number(body.sessionPage) || 1;
+            totalSessionPages = Number(body.sessionPages) || 1;
+            var sessionCount = document.getElementById('drawer-session-count');
+            if (sessionCount) sessionCount.textContent = Number(body.sessionTotal).toLocaleString() + ' sessions';
+            if (more) {
+                more.classList.toggle('hidden', loadedSessionPage >= totalSessionPages);
+                more.disabled = false;
+                more.textContent = 'Load older sessions (' + loadedSessionPage + ' of ' + totalSessionPages + ')';
+            }
+            status.classList.add('hidden');
+        }).catch(function (requestError) {
+            if (requestError.name === 'AbortError' || String(currentId) !== String(userId)) return;
+            status.classList.add('hidden');
+            error.textContent = requestError.message || 'Unable to load this user’s learning data. Try again.';
+            error.classList.remove('hidden');
+            if (more) more.disabled = false;
+        }).finally(function () {
+            if (learningRequest === controller) learningRequest = null;
+        });
+    }
+
     function fill(u) {
         setText('initial', (u.name || '?').trim().charAt(0).toUpperCase());
         setText('name', u.name);
@@ -242,6 +451,7 @@
         var scroller = drawer.querySelector('.overflow-y-auto');
         if (scroller) scroller.scrollTop = 0;
         if (closeBtn) closeBtn.focus();
+        loadLearningData(id, 1, false);
     }
 
     function navigateDrawer(step) {
@@ -252,12 +462,17 @@
         currentId = String(nextId);
         opener = null;
         fill(u);
+        loadLearningData(nextId, 1, false);
         var scroller = drawer.querySelector('.overflow-y-auto');
         if (scroller) scroller.scrollTop = 0;
     }
 
     function closeDrawer() {
         if (!drawer || !overlay || !isDrawerOpen()) return;
+        if (learningRequest) {
+            learningRequest.abort();
+            learningRequest = null;
+        }
         drawer.classList.remove('is-open');
         overlay.classList.add('opacity-0');
         clearTimeout(closeTimer);
@@ -607,6 +822,14 @@
     document.addEventListener('click', function (e) {
         hideTip();
 
+        var sessionsMore = e.target.closest('#drawer-sessions-more');
+        if (sessionsMore && currentId && loadedSessionPage < totalSessionPages) {
+            e.preventDefault();
+            sessionsMore.disabled = true;
+            loadLearningData(currentId, loadedSessionPage + 1, true);
+            return;
+        }
+
         var bulkBtn = e.target.closest('[data-bulk-action]');
         if (bulkBtn) {
             e.preventDefault();
@@ -662,7 +885,7 @@
         } else if (e.key === 'Tab') {
             // Keep keyboard focus inside the modal
             var focusable = Array.prototype.filter.call(
-                drawer.querySelectorAll('button, [href], input, select, [tabindex]:not([tabindex="-1"])'),
+                drawer.querySelectorAll('button, summary, [href], input, select, [tabindex]:not([tabindex="-1"])'),
                 function (el) { return !el.disabled && el.offsetParent !== null; }
             );
             if (focusable.length === 0) return;

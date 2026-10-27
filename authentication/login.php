@@ -462,7 +462,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 
                 <?php if (isset($_GET['registered']) && $_GET['registered'] === 'approved'): ?>
                     <div class="auth-message auth-message-success" role="status">
-                        Registration confirmed. You can now log in.
+                        Your account has been approved. You can now log in.
                     </div>
                 <?php endif; ?>
 

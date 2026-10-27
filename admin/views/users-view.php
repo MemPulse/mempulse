@@ -65,12 +65,32 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
         position: fixed;
         top: 50%;
         left: 50%;
-        width: min(calc(100vw - 1.5rem), 44rem);
-        max-height: min(calc(100vh - 1.5rem), 50rem);
+        width: min(calc(100vw - 1.5rem), 64rem);
+        max-height: min(calc(100vh - 1.5rem), 56rem);
         z-index: 70;
         opacity: 0;
         transform: translate(-50%, -47%) scale(0.97);
         transition: opacity 0.18s ease-out, transform 0.18s ease-out;
+    }
+    @supports (height: 100dvh) {
+        #user-drawer { max-height: min(calc(100dvh - 1.5rem), 56rem); }
+    }
+    #drawer-preferences {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    #drawer-sessions-table {
+        width: 100%;
+        min-width: 42rem;
+    }
+    .learning-card-content {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+    @media (min-width: 640px) {
+        #drawer-preferences { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (min-width: 1024px) {
+        #drawer-preferences { grid-template-columns: repeat(5, minmax(0, 1fr)); }
     }
     #user-drawer.is-open {
         opacity: 1;
@@ -652,7 +672,7 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
         </div>
     </div>
 
-    <div class="flex-1 overflow-y-auto p-5 flex flex-col gap-5">
+    <div class="flex-1 min-h-0 overflow-y-auto p-5 flex flex-col gap-5">
         <!-- Badges -->
         <div class="flex flex-wrap items-center gap-2">
             <span data-field="status"></span>
@@ -688,9 +708,50 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
         </div>
         </div>
 
+        <section aria-labelledby="drawer-preferences-title" class="rounded-xl border border-outline-variant/30 p-4">
+            <h3 id="drawer-preferences-title" class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mb-3">Learning Preferences</h3>
+            <p data-learning-status class="text-xs text-on-surface-variant" role="status" aria-live="polite">Loading user learning data…</p>
+            <p data-learning-error class="hidden text-xs font-semibold text-error" role="alert"></p>
+            <dl id="drawer-preferences" class="hidden grid gap-2.5"></dl>
+        </section>
+
+        <section aria-labelledby="drawer-decks-title" class="rounded-xl border border-outline-variant/30 p-4">
+            <div class="flex items-center justify-between gap-3 mb-3">
+                <h3 id="drawer-decks-title" class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Decks &amp; Flashcards</h3>
+                <span id="drawer-deck-count" class="text-[11px] text-on-surface-variant"></span>
+            </div>
+            <div id="drawer-decks" class="flex flex-col gap-2"></div>
+        </section>
+
+        <section aria-labelledby="drawer-sessions-title" class="rounded-xl border border-outline-variant/30 p-4">
+            <div class="flex items-center justify-between gap-3 mb-3">
+                <h3 id="drawer-sessions-title" class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Session History</h3>
+                <span id="drawer-session-count" class="text-[11px] text-on-surface-variant"></span>
+            </div>
+            <div class="overflow-x-auto">
+                <table id="drawer-sessions-table" class="w-full text-left text-xs">
+                    <thead class="text-[10px] uppercase tracking-wider text-on-surface-variant">
+                        <tr class="border-b border-outline-variant/30">
+                            <th class="py-2 pr-3">Type</th>
+                            <th class="py-2 pr-3">Deck</th>
+                            <th class="py-2 pr-3">Started</th>
+                            <th class="py-2 pr-3">Cards</th>
+                            <th class="py-2 pr-3">Accuracy</th>
+                            <th class="py-2">Duration</th>
+                        </tr>
+                    </thead>
+                    <tbody id="drawer-sessions" class="divide-y divide-outline-variant/20"></tbody>
+                </table>
+            </div>
+            <p id="drawer-sessions-empty" class="hidden py-3 text-xs text-on-surface-variant italic">No sessions recorded.</p>
+            <button type="button" id="drawer-sessions-more" class="hidden mt-3 px-3 py-2 rounded-lg border border-outline-variant/40 text-xs font-semibold text-on-surface hover:bg-surface-container-low">
+                Load older sessions
+            </button>
+        </section>
+
         <div class="flex items-start gap-2 p-3 rounded-xl bg-surface-container-low border border-outline-variant/30 text-[11px] text-on-surface-variant leading-snug">
             <span class="material-symbols-outlined text-[16px]" aria-hidden="true">lock</span>
-            <span>Only aggregate study counts are visible to administrators. Deck titles and flashcard content remain private.</span>
+            <span>This learning data is sensitive. Use it only when needed for account support and administration.</span>
         </div>
     </div>
 
