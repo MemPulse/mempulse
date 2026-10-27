@@ -87,11 +87,12 @@
     // ---- Drawer -------------------------------------------------------------
     function field(name) { return drawer ? drawer.querySelector('[data-field="' + name + '"]') : null; }
     function setText(name, value) { var el = field(name); if (el) el.textContent = value; }
-    function setBadge(name, value, map) {
+    // `value` is the text shown; `key` (optional) is the raw value used to look up the badge colours.
+    function setBadge(name, value, map, key) {
         var el = field(name);
         if (!el) return;
         el.textContent = value;
-        el.className = (ui.badgeBase || '') + ' ' + (map[value] || '');
+        el.className = (ui.badgeBase || '') + ' ' + (map[key || value] || '');
     }
     function num(n) { return Number(n || 0).toLocaleString(); }
 
@@ -150,7 +151,7 @@
         setText('initial', (u.name || '?').trim().charAt(0).toUpperCase());
         setText('name', u.name);
         setText('email', u.email);
-        setBadge('status', u.status, ui.statusBadge);
+        setBadge('status', (ui.statusLabels && ui.statusLabels[u.status]) || u.status, ui.statusBadge, u.status);
         setBadge('role', u.role, ui.roleBadge);
         var selfEl = field('self');
         if (selfEl) selfEl.classList.toggle('hidden', !u.isSelf);
@@ -166,7 +167,7 @@
 
         var allowed = u.actions || ['approve', 'reject', 'delete', 'restore', 'make_admin', 'make_user'];
         drawer.querySelectorAll('#drawer-actions [data-action]').forEach(function (b) {
-            b.classList.toggle('hidden', allowed.indexOf(b.getAttribute('data-action')) === -1 && !u.isSelf);
+            b.classList.toggle('hidden', u.isSelf || allowed.indexOf(b.getAttribute('data-action')) === -1);
             b.disabled = false;
         });
 
@@ -264,9 +265,9 @@
 
     var COPY = {
         reject: {
-            title: 'Reject this account?',
+            title: 'Suspend this account?',
             message: function (n) { return n + ' will not be able to sign in.'; },
-            button: 'Reject'
+            button: 'Suspend'
         },
         delete: {
             title: 'Archive this account?',
@@ -404,7 +405,7 @@
         }
 
         var row = e.target.closest('[data-row-user-id]');
-        if (row && !e.target.closest('button, a, input')) {
+        if (row && !e.target.closest('button, a, input, label, [data-no-row]')) {
             openDrawer(row.getAttribute('data-row-user-id'), row);
         }
     });

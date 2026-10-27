@@ -30,9 +30,17 @@ class AdminUserActionsService
     ];
 
     /**
+     * Standard failure response.
+     */
+    private static function fail(int $code, string $message): array
+    {
+        return ['ok' => false, 'code' => $code, 'message' => $message];
+    }
+
+    /**
      * Allowed actions for a user row (shared between UI and server enforcement).
      */
-    public static function allowedActions(string $role, string $status, bool$isDeleted = false): array
+    public static function allowedActions(string $role, string $status, bool $isDeleted = false): array
     {
         if ($isDeleted || $status === 'deleted') {
             return ['restore'];
@@ -61,12 +69,12 @@ class AdminUserActionsService
     /**
      * Perform an action on a single user.
      */
-    public static function perform(mysqli $conn, int $actorId, int$targetId, string $action, string$ip = ''): array
+    public static function perform(mysqli $conn, int $actorId, int $targetId, string $action, string $ip = ''): array
     {
         if (!in_array($action, self::ACTIONS, true) || $targetId <= 0) {
             return self::fail(400, 'That request is not valid.');
         }
-        if ($targetId ===$actorId) {
+        if ($targetId === $actorId) {
             return self::fail(403, 'You cannot change or delete your own account.');
         }
 
@@ -80,9 +88,9 @@ class AdminUserActionsService
             if (!$stmt) {
                 throw new RuntimeException('prepare failed (select)');
             }
-            mysqli_stmt_bind_param($stmt, 'i',$targetId);
+            mysqli_stmt_bind_param($stmt, 'i', $targetId);
             mysqli_stmt_execute($stmt);
-            mysqli_stmt_bind_result($stmt, $first,$last, $email,$role, $status,$deletedAt);
+            mysqli_stmt_bind_result($stmt, $first, $last, $email, $role, $status, $deletedAt);
             $found = mysqli_stmt_fetch($stmt);
             mysqli_stmt_close($stmt);
 
@@ -92,9 +100,9 @@ class AdminUserActionsService
             }
 
             $isDeleted = ($deletedAt !== null);
-            $allowed   = self::allowedActions((string)$role, (string) $status,$isDeleted);
+            $allowed   = self::allowedActions((string) $role, (string) $status, $isDeleted);
 
-            if (!in_array($action,$allowed, true)) {
+            if (!in_array($action, $allowed, true)) {
                 mysqli_rollback($conn);
                 return self::fail(409, 'This action is not valid for the account\'s current state. Refresh the page.');
             }
@@ -111,30 +119,34 @@ class AdminUserActionsService
             }
 
             $prevState = $isDeleted ? 'deleted' : (string) $status;
-            $newState  =$prevState;
+            $newState  = $prevState;
 
             if ($action === 'delete') {
-                $sql      = 'UPDATE users SET deleted_at = NOW() WHERE id = ?';$newState = 'deleted';
-            } elseif ($action === 'restore') {$sql      = 'UPDATE users SET deleted_at = NULL WHERE id = ?';
-                $newState = (string)$status;
-            } elseif ($action === 'approve' || $action === 'reject') {$newState = $action === 'approve' ? 'approved' : 'rejected';$sql      = "UPDATE users SET account_status = '$newState' WHERE id = ?";
+                $sql      = 'UPDATE users SET deleted_at = NOW() WHERE id = ?';
+                $newState = 'deleted';
+            } elseif ($action === 'restore') {
+                $sql      = 'UPDATE users SET deleted_at = NULL WHERE id = ?';
+                $newState = (string) $status;
+            } elseif ($action === 'approve' || $action === 'reject') {
+                $newState = $action === 'approve' ? 'approved' : 'rejected';
+                $sql      = "UPDATE users SET account_status = '$newState' WHERE id = ?";
             } elseif ($action === 'make_admin' || $action === 'make_user') {
-                $newRole  =$action === 'make_admin' ? 'admin' : 'user';
-                $prevState = 'role:' .$role;
-                $newState  = 'role:' .$newRole;
+                $newRole   = $action === 'make_admin' ? 'admin' : 'user';
+                $prevState = 'role:' . $role;
+                $newState  = 'role:' . $newRole;
                 $sql       = "UPDATE users SET role = '$newRole' WHERE id = ?";
             }
 
-            $up = mysqli_prepare($conn,$sql);
+            $up = mysqli_prepare($conn, $sql);
             if (!$up) {
                 throw new RuntimeException('prepare failed (update)');
             }
-            mysqli_stmt_bind_param($up, 'i',$targetId);
+            mysqli_stmt_bind_param($up, 'i', $targetId);
             mysqli_stmt_execute($up);
             mysqli_stmt_close($up);
 
-            $name      = trim($first . ' ' .$last);
-            $name      =$name !== '' ? $name :$email;
+            $name      = trim($first . ' ' . $last);
+            $name      = $name !== '' ? $name : $email;
             $auditName = self::AUDIT_NAMES[$action];
             $ip        = mb_substr($ip, 0, 45);
 
@@ -146,7 +158,7 @@ class AdminUserActionsService
             if (!$log) {
                 throw new RuntimeException('prepare failed (audit)');
             }
-            mysqli_stmt_bind_param($log, 'isisssss', $actorId,$auditName, $targetId,$email, $name,$prevState, $newState,$ip);
+            mysqli_stmt_bind_param($log, 'isisssss', $actorId, $auditName, $targetId, $email, $name, $prevState, $newState, $ip);
             mysqli_stmt_execute($log);
             mysqli_stmt_close($log);
 
@@ -165,27 +177,31 @@ class AdminUserActionsService
             'make_admin' => "Promoted {$name} to Admin.",
             'make_user'  => "Changed {$name} to regular User.",
         ];
-        return ['ok' => true, 'code' => 200, 'message' => $messages[$action], 'status' =>$newState];
+        return ['ok' => true, 'code' => 200, 'message' => $messages[$action], 'status' => $newState];
     }
 
     /**
      * Perform a bulk action on multiple user IDs.
      */
-    public static function performBulk(mysqli $conn, int $actorId, array$targetIds, string $action, string$ip = ''): array
+    public static function performBulk(mysqli $conn, int $actorId, array $targetIds, string $action, string $ip = ''): array
     {
         if (!in_array($action, ['approve', 'reject', 'delete', 'restore'], true)) {
             return self::fail(400, 'Invalid bulk action.');
         }
 
-        $ids = array_values(array_unique(array_filter(array_map('intval',$targetIds), fn($id) =>$id > 0 && $id !==$actorId)));
+        $ids = array_values(array_unique(array_filter(
+            array_map('intval', $targetIds),
+            fn($id) => $id > 0 && $id !== $actorId
+        )));
         if (!$ids) {
             return self::fail(400, 'No valid accounts selected (you cannot modify your own account).');
         }
 
         $succeeded = 0;
-        foreach ($ids as$id) {
-            $res = self::perform($conn, $actorId,$id, $action,$ip);
-            if ($res['ok']) {$succeeded++;
+        foreach ($ids as $id) {
+            $res = self::perform($conn, $actorId, $id, $action, $ip);
+            if ($res['ok']) {
+                $succeeded++;
             }
         }
 
@@ -193,7 +209,12 @@ class AdminUserActionsService
             return self::fail(409, 'None of the selected accounts could be updated.');
         }
 
-        $verb = [ 'approve' => 'Approved', 'reject'  => 'Suspended', 'delete'  => 'Archived', 'restore' => 'Restored', ][$action];
+        $verb = [
+            'approve' => 'Approved',
+            'reject'  => 'Suspended',
+            'delete'  => 'Archived',
+            'restore' => 'Restored',
+        ][$action];
 
         return [
             'ok'      => true,
@@ -205,13 +226,14 @@ class AdminUserActionsService
     /**
      * Create a new user account directly from the Admin Users page.
      */
-    public static function createUser(mysqli $conn, int$actorId, array $data, string$ip = ''): array
+    public static function createUser(mysqli $conn, int $actorId, array $data, string $ip = ''): array
     {
         $first    = trim((string) ($data['first_name'] ?? ''));
         $last     = trim((string) ($data['last_name'] ?? ''));
         $email    = trim((string) ($data['email'] ?? ''));
         $password = (string) ($data['password'] ?? '');
-        $role     = in_array($data['role'] ?? 'user', ['admin', 'user'], true) ? $data['role'] : 'user';$status   = in_array($data['status'] ?? 'approved', ['approved', 'pending'], true) ?$data['status'] : 'approved';
+        $role     = in_array($data['role'] ?? 'user', ['admin', 'user'], true) ? $data['role'] : 'user';
+        $status   = in_array($data['status'] ?? 'approved', ['approved', 'pending'], true) ? $data['status'] : 'approved';
 
         if ($first === '' || $last === '' || $email === '' || $password === '') {
             return self::fail(400, 'All fields are required.');
@@ -227,7 +249,7 @@ class AdminUserActionsService
             mysqli_begin_transaction($conn);
 
             $chk = mysqli_prepare($conn, 'SELECT id FROM users WHERE email = ? LIMIT 1');
-            mysqli_stmt_bind_param($chk, 's',$email);
+            mysqli_stmt_bind_param($chk, 's', $email);
             mysqli_stmt_execute($chk);
             mysqli_stmt_store_result($chk);
             if (mysqli_stmt_num_rows($chk) > 0) {
@@ -242,27 +264,29 @@ class AdminUserActionsService
                 'INSERT INTO users (first_name, last_name, email, password_hash, role, account_status)
                  VALUES (?, ?, ?, ?, ?, ?)'
             );
-            mysqli_stmt_bind_param($ins, 'ssssss', $first,$last, $email,$hash, $role,$status);
+            mysqli_stmt_bind_param($ins, 'ssssss', $first, $last, $email, $hash, $role, $status);
             mysqli_stmt_execute($ins);
             $newId = (int) mysqli_insert_id($conn);
             mysqli_stmt_close($ins);
 
             $set = mysqli_prepare($conn, 'INSERT IGNORE INTO user_settings (user_id) VALUES (?)');
             if ($set) {
-                mysqli_stmt_bind_param($set, 'i',$newId);
+                mysqli_stmt_bind_param($set, 'i', $newId);
                 mysqli_stmt_execute($set);
                 mysqli_stmt_close($set);
             }
 
-            $name      = trim($first . ' ' .$last);
-            $auditName = self::AUDIT_NAMES['create'];$ip        = mb_substr($ip, 0, 45);$prev      = null;
+            $name      = trim($first . ' ' . $last);
+            $auditName = self::AUDIT_NAMES['create'];
+            $ip        = mb_substr($ip, 0, 45);
+            $prev      = null;
 
             $log = mysqli_prepare($conn,
                 'INSERT INTO admin_audit_log
                     (admin_id, action, target_user_id, target_email, target_name, previous_status, new_status, ip_address)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
             );
-            mysqli_stmt_bind_param($log, 'isisssss', $actorId,$auditName, $newId,$email, $name,$prev, $status,$ip);
+            mysqli_stmt_bind_param($log, 'isisssss', $actorId, $auditName, $newId, $email, $name, $prev, $status, $ip);
             mysqli_stmt_execute($log);
             mysqli_stmt_close($log);
 

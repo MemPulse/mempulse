@@ -21,6 +21,13 @@ $tabs = [
     'rejected' => 'Suspended',
     'deleted'  => 'Archived',
 ];
+$statusLabels = [
+    'approved' => 'Approved',
+    'pending'  => 'Pending',
+    'rejected' => 'Suspended',
+    'deleted'  => 'Archived',
+];
+$iconBtn = 'w-8 h-8 inline-flex items-center justify-center rounded-lg transition-colors';
 
 $input = 'w-full rounded-xl border border-outline-variant/40 bg-surface-container-lowest px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40';
 
@@ -33,12 +40,13 @@ foreach (['name', 'role', 'status', 'decks', 'reviews', 'joined'] as $key) {
 $exportUrl = 'users.php' . AdminUsersService::buildQuery($f, ['export' => 'csv']);
 
 $ui = [
-    'badgeBase'   => 'text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md border',
-    'statusBadge' => $statusBadge,
-    'roleBadge'   => $roleBadge,
-    'toastBase'   => 'fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] max-w-[90vw] px-4 py-2.5 rounded-xl shadow-xl text-sm font-semibold',
-    'toastOk'     => 'bg-slate-900 text-white',
-    'toastErr'    => 'bg-error text-on-error',
+    'badgeBase'    => 'inline-flex items-center whitespace-nowrap text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md border',
+    'statusBadge'  => $statusBadge,
+    'roleBadge'    => $roleBadge,
+    'statusLabels' => $statusLabels,
+    'toastBase'    => 'fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] max-w-[90vw] px-4 py-2.5 rounded-xl shadow-xl text-sm font-semibold',
+    'toastOk'      => 'bg-slate-900 text-white',
+    'toastErr'     => 'bg-error text-on-error',
 ];
 
 $pageBtn    = 'min-w-8 h-8 px-2 rounded-lg flex items-center justify-center text-xs font-semibold tabular-nums transition-colors ';
@@ -61,9 +69,20 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
     #user-drawer.is-open {
         transform: translateX(0);
     }
+    .admin-users-table {
+        table-layout: fixed;
+        width: 100%;
+        min-width: 560px;
+    }
     .admin-users-table th,
     .admin-users-table td {
         vertical-align: middle;
+    }
+    .scrollbar-hide {
+        scrollbar-width: none;
+    }
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none;
     }
 </style>
 
@@ -90,9 +109,9 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
             </div>
         </div>
 
-       
+
         <!-- 4 KPI SUMMARY CARDS -->
-        <section aria-label="User summary metrics" 
+        <section aria-label="User summary metrics"
         class="grid grid-cols-4 gap-2 sm:gap-3 lg:gap-4"
         style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr))">
 
@@ -156,25 +175,25 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
             </div>
         <?php endif; ?>
 
-        <!-- MAIN TABLE CARD -->
-        <section class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl shadow-xs overflow-hidden min-w-0" aria-label="User list">
+        <!-- FILTER CARD: status tabs + search/filter form -->
+        <section class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl shadow-xs overflow-hidden min-w-0" aria-label="Filter users">
 
             <!-- Status Tabs -->
-            <nav class="flex gap-1 overflow-x-auto px-3 pt-3 border-b border-outline-variant/30 scrollbar-none" aria-label="Filter by status">
+            <nav class="flex gap-1 overflow-x-auto overflow-y-hidden px-4 pt-2 border-b border-outline-variant/30 scrollbar-hide" aria-label="Filter by status">
                 <?php foreach ($tabs as $key => $label):
                     $on = $f['status'] === $key;
                     $n  = $key === '' ? $counts['all'] : ($counts[$key] ?? 0); ?>
                     <a href="users.php<?= adminEsc(AdminUsersService::buildQuery($f, ['status' => $key, 'page' => 1])) ?>"
                        aria-current="<?= $on ? 'page' : 'false' ?>"
-                       class="flex items-center gap-2 px-3 py-2 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-colors <?= $on ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface' ?>">
+                       class="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors <?= $on ? 'border-primary text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface' ?>">
                         <?= adminEsc($label) ?>
                         <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md <?= $on ? 'bg-primary/10 text-primary' : 'bg-surface-container-low text-on-surface-variant' ?>"><?= $fmt($n) ?></span>
                     </a>
                 <?php endforeach; ?>
             </nav>
 
-            <!-- Improved Search & Filter Bar with Visible Labels -->
-            <form method="get" action="users.php" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3.5 p-4 border-b border-outline-variant/30 bg-surface-container-lowest items-end">
+            <!-- Search & Filter Bar with Visible Labels -->
+            <form method="get" action="users.php" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3.5 p-4 bg-surface-container-lowest items-end">
                 <input type="hidden" name="status" value="<?= adminEsc($f['status']) ?>">
                 <input type="hidden" name="sort" value="<?= adminEsc($f['sort']) ?>">
                 <input type="hidden" name="dir" value="<?= adminEsc($f['dir']) ?>">
@@ -207,6 +226,10 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
                     <?php endif; ?>
                 </div>
             </form>
+        </section>
+
+        <!-- TABLE CARD -->
+        <section class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl shadow-xs overflow-hidden min-w-0" aria-label="User list">
 
             <!-- Bulk Action Toolbar -->
             <div id="bulk-action-bar" class="hidden items-center justify-between gap-3 px-4 py-2.5 bg-primary-fixed/40 border-b border-primary/20">
@@ -236,15 +259,25 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
             <?php if ($list['rows']): ?>
                 <!-- NATIVE RESPONSIVE DATA TABLE -->
                 <div class="overflow-x-auto">
-                    <table class="admin-users-table w-full text-left border-collapse">
+                    <table class="admin-users-table text-left border-collapse">
+                        <colgroup>
+                            <col style="width:48px">
+                            <col>
+                            <col style="width:104px">
+                            <col style="width:120px">
+                            <col class="hidden md:table-column" style="width:130px">
+                            <col class="hidden lg:table-column" style="width:170px">
+                            <col class="hidden sm:table-column" style="width:120px">
+                            <col style="width:132px">
+                        </colgroup>
                         <thead>
                             <tr class="bg-surface-container-low border-b border-outline-variant/30 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
-                                <th class="py-3 pl-4 pr-2 w-9">
+                                <th class="py-3 pl-4 pr-2">
                                     <input type="checkbox" id="select-all-users" aria-label="Select all users on this page" class="w-4 h-4 rounded accent-primary cursor-pointer">
                                 </th>
                                 <?php
                                 $headers = [
-                                    'name'    => ['label' => 'User',           'class' => 'py-3 px-3 min-w-[200px]'],
+                                    'name'    => ['label' => 'User',           'class' => 'py-3 px-3'],
                                     'role'    => ['label' => 'Role',           'class' => 'py-3 px-3'],
                                     'status'  => ['label' => 'Status',         'class' => 'py-3 px-3'],
                                     'decks'   => ['label' => 'Study Content',  'class' => 'py-3 px-3 hidden md:table-cell'],
@@ -255,26 +288,25 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
                                     $active = $f['sort'] === $key;
                                     $icon   = $active ? ($f['dir'] === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more';
                                 ?>
-                                    <th class="<?= $h['class'] ?>">
+                                    <th class="<?= $h['class'] ?> whitespace-nowrap">
                                         <a href="<?= adminEsc($sortUrls[$key]) ?>" class="inline-flex items-center gap-1 hover:text-on-surface transition-colors">
                                             <span><?= adminEsc($h['label']) ?></span>
                                             <span class="material-symbols-outlined text-[14px] <?= $active ? 'text-primary' : 'opacity-40' ?>" aria-hidden="true"><?= $icon ?></span>
                                         </a>
                                     </th>
                                 <?php endforeach; ?>
-                                <th class="py-3 pl-3 pr-4 text-right">Actions</th>
+                                <th class="py-3 pl-3 pr-4 text-right whitespace-nowrap">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-outline-variant/20 text-sm">
                             <?php foreach ($list['rows'] as $r):
                                 $id       = (int) $r['id'];
                                 $isSelf   = $id === $adminUser['id'];
-                                $actions  = $isSelf ? ['approve', 'reject', 'delete', 'restore', 'make_admin', 'make_user'] : AdminUserActionsService::allowedActions($r['role'], $r['rawStatus'], $r['isDeleted']);
-                                if ($isSelf) { $actions = []; } // self protection
+                                $actions  = $isSelf ? [] : AdminUserActionsService::allowedActions($r['role'], $r['rawStatus'], $r['isDeleted']);
                                 $firstChr = mb_strtoupper(mb_substr(trim($r['name']), 0, 1) ?: '?');
                             ?>
                                 <tr data-row-user-id="<?= $id ?>" class="hover:bg-surface-container-low/60 transition-colors cursor-pointer">
-                                    <td class="py-3 pl-4 pr-2" onclick="event.stopPropagation()">
+                                    <td class="py-3 pl-4 pr-2" data-no-row>
                                         <?php if (!$isSelf): ?>
                                             <input type="checkbox" class="user-row-checkbox w-4 h-4 rounded accent-primary cursor-pointer" value="<?= $id ?>" aria-label="Select <?= adminEsc($r['name']) ?>">
                                         <?php endif; ?>
@@ -285,24 +317,24 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
                                                 <?= adminEsc($firstChr) ?>
                                             </div>
                                             <div class="flex flex-col min-w-0">
-                                                <div class="flex items-center gap-1.5">
+                                                <div class="flex items-center gap-1.5 min-w-0">
                                                     <span class="text-xs font-bold text-on-surface truncate"><?= adminEsc($r['name']) ?></span>
                                                     <?php if ($isSelf): ?>
-                                                        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary">You</span>
+                                                        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary shrink-0">You</span>
                                                     <?php endif; ?>
                                                 </div>
                                                 <span class="text-[11px] text-on-surface-variant truncate"><?= adminEsc($r['email']) ?></span>
                                             </div>
                                         </div>
                                     </td>
-                                    <td class="py-3 px-3">
+                                    <td class="py-3 px-3 whitespace-nowrap">
                                         <span class="<?= $ui['badgeBase'] ?> <?= $roleBadge[$r['role']] ?? $roleBadge['user'] ?>">
                                             <?= adminEsc($r['role']) ?>
                                         </span>
                                     </td>
-                                    <td class="py-3 px-3">
+                                    <td class="py-3 px-3 whitespace-nowrap">
                                         <span class="<?= $ui['badgeBase'] ?> <?= $statusBadge[$r['status']] ?? $statusBadge['pending'] ?>">
-                                            <?= adminEsc($r['status']) ?>
+                                            <?= adminEsc($statusLabels[$r['status']] ?? $r['status']) ?>
                                         </span>
                                     </td>
                                     <td class="py-3 px-3 hidden md:table-cell">
@@ -320,19 +352,25 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
                                     <td class="py-3 px-3 hidden sm:table-cell text-xs text-on-surface-variant tabular-nums whitespace-nowrap">
                                         <?= adminEsc($r['joined']) ?>
                                     </td>
-                                    <td class="py-3 pl-3 pr-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
-                                        <div class="inline-flex items-center justify-end gap-1.5">
-                                            <?php if ($r['status'] === 'pending'): ?>
-                                                <button type="button" data-action="approve" data-user-id="<?= $id ?>" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-50 border border-teal-200/80 text-teal-700 text-xs font-bold hover:bg-teal-100 transition-colors">
-                                                    Approve
-                                                </button>
-                                                <button type="button" data-action="reject" data-user-id="<?= $id ?>" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-outline-variant text-on-surface text-xs font-bold hover:bg-surface-container-low transition-colors">
-                                                    Reject
+                                    <td class="py-3 pl-3 pr-4 text-right whitespace-nowrap" data-no-row>
+                                        <div class="inline-flex items-center justify-end gap-1">
+                                            <?php if (in_array('approve', $actions, true)): ?>
+                                                <button type="button" data-action="approve" data-user-id="<?= $id ?>" title="Approve" aria-label="Approve <?= adminEsc($r['name']) ?>" class="<?= $iconBtn ?> text-teal-700 hover:bg-teal-50">
+                                                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">check</span>
                                                 </button>
                                             <?php endif; ?>
-                                            <button type="button" data-user-id="<?= $id ?>" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/40 text-on-surface hover:text-primary text-xs font-bold transition-colors">
-                                                <span>Manage</span>
-                                                <span class="material-symbols-outlined text-[15px]" aria-hidden="true">chevron_right</span>
+                                            <?php if ($r['status'] === 'pending' && in_array('reject', $actions, true)): ?>
+                                                <button type="button" data-action="reject" data-user-id="<?= $id ?>" title="Suspend" aria-label="Suspend <?= adminEsc($r['name']) ?>" class="<?= $iconBtn ?> text-on-surface-variant hover:bg-surface-container-high">
+                                                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">block</span>
+                                                </button>
+                                            <?php endif; ?>
+                                            <?php if (in_array('restore', $actions, true)): ?>
+                                                <button type="button" data-action="restore" data-user-id="<?= $id ?>" title="Restore" aria-label="Restore <?= adminEsc($r['name']) ?>" class="<?= $iconBtn ?> text-teal-700 hover:bg-teal-50">
+                                                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">restore_from_trash</span>
+                                                </button>
+                                            <?php endif; ?>
+                                            <button type="button" data-user-id="<?= $id ?>" title="View details" aria-label="View details for <?= adminEsc($r['name']) ?>" class="<?= $iconBtn ?> text-on-surface-variant hover:bg-surface-container-high hover:text-primary">
+                                                <span class="material-symbols-outlined text-[18px]" aria-hidden="true">chevron_right</span>
                                             </button>
                                         </div>
                                     </td>
