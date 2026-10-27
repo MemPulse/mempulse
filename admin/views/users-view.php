@@ -98,14 +98,14 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2.5">
-                <a href="<?= adminEsc($exportUrl) ?>" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/30 text-on-surface text-xs font-semibold transition-colors">
-                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">download</span>
-                    <span>Export CSV</span>
-                </a>
                 <button type="button" id="open-create-user-btn" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary hover:opacity-90 text-on-primary text-xs font-semibold shadow-xs transition-opacity">
                     <span class="material-symbols-outlined text-[18px]" aria-hidden="true">person_add</span>
                     <span>Add User</span>
                 </button>
+                <a href="<?= adminEsc($exportUrl) ?>" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/30 text-on-surface text-xs font-semibold transition-colors">
+                    <span class="material-symbols-outlined text-[18px]" aria-hidden="true">download</span>
+                    <span>Export CSV</span>
+                </a>
             </div>
         </div>
 
@@ -193,36 +193,45 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
             </nav>
 
             <!-- Search & Filter Bar with Visible Labels -->
-            <form method="get" action="users.php" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3.5 p-4 bg-surface-container-lowest items-end">
+            <form method="get" action="users.php" class="flex flex-wrap items-end gap-x-4 gap-y-3 p-4 bg-surface-container-lowest">
                 <input type="hidden" name="status" value="<?= adminEsc($f['status']) ?>">
                 <input type="hidden" name="sort" value="<?= adminEsc($f['sort']) ?>">
                 <input type="hidden" name="dir" value="<?= adminEsc($f['dir']) ?>">
 
-                <div class="lg:col-span-4 flex flex-col gap-1.5">
+                <!-- Search (grows the most) -->
+                <div class="flex flex-col gap-1.5 flex-[2_1_240px] min-w-[200px]">
                     <label for="flt-q" class="text-xs font-bold text-on-surface-variant">Search</label>
-                    <input id="flt-q" type="search" name="q" value="<?= adminEsc($f['q']) ?>" maxlength="100" placeholder="Name or email…" class="<?= $input ?>">
+                    <input id="flt-q" type="search" name="q" value="<?= adminEsc($f['q']) ?>" maxlength="100" placeholder="Name or email…" class="<?= $input ?> w-full min-w-0">
                 </div>
-                <div class="lg:col-span-2 flex flex-col gap-1.5">
+
+                <!-- Role -->
+                <div class="flex flex-col gap-1.5 w-80 shrink-0">
                     <label for="flt-role" class="text-xs font-bold text-on-surface-variant">Role</label>
-                    <select id="flt-role" name="role" class="<?= $input ?>" data-autosubmit>
+                    <select id="flt-role" name="role" class="<?= $input ?> w-full w-80 min-w-0" data-autosubmit>
                         <option value="">All roles</option>
                         <?php foreach (AdminUsersService::ROLES as $r): ?>
                             <option value="<?= $r ?>" <?= $f['role'] === $r ? 'selected' : '' ?>><?= ucfirst($r) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="lg:col-span-2 flex flex-col gap-1.5">
+
+                <!-- Joined From -->
+                <div class="flex flex-col gap-1.5 flex-[1_1_160px] min-w-[150px]">
                     <label for="flt-from" class="text-xs font-bold text-on-surface-variant">Joined From</label>
-                    <input id="flt-from" type="date" name="from" value="<?= adminEsc($f['from']) ?>" class="<?= $input ?>">
+                    <input id="flt-from" type="date" name="from" value="<?= adminEsc($f['from']) ?>" class="<?= $input ?> w-full min-w-0">
                 </div>
-                <div class="lg:col-span-2 flex flex-col gap-1.5">
+
+                <!-- Joined To -->
+                <div class="flex flex-col gap-1.5 flex-[1_1_160px] min-w-[150px]">
                     <label for="flt-to" class="text-xs font-bold text-on-surface-variant">Joined To</label>
-                    <input id="flt-to" type="date" name="to" value="<?= adminEsc($f['to']) ?>" class="<?= $input ?>">
+                    <input id="flt-to" type="date" name="to" value="<?= adminEsc($f['to']) ?>" class="<?= $input ?> w-full min-w-0">
                 </div>
-                <div class="lg:col-span-2 flex items-center gap-2">
-                    <button type="submit" class="flex-1 px-4 py-2 rounded-xl bg-primary text-on-primary text-sm font-semibold hover:opacity-90 transition-opacity h-[38px]">Filter</button>
+
+                <!-- Actions -->
+                <div class="flex items-center gap-2 shrink-0">
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-primary text-on-primary text-sm font-semibold hover:opacity-90 transition-opacity h-[38px]">Filter</button>
                     <?php if ($hasFilters): ?>
-                        <a href="users.php" class="px-3 py-2 rounded-xl bg-surface-container-low hover:bg-surface-container-high text-on-surface text-sm font-semibold transition-colors flex items-center justify-center h-[38px]">Reset</a>
+                        <a href="users.php" class="px-4 py-2 rounded-xl bg-surface-container-low hover:bg-surface-container-high text-on-surface text-sm font-semibold transition-colors flex items-center justify-center h-[38px]">Reset</a>
                     <?php endif; ?>
                 </div>
             </form>

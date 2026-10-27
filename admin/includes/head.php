@@ -59,4 +59,5 @@ $cssVersion = function (string $file) use ($sharedCss) {
     <link rel="stylesheet" href="<?= APP_URL ?>assets/css/app.css">
     <link rel="stylesheet" href="<?= APP_URL ?>assets/css/tailwind.css?v=<?= $cssVersion('tailwind.css') ?>">
     <link rel="stylesheet" href="<?= APP_URL ?>assets/css/theme.css?v=<?= $cssVersion('theme.css') ?>">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
 </head>
