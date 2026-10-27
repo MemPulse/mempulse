@@ -1,13 +1,38 @@
 /**
- * Admin Users: detail drawer, audit log history, single & bulk actions,
- * role promotion/demotion, and admin user creation modal.
+ * Admin Users: details modal, audit history, single & bulk actions (all behind a
+ * confirmation dialog), role promotion/demotion, create-user modal, and tooltips.
+ *
+ * The table and filter regions are swapped by AJAX (see users-view.php), so nothing
+ * here may hold references to elements inside them or to data from the first render:
+ *   - per-render data is re-read from #users-data on every `users:refreshed`
+ *   - selection and clicks use delegated listeners on `document`
+ *   - the bulk bar / select-all are looked up at call time
  */
 (function () {
     'use strict';
 
-    var data = window.MemPulseAdminUsers || { users: {}, order: [] };
+    var cfg = window.MemPulseAdminUsers || {};
     var ui = window.MemPulseAdminUsersUI || { statusBadge: {}, roleBadge: {} };
     var FLASH_KEY = 'adminUsersFlash';
+
+    // `endpoint` and `csrf` are fixed for the page; `users` and `order` change on every swap.
+    var data = { users: {}, order: [], endpoint: cfg.endpoint, csrf: cfg.csrf };
+
+    function loadTableData() {
+        var el = document.getElementById('users-data');
+        var parsed = null;
+        if (el) {
+            try { parsed = JSON.parse(el.textContent); } catch (e) { parsed = null; }
+        }
+        if (!parsed && cfg.users) parsed = { users: cfg.users, order: cfg.order || [] }; // legacy payload
+        data.users = (parsed && parsed.users) || {};
+        data.order = ((parsed && parsed.order) || []).map(String);
+    }
+    loadTableData();
+
+    function getUser(id) {
+        return id === null || id === undefined ? null : (data.users[String(id)] || null);
+    }
 
     var drawer = document.getElementById('user-drawer');
     var overlay = document.getElementById('user-drawer-overlay');
@@ -21,7 +46,8 @@
     var currentId = null;
     var busy = false;
     var toastTimer = null;
-    var pending = null;
+    var closeTimer = null;
+    var pending = null; // { payload, trigger, ids }
 
     // ---- Toast --------------------------------------------------------------
     function toast(message, ok) {
@@ -40,15 +66,15 @@
         }
     } catch (e) { }
 
-    // ---- Auto-submit select filters -----------------------------------------
-    document.querySelectorAll('[data-autosubmit]').forEach(function (el) {
-        el.addEventListener('change', function () { el.form.submit(); });
-    });
+    // A click found no data for its user: say so and re-fetch, never fail silently.
+    function staleNotice() {
+        toast('User list is out of date. Refreshing\u2026', false);
+        if (window.MemPulseUsersLoader) window.MemPulseUsersLoader.reload();
+        else window.location.reload();
+    }
 
-    // ---- Bulk Selection Checkboxes ------------------------------------------
-    var selectAllBox = document.getElementById('select-all-users');
-    var bulkBar = document.getElementById('bulk-action-bar');
-    var bulkCountEl = document.getElementById('bulk-selected-count');
+    // ---- Bulk selection (delegated; the bar and checkboxes are swapped by AJAX) ----
+    function rowBoxes() { return document.querySelectorAll('.user-row-checkbox'); }
 
     function getSelectedIds() {
         var ids = [];
@@ -59,32 +85,39 @@
     }
 
     function syncBulkBar() {
+        var bar = document.getElementById('bulk-action-bar');
+        var countEl = document.getElementById('bulk-selected-count');
+        var all = document.getElementById('select-all-users');
+        var total = rowBoxes().length;
         var ids = getSelectedIds();
-        if (!bulkBar) return;
+
+        if (all) {
+            all.checked = total > 0 && ids.length === total;
+            all.indeterminate = ids.length > 0 && ids.length < total;
+        }
+        if (!bar) return;
         if (ids.length > 0) {
-            bulkBar.classList.remove('hidden');
-            bulkBar.classList.add('flex');
-            if (bulkCountEl) bulkCountEl.textContent = String(ids.length);
+            bar.classList.remove('hidden');
+            bar.classList.add('flex');
+            if (countEl) countEl.textContent = String(ids.length);
         } else {
-            bulkBar.classList.add('hidden');
-            bulkBar.classList.remove('flex');
+            bar.classList.add('hidden');
+            bar.classList.remove('flex');
         }
     }
 
-    if (selectAllBox) {
-        selectAllBox.addEventListener('change', function () {
-            document.querySelectorAll('.user-row-checkbox').forEach(function (cb) {
-                cb.checked = selectAllBox.checked;
-            });
+    document.addEventListener('change', function (e) {
+        var t = e.target;
+        if (!t || !t.matches) return;
+        if (t.matches('#select-all-users')) {
+            rowBoxes().forEach(function (cb) { cb.checked = t.checked; });
             syncBulkBar();
-        });
-    }
-
-    document.querySelectorAll('.user-row-checkbox').forEach(function (cb) {
-        cb.addEventListener('change', syncBulkBar);
+        } else if (t.matches('.user-row-checkbox')) {
+            syncBulkBar();
+        }
     });
 
-    // ---- Drawer -------------------------------------------------------------
+    // ---- Details modal ------------------------------------------------------
     function field(name) { return drawer ? drawer.querySelector('[data-field="' + name + '"]') : null; }
     function setText(name, value) { var el = field(name); if (el) el.textContent = value; }
     // `value` is the text shown; `key` (optional) is the raw value used to look up the badge colours.
@@ -92,9 +125,10 @@
         var el = field(name);
         if (!el) return;
         el.textContent = value;
-        el.className = (ui.badgeBase || '') + ' ' + (map[key || value] || '');
+        el.className = (ui.badgeBase || '') + ' ' + ((map || {})[key || value] || '');
     }
     function num(n) { return Number(n || 0).toLocaleString(); }
+    function isDrawerOpen() { return !!drawer && !drawer.classList.contains('hidden'); }
 
     var AUDIT_LABELS = {
         user_approved: 'Approved account',
@@ -165,6 +199,14 @@
 
         renderAudit(u.audit || []);
 
+        // Previous / next through the users currently listed
+        var idx = data.order.indexOf(String(currentId));
+        setText('position', idx >= 0 ? (idx + 1) + ' of ' + data.order.length : '');
+        var prev = drawer.querySelector('[data-nav="prev"]');
+        var next = drawer.querySelector('[data-nav="next"]');
+        if (prev) prev.disabled = idx <= 0;
+        if (next) next.disabled = idx < 0 || idx >= data.order.length - 1;
+
         var allowed = u.actions || ['approve', 'reject', 'delete', 'restore', 'make_admin', 'make_user'];
         drawer.querySelectorAll('#drawer-actions [data-action]').forEach(function (b) {
             b.classList.toggle('hidden', u.isSelf || allowed.indexOf(b.getAttribute('data-action')) === -1);
@@ -184,33 +226,51 @@
 
     function openDrawer(id, trigger) {
         if (!drawer || !overlay) return;
-        var u = data.users[id];
-        if (!u) return;
+        var u = getUser(id);
+        if (!u) { staleNotice(); return; }
         opener = trigger || null;
-        currentId = id;
+        currentId = String(id);
         fill(u);
+        clearTimeout(closeTimer);
         drawer.classList.remove('hidden');
         overlay.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
         requestAnimationFrame(function () {
             drawer.classList.add('is-open');
             overlay.classList.remove('opacity-0');
         });
+        var scroller = drawer.querySelector('.overflow-y-auto');
+        if (scroller) scroller.scrollTop = 0;
         if (closeBtn) closeBtn.focus();
     }
 
+    function navigateDrawer(step) {
+        var idx = data.order.indexOf(String(currentId));
+        var nextId = idx < 0 ? undefined : data.order[idx + step];
+        var u = getUser(nextId);
+        if (!u) return;
+        currentId = String(nextId);
+        opener = null;
+        fill(u);
+        var scroller = drawer.querySelector('.overflow-y-auto');
+        if (scroller) scroller.scrollTop = 0;
+    }
+
     function closeDrawer() {
-        if (!drawer || !overlay) return;
+        if (!drawer || !overlay || !isDrawerOpen()) return;
         drawer.classList.remove('is-open');
         overlay.classList.add('opacity-0');
-        setTimeout(function () {
+        clearTimeout(closeTimer);
+        closeTimer = setTimeout(function () {
             drawer.classList.add('hidden');
             overlay.classList.add('hidden');
-        }, 250);
-        if (opener) opener.focus();
+        }, 200);
+        document.body.style.overflow = '';
+        if (opener && document.contains(opener) && opener.focus) opener.focus();
         currentId = null;
     }
 
-    // ---- Server Requests ----------------------------------------------------
+    // ---- Server requests ----------------------------------------------------
     function postJson(payload) {
         return fetch(data.endpoint, {
             method: 'POST',
@@ -263,73 +323,141 @@
         });
     }
 
+    // ---- Confirmation dialog: every action, single or bulk, goes through here ----
+    var TONE = {
+        primary: { button: 'bg-primary text-on-primary', icon: 'bg-primary/10 text-primary' },
+        danger: { button: 'bg-error text-on-error', icon: 'bg-error-container/40 text-error' }
+    };
+    var BUTTON_BASE = 'inline-flex items-center px-4 py-2 rounded-xl hover:opacity-90 disabled:opacity-50 font-semibold text-sm shadow-sm transition-colors ';
+    var ICON_BASE = 'w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ';
+
+    function plural(verbPhrase) {
+        return function (n) { return verbPhrase.replace('{n}', n); };
+    }
+
     var COPY = {
+        approve: {
+            tone: 'primary', icon: 'check_circle', button: 'Approve',
+            titleOne: 'Approve this account?', titleMany: plural('Approve {n} accounts?'),
+            message: function (s) { return s + ' will be able to sign in and use MemPulse.'; }
+        },
+        restore: {
+            tone: 'primary', icon: 'restore_from_trash', button: 'Restore',
+            titleOne: 'Restore this account?', titleMany: plural('Restore {n} accounts?'),
+            message: function (s) { return s + ' will be restored.'; }
+        },
         reject: {
-            title: 'Suspend this account?',
-            message: function (n) { return n + ' will not be able to sign in.'; },
-            button: 'Suspend'
+            tone: 'danger', icon: 'block', button: 'Suspend',
+            titleOne: 'Suspend this account?', titleMany: plural('Suspend {n} accounts?'),
+            message: function (s) { return s + ' will not be able to sign in.'; }
         },
         delete: {
-            title: 'Archive this account?',
-            message: function (n) { return n + ' will be archived and hidden from active lists.'; },
-            button: 'Archive'
+            tone: 'danger', icon: 'delete', button: 'Archive',
+            titleOne: 'Archive this account?', titleMany: plural('Archive {n} accounts?'),
+            message: function (s) { return s + ' will be archived and hidden from active lists.'; }
         },
         make_admin: {
-            title: 'Promote to Administrator?',
-            message: function (n) { return n + ' will have full access to the MemPulse Admin dashboard.'; },
-            button: 'Promote to Admin'
+            tone: 'primary', icon: 'shield_person', button: 'Promote to Admin',
+            titleOne: 'Promote to Administrator?', titleMany: plural('Promote {n} accounts to Administrator?'),
+            message: function (s) { return s + ' will have full access to the MemPulse Admin dashboard.'; }
         },
         make_user: {
-            title: 'Demote to regular User?',
-            message: function (n) { return n + ' will lose administrator privileges.'; },
-            button: 'Change to User'
+            tone: 'danger', icon: 'person', button: 'Change to User',
+            titleOne: 'Demote to regular User?', titleMany: plural('Demote {n} accounts to regular User?'),
+            message: function (s) { return s + ' will lose administrator privileges.'; }
         }
     };
 
-    function handleSingleAction(action, id, trigger) {
-        var u = data.users[id];
-        if (!u) return;
-
-        if (action === 'approve' || action === 'restore' || !dialog || !COPY[action]) {
-            executePayload({ action: action, user_id: Number(id) }, trigger);
+    function renderConfirmList(users) {
+        var list = document.getElementById('user-action-list');
+        if (!list) return;
+        list.textContent = '';
+        if (!users || users.length === 0) {
+            list.classList.add('hidden');
+            list.classList.remove('flex');
             return;
         }
+        var MAX = 6;
+        users.slice(0, MAX).forEach(function (u) {
+            var li = document.createElement('li');
+            li.className = 'flex items-center justify-between gap-3';
+            var name = document.createElement('span');
+            name.className = 'font-semibold truncate';
+            name.textContent = u.name;
+            var email = document.createElement('span');
+            email.className = 'text-on-surface-variant truncate';
+            email.textContent = u.email;
+            li.appendChild(name);
+            li.appendChild(email);
+            list.appendChild(li);
+        });
+        if (users.length > MAX) {
+            var more = document.createElement('li');
+            more.className = 'text-on-surface-variant';
+            more.textContent = '+ ' + (users.length - MAX) + ' more';
+            list.appendChild(more);
+        }
+        list.classList.remove('hidden');
+        list.classList.add('flex');
+    }
 
-        pending = { payload: { action: action, user_id: Number(id) }, trigger: trigger };
-        document.getElementById('user-action-title').textContent = COPY[action].title;
-        document.getElementById('user-action-message').textContent = COPY[action].message(u.name);
-        document.getElementById('user-action-confirm').textContent = COPY[action].button;
+    function askConfirm(action, ids, trigger, bulk) {
+        var copy = COPY[action];
+        if (!copy || !dialog) { toast('That action is not available.', false); return; }
+
+        var users = ids.map(getUser);
+        if (users.some(function (u) { return !u; })) { staleNotice(); return; }
+
+        var n = ids.length;
+        var subject = bulk ? n + (n === 1 ? ' selected account' : ' selected accounts') : users[0].name;
+        var tone = TONE[copy.tone];
+
+        pending = {
+            ids: ids.map(String),
+            trigger: trigger,
+            payload: bulk
+                ? { action: action, user_ids: ids.map(Number) }
+                : { action: action, user_id: Number(ids[0]) }
+        };
+
+        document.getElementById('user-action-title').textContent = n > 1 ? copy.titleMany(n) : copy.titleOne;
+        document.getElementById('user-action-message').textContent = copy.message(subject);
+        document.getElementById('user-action-icon').textContent = copy.icon;
+        document.getElementById('user-action-icon-wrap').className = ICON_BASE + tone.icon;
+        var confirmBtn = document.getElementById('user-action-confirm');
+        confirmBtn.textContent = copy.button;
+        confirmBtn.className = BUTTON_BASE + tone.button;
+        confirmBtn.disabled = false;
+        renderConfirmList(bulk ? users : null);
         showDialogError('');
+        hideTip();
         dialog.showModal();
+        // Destructive actions start on Cancel so Enter can't confirm by accident.
+        (copy.tone === 'danger' ? document.getElementById('user-action-cancel') : confirmBtn).focus();
+    }
+
+    function handleSingleAction(action, id, trigger) {
+        if (!getUser(id)) { staleNotice(); return; }
+        askConfirm(action, [id], trigger, false);
     }
 
     function handleBulkAction(action, trigger) {
         var ids = getSelectedIds();
         if (ids.length === 0) return;
-
-        if (action === 'approve' || action === 'restore' || !dialog) {
-            executePayload({ action: action, user_ids: ids }, trigger);
-            return;
-        }
-
-        var label = ids.length + (ids.length === 1 ? ' selected account' : ' selected accounts');
-        pending = { payload: { action: action, user_ids: ids }, trigger: trigger };
-        document.getElementById('user-action-title').textContent = COPY[action].title;
-        document.getElementById('user-action-message').textContent = COPY[action].message(label);
-        document.getElementById('user-action-confirm').textContent = COPY[action].button;
-        showDialogError('');
-        dialog.showModal();
+        askConfirm(action, ids, trigger, true);
     }
 
     if (dialog) {
-        document.getElementById('user-action-cancel').addEventListener('click', function () { dialog.close(); });
+        document.getElementById('user-action-cancel').addEventListener('click', function () { if (!busy) dialog.close(); });
         document.getElementById('user-action-confirm').addEventListener('click', function () {
-            if (pending) executePayload(pending.payload, pending.trigger);
+            if (pending && !busy) executePayload(pending.payload, pending.trigger);
         });
+        // Click on the backdrop (the <dialog> itself, outside its content) cancels.
+        dialog.addEventListener('click', function (e) { if (e.target === dialog && !busy) dialog.close(); });
         dialog.addEventListener('close', function () { pending = null; showDialogError(''); });
     }
 
-    // ---- Create User Modal --------------------------------------------------
+    // ---- Create User modal --------------------------------------------------
     var openCreateBtn = document.getElementById('open-create-user-btn');
     var createErrorEl = document.getElementById('create-user-error');
 
@@ -377,12 +505,119 @@
         });
     }
 
-    // ---- Event Delegation ---------------------------------------------------
+    // ---- Tooltips (delegated: work on swapped-in rows, hover, keyboard focus, touch) ----
+    var TIP_TARGETS = '[data-tip],[title],button[aria-label],a[aria-label],input[aria-label]';
+    var tip = null;
+    var tipTarget = null;
+    var tipShowTimer = null;
+    var tipHideTimer = null;
+    var tabbed = false;
+
+    function ensureTip() {
+        if (tip) return tip;
+        var st = document.createElement('style');
+        st.textContent =
+            '.mp-tip{position:fixed;left:0;top:0;z-index:110;max-width:16rem;padding:6px 10px;border-radius:8px;' +
+            'background:#0f172a;color:#fff;font-size:12px;font-weight:600;line-height:1.35;pointer-events:none;' +
+            'opacity:0;transition:opacity .12s ease-out}.mp-tip.is-on{opacity:1}' +
+            '@media (prefers-reduced-motion:reduce){.mp-tip{transition:none}}';
+        document.head.appendChild(st);
+        tip = document.createElement('div');
+        tip.className = 'mp-tip';
+        tip.setAttribute('role', 'tooltip');
+        document.body.appendChild(tip);
+        return tip;
+    }
+
+    function tipTargetFor(node) {
+        if (!node || !node.closest) return null;
+        var el = node.closest(TIP_TARGETS);
+        if (!el || el.closest('dialog')) return null; // dialogs sit in the top layer, above the tooltip
+        if (el.hasAttribute('title')) {               // take over the slow native tooltip
+            if (!el.hasAttribute('data-tip')) el.setAttribute('data-tip', el.getAttribute('title'));
+            el.removeAttribute('title');
+        }
+        return el;
+    }
+
+    function showTip(el) {
+        var text = el.getAttribute('data-tip') || el.getAttribute('aria-label') || '';
+        if (!text || !document.contains(el)) return;
+        var t = ensureTip();
+        tipTarget = el;
+        t.classList.remove('is-on');
+        t.textContent = text;
+        t.style.left = '0px';
+        t.style.top = '0px';
+        var r = el.getBoundingClientRect();
+        var w = t.offsetWidth;
+        var h = t.offsetHeight;
+        var left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, window.innerWidth - w - 8));
+        var top = r.top - h - 8;
+        if (top < 8) top = r.bottom + 8;
+        t.style.left = left + 'px';
+        t.style.top = top + 'px';
+        t.classList.add('is-on');
+    }
+
+    function hideTip() {
+        clearTimeout(tipShowTimer);
+        clearTimeout(tipHideTimer);
+        tipTarget = null;
+        if (tip) tip.classList.remove('is-on');
+    }
+
+    document.addEventListener('pointerover', function (e) {
+        if (e.pointerType === 'touch') return;
+        var el = tipTargetFor(e.target);
+        if (!el || el === tipTarget) return;
+        hideTip();
+        tipShowTimer = setTimeout(function () { showTip(el); }, 300);
+    });
+    document.addEventListener('pointerout', function (e) {
+        if (e.pointerType === 'touch') return;
+        if (tipTarget && e.relatedTarget && tipTarget.contains(e.relatedTarget)) return;
+        hideTip();
+    });
+    document.addEventListener('pointerdown', function () { tabbed = false; });
+    document.addEventListener('focusin', function (e) {
+        if (!tabbed) return; // only for keyboard navigation, not programmatic focus
+        var el = tipTargetFor(e.target);
+        if (!el) return;
+        hideTip();
+        showTip(el);
+    });
+    document.addEventListener('focusout', hideTip);
+    window.addEventListener('scroll', hideTip, true);
+    window.addEventListener('resize', hideTip);
+
+    // Touch: long-press shows the tip briefly
+    document.addEventListener('touchstart', function (e) {
+        var el = tipTargetFor(e.target);
+        hideTip();
+        if (el) tipShowTimer = setTimeout(function () { showTip(el); }, 450);
+    }, { passive: true });
+    document.addEventListener('touchend', function () {
+        clearTimeout(tipShowTimer);
+        if (tipTarget) tipHideTimer = setTimeout(hideTip, 1600);
+    }, { passive: true });
+    document.addEventListener('touchmove', hideTip, { passive: true });
+
+    // ---- Event delegation ---------------------------------------------------
     document.addEventListener('click', function (e) {
+        hideTip();
+
         var bulkBtn = e.target.closest('[data-bulk-action]');
         if (bulkBtn) {
             e.preventDefault();
             handleBulkAction(bulkBtn.getAttribute('data-bulk-action'), bulkBtn);
+            return;
+        }
+
+        var navBtn = e.target.closest('[data-nav]');
+        if (navBtn && drawer && drawer.contains(navBtn)) {
+            e.preventDefault();
+            navigateDrawer(navBtn.getAttribute('data-nav') === 'prev' ? -1 : 1);
             return;
         }
 
@@ -412,9 +647,57 @@
 
     closeBtn?.addEventListener('click', closeDrawer);
     overlay?.addEventListener('click', closeDrawer);
+
     document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && drawer && !drawer.classList.contains('hidden') && !(dialog && dialog.open)) {
+        if (e.key === 'Tab') tabbed = true;
+        if (e.key === 'Escape') hideTip();
+
+        var modalBlocked = (dialog && dialog.open) || (createDialog && createDialog.open);
+        if (!isDrawerOpen() || modalBlocked) return;
+
+        if (e.key === 'Escape') {
             closeDrawer();
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            navigateDrawer(e.key === 'ArrowLeft' ? -1 : 1);
+        } else if (e.key === 'Tab') {
+            // Keep keyboard focus inside the modal
+            var focusable = Array.prototype.filter.call(
+                drawer.querySelectorAll('button, [href], input, select, [tabindex]:not([tabindex="-1"])'),
+                function (el) { return !el.disabled && el.offsetParent !== null; }
+            );
+            if (focusable.length === 0) return;
+            var first = focusable[0];
+            var last = focusable[focusable.length - 1];
+            if (e.shiftKey && (document.activeElement === first || !drawer.contains(document.activeElement))) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && (document.activeElement === last || !drawer.contains(document.activeElement))) {
+                e.preventDefault();
+                first.focus();
+            }
         }
     });
+
+    // ---- After every AJAX swap of #users-filter / #users-table ---------------
+    document.addEventListener('users:refreshed', function () {
+        loadTableData();
+        hideTip();
+        syncBulkBar(); // swapped-in rows start unchecked; this also resets select-all
+
+        if (isDrawerOpen()) {
+            var u = getUser(currentId);
+            if (u) {
+                fill(u);
+            } else {
+                closeDrawer();
+                toast('That user is no longer in this list.', false);
+            }
+        }
+        if (dialog && dialog.open && pending && pending.ids.some(function (id) { return !getUser(id); })) {
+            dialog.close();
+            toast('The list changed, so the action was cancelled.', false);
+        }
+    });
+
+    syncBulkBar();
 })();

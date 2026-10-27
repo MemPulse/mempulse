@@ -160,6 +160,7 @@
                 </div>
 
                 <!-- DIV: RIGHT COLUMN - Dynamic Action Hero Carousel Container -->
+                
                 <div class="lg:col-span-6 flex w-full min-w-0 h-full">
                     <!-- SECTION: Interactive Carousel Wrapper Shell -->
                     <section class="relative w-full h-full rounded-2xl overflow-hidden shadow-xs border border-outline-variant/30 min-h-[280px] bg-gradient-to-br from-inverse-surface via-slate-900 to-inverse-surface text-inverse-on-surface flex flex-col justify-between" id="hero-carousel" aria-label="Learning Quick Actions Carousel">

@@ -32,18 +32,24 @@ $currentPage = 'users';
 
 $byId = [];
 foreach ($list['rows'] as $row) {
-    $isSelf = $row['id'] === $adminUser['id'];
+    $isSelf = (int) $row['id'] === (int) $adminUser['id'];
     $byId[$row['id']] = $row + [
         'isSelf'  => $isSelf,
         'actions' => $isSelf ? [] : AdminUserActionsService::allowedActions($row['role'], $row['rawStatus'], $row['isDeleted']),
     ];
 }
 
+// Static for the life of the page: set once on a full load.
 $jsPayload = [
-    'users'    => (object) $byId,
-    'order'    => array_column($list['rows'], 'id'),
     'csrf'     => adminCsrfToken(),
     'endpoint' => ADMIN_URL . 'api/user-actions.php',
+];
+
+// Changes on every filter / sort / page / search. Rendered by users-view.php
+// inside #users-table so each AJAX swap carries its own copy.
+$tableData = [
+    'users' => (object) $byId,
+    'order' => array_map('intval', array_column($list['rows'], 'id')),
 ];
 $jsVersion = @filemtime(__DIR__ . '/../assets/js/admin-users.js') ?: time();
 ?>

@@ -49,7 +49,7 @@ $tones = [
 
 $statusBadge = [
     'approved' => 'bg-teal-50 text-teal-700 border-teal-200/80',
-    'pending'  => 'bg-amber-50 text-amber-700 border-amber-200/80',
+    'pending'  => 'bg-rose-50 text-rose-700 border-rose-200/80',
     'rejected' => 'bg-error-container/40 text-error border-error/20',
 ];
 
@@ -73,7 +73,7 @@ $cards = [
 $pendingCount = (int) $m['pendingUsers'];
 $heroSlides = [
     [
-        'badge' => 'bg-amber-500/20 border-amber-500/30 text-amber-200',
+        'badge' => 'bg-rose-500/20 border-rose-500/30 text-rose-200',
         'icon'  => 'how_to_reg',
         'tag'   => 'Approvals',
         'title' => $pendingCount > 0 ? 'Review Pending Accounts' : 'No Accounts Waiting',

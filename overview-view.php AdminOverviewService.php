@@ -63,11 +63,11 @@ $newUsersChip = $m['newUsers7d'] > 0
 $cards = [
     ['accent' => 'primary', 'tag' => 'Users',      'icon' => 'group',  'value' => $fmt($m['totalUsers']),  'caption' => 'Approved Users',
      'tip' => 'Approved accounts that have not been deleted.', 'chip' => $newUsersChip],
-    ['accent' => 'teal',    'tag' => 'Active',     'icon' => 'bolt',   'value' => $fmt($m['activeToday']), 'caption' => 'Active Today · ' . $fmt($m['active7d']) . ' in 7 days',
+    ['accent' => 'rose',    'tag' => 'Active',     'icon' => 'bolt',   'value' => $fmt($m['activeToday']), 'caption' => 'Active Today · ' . $fmt($m['active7d']) . ' in 7 days',
      'tip' => 'Distinct learners who started a study session today.', 'chip' => null],
-    ['accent' => 'indigo',  'tag' => 'Decks',      'icon' => 'style',  'value' => $fmt($m['decks']),       'caption' => 'Active Decks',
+    ['accent' => 'teal',    'tag' => 'Decks',      'icon' => 'style',  'value' => $fmt($m['decks']),       'caption' => 'Active Decks',
      'tip' => 'Decks that have not been deleted, owned by active users.', 'chip' => null],
-    ['accent' => 'rose',    'tag' => 'Flashcards', 'icon' => 'layers', 'value' => $fmt($m['cards']),       'caption' => 'Flashcards Across All Decks',
+    ['accent' => 'primary', 'tag' => 'Flashcards', 'icon' => 'layers', 'value' => $fmt($m['cards']),       'caption' => 'Flashcards Across All Decks',
      'tip' => 'Cards that have not been deleted, in active decks.', 'chip' => null],
 ];
 
@@ -363,7 +363,7 @@ $reviewsChip = AdminOverviewService::percentChip($m['reviews7d'], $m['reviewsPre
                 <div class="mb-3">
                     <div class="flex items-center gap-2">
                         <span class="material-symbols-outlined text-primary text-[22px]" aria-hidden="true">history</span>
-                        <h2 id="sessions-title" class="font-headline-sm text-base font-semibold text-on-surface m-0">Recent Study Sessions</h2>
+                        <h2 id="sessions-title" class="font-headline-sm text-base font-semibold text-on-surface m-0">Recent Review Sessions</h2>
                     </div>
                     <p class="text-[11px] text-on-surface-variant mt-1 ml-7">Completed sessions across the platform</p>
                 </div>
@@ -419,9 +419,8 @@ $reviewsChip = AdminOverviewService::percentChip($m['reviews7d'], $m['reviewsPre
                     <?php endif; ?>
                 </div>
 
-                <div class="flex flex-col gap-2.5 flex-1 justify-center">
-                    <?php if ($pendingUsers): foreach ($pendingUsers as $u): ?>
-                        <div class="<?= $row ?>">
+                        <div class="flex flex-col gap-2.5{ flex-1 justify-start">
+                            <?php if ($pendingUsers): foreach ($pendingUsers as $u): ?>                      <div class="<?= $row ?>">
                             <div class="flex items-center gap-3 min-w-0">
                                 <div class="w-9 h-9 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center flex-shrink-0 text-xs font-bold"><?= adminEsc($initial($u['name'])) ?></div>
                                 <div class="flex flex-col min-w-0">

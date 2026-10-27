@@ -55,19 +55,29 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
 ?>
 
 <style>
-    /* Explicit drawer rules */
+    /* User details: centered modal (id kept as #user-drawer so existing hooks keep working) */
+    #user-drawer-overlay {
+        background: rgba(15, 23, 42, 0.5);
+        backdrop-filter: blur(3px);
+        -webkit-backdrop-filter: blur(3px);
+    }
     #user-drawer {
         position: fixed;
-        top: 0;
-        right: 0;
-        height: 100vh;
-        width: min(100vw, 28rem);
+        top: 50%;
+        left: 50%;
+        width: min(calc(100vw - 1.5rem), 44rem);
+        max-height: min(calc(100vh - 1.5rem), 50rem);
         z-index: 70;
-        transform: translateX(100%);
-        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        opacity: 0;
+        transform: translate(-50%, -47%) scale(0.97);
+        transition: opacity 0.18s ease-out, transform 0.18s ease-out;
     }
     #user-drawer.is-open {
-        transform: translateX(0);
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+    @media (prefers-reduced-motion: reduce) {
+        #user-drawer { transition: none; }
     }
     .admin-users-table {
         table-layout: fixed;
@@ -98,11 +108,11 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-2.5">
-                <button type="button" id="open-create-user-btn" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary hover:opacity-90 text-on-primary text-xs font-semibold shadow-xs transition-opacity">
+                <button type="button" id="open-create-user-btn" data-tip="Create a new user account" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary hover:opacity-90 text-on-primary text-xs font-semibold shadow-xs transition-opacity">
                     <span class="material-symbols-outlined text-[18px]" aria-hidden="true">person_add</span>
                     <span>Add User</span>
                 </button>
-                <a href="<?= adminEsc($exportUrl) ?>" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/30 text-on-surface text-xs font-semibold transition-colors">
+                <a href="<?= adminEsc($exportUrl) ?>" data-tip="Download the current filtered list as CSV" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/30 text-on-surface text-xs font-semibold transition-colors">
                     <span class="material-symbols-outlined text-[18px]" aria-hidden="true">download</span>
                     <span>Export CSV</span>
                 </a>
@@ -242,9 +252,9 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
 
                 <!-- Actions -->
                 <div class="flt-actions">
-                    <button type="submit" class="px-5 py-2 rounded-xl bg-primary text-on-primary text-sm font-semibold hover:opacity-90 transition-opacity h-[38px]">Filter</button>
+                    <button type="submit" title="Apply search and filters" class="px-5 py-2 rounded-xl bg-primary text-on-primary text-sm font-semibold hover:opacity-90 transition-opacity h-[38px]">Filter</button>
                     <?php if ($hasFilters): ?>
-                        <a href="users.php" class="px-4 py-2 rounded-xl bg-surface-container-low hover:bg-surface-container-high text-on-surface text-sm font-semibold transition-colors flex items-center justify-center h-[38px]">Reset</a>
+                        <a href="users.php" title="Clear all filters" class="px-4 py-2 rounded-xl bg-surface-container-low hover:bg-surface-container-high text-on-surface text-sm font-semibold transition-colors flex items-center justify-center h-[38px]">Reset</a>
                     <?php endif; ?>
                 </div>
             </form>
@@ -252,6 +262,12 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
 
         <!-- TABLE CARD -->
         <section id="users-table" class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl shadow-xs overflow-hidden min-w-0" aria-label="User list">
+
+            <?php
+            // Travels with every AJAX swap so admin-users.js never works from stale data.
+            $tableData = $tableData ?? ['users' => new stdClass(), 'order' => []];
+            ?>
+            <script type="application/json" id="users-data"><?= json_encode($tableData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 
             <!-- Bulk Action Toolbar -->
             <div id="bulk-action-bar" class="hidden items-center justify-between gap-3 px-4 py-2.5 bg-primary-fixed/40 border-b border-primary/20">
@@ -261,17 +277,17 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <?php if ($f['status'] === 'deleted'): ?>
-                        <button type="button" data-bulk-action="restore" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-teal-50 border border-teal-200 text-teal-700 text-xs font-bold hover:bg-teal-100 transition-colors">
+                        <button type="button" data-bulk-action="restore" data-tip="Restore the selected users" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-teal-50 border border-teal-200 text-teal-700 text-xs font-bold hover:bg-teal-100 transition-colors">
                             <span class="material-symbols-outlined text-[15px]">restore_from_trash</span>Restore Selected
                         </button>
                     <?php else: ?>
-                        <button type="button" data-bulk-action="approve" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-teal-50 border border-teal-200 text-teal-700 text-xs font-bold hover:bg-teal-100 transition-colors">
+                        <button type="button" data-bulk-action="approve" data-tip="Approve the selected users" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-teal-50 border border-teal-200 text-teal-700 text-xs font-bold hover:bg-teal-100 transition-colors">
                             <span class="material-symbols-outlined text-[15px]">check</span>Approve
                         </button>
-                        <button type="button" data-bulk-action="reject" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-surface-container-lowest border border-outline-variant text-on-surface text-xs font-bold hover:bg-surface-container-low transition-colors">
+                        <button type="button" data-bulk-action="reject" data-tip="Suspend the selected users" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-surface-container-lowest border border-outline-variant text-on-surface text-xs font-bold hover:bg-surface-container-low transition-colors">
                             <span class="material-symbols-outlined text-[15px]">block</span>Suspend
                         </button>
-                        <button type="button" data-bulk-action="delete" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-error-container/40 border border-error/20 text-error text-xs font-bold hover:bg-error-container/70 transition-colors">
+                        <button type="button" data-bulk-action="delete" data-tip="Archive the selected users" class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-error-container/40 border border-error/20 text-error text-xs font-bold hover:bg-error-container/70 transition-colors">
                             <span class="material-symbols-outlined text-[15px]">delete</span>Archive
                         </button>
                     <?php endif; ?>
@@ -311,7 +327,7 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
                                     $icon   = $active ? ($f['dir'] === 'asc' ? 'arrow_upward' : 'arrow_downward') : 'unfold_more';
                                 ?>
                                     <th class="<?= $h['class'] ?> whitespace-nowrap">
-                                        <a href="<?= adminEsc($sortUrls[$key]) ?>" class="inline-flex items-center gap-1 hover:text-on-surface transition-colors">
+                                        <a href="<?= adminEsc($sortUrls[$key]) ?>" data-tip="Sort by <?= adminEsc(strtolower($h['label'])) ?>" class="inline-flex items-center gap-1 hover:text-on-surface transition-colors">
                                             <span><?= adminEsc($h['label']) ?></span>
                                             <span class="material-symbols-outlined text-[14px] <?= $active ? 'text-primary' : 'opacity-40' ?>" aria-hidden="true"><?= $icon ?></span>
                                         </a>
@@ -323,7 +339,7 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
                         <tbody class="divide-y divide-outline-variant/20 text-sm">
                             <?php foreach ($list['rows'] as $r):
                                 $id       = (int) $r['id'];
-                                $isSelf   = $id === $adminUser['id'];
+                                $isSelf   = $id === (int) $adminUser['id'];
                                 $actions  = $isSelf ? [] : AdminUserActionsService::allowedActions($r['role'], $r['rawStatus'], $r['isDeleted']);
                                 $firstChr = mb_strtoupper(mb_substr(trim($r['name']), 0, 1) ?: '?');
                             ?>
@@ -377,17 +393,17 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
                                     <td class="py-3 pl-3 pr-4 text-right whitespace-nowrap" data-no-row>
                                         <div class="inline-flex items-center justify-end gap-1">
                                             <?php if (in_array('approve', $actions, true)): ?>
-                                                <button type="button" data-action="approve" data-user-id="<?= $id ?>" title="Approve" aria-label="Approve <?= adminEsc($r['name']) ?>" class="<?= $iconBtn ?> text-teal-700 hover:bg-teal-50">
+                                                <button type="button" data-action="approve" data-user-id="<?= $id ?>" title="Approve user" aria-label="Approve <?= adminEsc($r['name']) ?>" class="<?= $iconBtn ?> text-teal-700 hover:bg-teal-50">
                                                     <span class="material-symbols-outlined text-[18px]" aria-hidden="true">check</span>
                                                 </button>
                                             <?php endif; ?>
-                                            <?php if ($r['status'] === 'pending' && in_array('reject', $actions, true)): ?>
-                                                <button type="button" data-action="reject" data-user-id="<?= $id ?>" title="Suspend" aria-label="Suspend <?= adminEsc($r['name']) ?>" class="<?= $iconBtn ?> text-on-surface-variant hover:bg-surface-container-high">
+                                            <?php if (in_array('reject', $actions, true)): ?>
+                                                <button type="button" data-action="reject" data-user-id="<?= $id ?>" title="Suspend user" aria-label="Suspend <?= adminEsc($r['name']) ?>" class="<?= $iconBtn ?> text-on-surface-variant hover:bg-surface-container-high">
                                                     <span class="material-symbols-outlined text-[18px]" aria-hidden="true">block</span>
                                                 </button>
                                             <?php endif; ?>
                                             <?php if (in_array('restore', $actions, true)): ?>
-                                                <button type="button" data-action="restore" data-user-id="<?= $id ?>" title="Restore" aria-label="Restore <?= adminEsc($r['name']) ?>" class="<?= $iconBtn ?> text-teal-700 hover:bg-teal-50">
+                                                <button type="button" data-action="restore" data-user-id="<?= $id ?>" title="Restore user" aria-label="Restore <?= adminEsc($r['name']) ?>" class="<?= $iconBtn ?> text-teal-700 hover:bg-teal-50">
                                                     <span class="material-symbols-outlined text-[18px]" aria-hidden="true">restore_from_trash</span>
                                                 </button>
                                             <?php endif; ?>
@@ -446,7 +462,7 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
                                     <?php elseif ($item === $curPage): ?>
                                         <span aria-current="page" class="<?= $pageBtn ?>bg-primary text-on-primary"><?= $item ?></span>
                                     <?php else: ?>
-                                        <a href="<?= adminEsc($pgUrl($item)) ?>" class="<?= $pageBtn ?>text-on-surface-variant hover:bg-surface-container-high hover:text-primary"><?= $item ?></a>
+                                        <a href="<?= adminEsc($pgUrl($item)) ?>" title="Go to page <?= $item ?>" class="<?= $pageBtn ?>text-on-surface-variant hover:bg-surface-container-high hover:text-primary"><?= $item ?></a>
                                     <?php endif; ?>
                                 <?php endforeach; ?>
 
@@ -473,7 +489,7 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
                                 <input id="jump-page" type="number" name="page" min="1" max="<?= $lastPage ?>" value="<?= $curPage ?>" inputmode="numeric" required
                                     class="<?= $input ?> tabular-nums text-center" style="width:72px;height:32px;padding:0 8px;">
                                 <span class="text-xs text-on-surface-variant whitespace-nowrap">of <?= $fmt($lastPage) ?></span>
-                                <button type="submit" class="px-3 h-8 rounded-lg bg-surface-container-low hover:bg-surface-container-high text-on-surface text-xs font-semibold transition-colors">Go</button>
+                                <button type="submit" title="Jump to this page" class="px-3 h-8 rounded-lg bg-surface-container-low hover:bg-surface-container-high text-on-surface text-xs font-semibold transition-colors">Go</button>
                             </form>
                         </div>
                     <?php endif; ?>
@@ -561,6 +577,9 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
                     });
             }
 
+            // Lets admin-users.js re-fetch the current view (e.g. when its data is out of date).
+            window.MemPulseUsersLoader = { reload: function () { load(location.href, false); } };
+
             // Tabs, sort headers, pagination, Reset links
             document.addEventListener('click', function (e) {
                 var a = e.target.closest('a[href]');
@@ -607,21 +626,30 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
     </div>
 </div>
 
-<!-- SLIDE-OVER USER INSPECTOR DRAWER -->
+<!-- USER DETAILS MODAL (centered) -->
 <div id="user-drawer-overlay" class="fixed inset-0 z-[60] hidden opacity-0 transition-opacity drawer-backdrop"></div>
 <aside id="user-drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-name" tabindex="-1"
-       class="hidden bg-surface-container-lowest border-l border-outline-variant/40 shadow-2xl flex flex-col">
+       class="hidden bg-surface-container-lowest border border-outline-variant/40 shadow-2xl rounded-2xl overflow-hidden flex flex-col">
     <div class="flex items-start justify-between gap-3 p-5 border-b border-outline-variant/30">
         <div class="flex items-center gap-3 min-w-0">
-            <div data-field="initial" class="w-11 h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 text-sm font-bold"></div>
+            <div data-field="initial" class="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 text-sm font-bold"></div>
             <div class="flex flex-col min-w-0">
-                <h2 id="drawer-name" data-field="name" class="font-headline-sm text-base font-bold text-on-surface truncate"></h2>
+                <h2 id="drawer-name" data-field="name" class="font-headline-sm text-lg font-bold text-on-surface truncate"></h2>
                 <span data-field="email" class="text-xs text-on-surface-variant truncate"></span>
             </div>
         </div>
-        <button type="button" id="user-drawer-close" aria-label="Close details" class="p-1.5 rounded-lg hover:bg-surface-container-low text-on-surface-variant transition-colors">
-            <span class="material-symbols-outlined text-[22px]" aria-hidden="true">close</span>
-        </button>
+        <div class="flex items-center gap-1 shrink-0">
+            <span data-field="position" class="hidden sm:inline text-[11px] text-on-surface-variant tabular-nums mr-1"></span>
+            <button type="button" data-nav="prev" title="Previous user" aria-label="Previous user" class="p-1.5 rounded-lg hover:bg-surface-container-low text-on-surface-variant transition-colors disabled:opacity-30 disabled:pointer-events-none">
+                <span class="material-symbols-outlined text-[22px]" aria-hidden="true">chevron_left</span>
+            </button>
+            <button type="button" data-nav="next" title="Next user" aria-label="Next user" class="p-1.5 rounded-lg hover:bg-surface-container-low text-on-surface-variant transition-colors disabled:opacity-30 disabled:pointer-events-none">
+                <span class="material-symbols-outlined text-[22px]" aria-hidden="true">chevron_right</span>
+            </button>
+            <button type="button" id="user-drawer-close" title="Close" aria-label="Close details" class="p-1.5 rounded-lg hover:bg-surface-container-low text-on-surface-variant transition-colors">
+                <span class="material-symbols-outlined text-[22px]" aria-hidden="true">close</span>
+            </button>
+        </div>
     </div>
 
     <div class="flex-1 overflow-y-auto p-5 flex flex-col gap-5">
@@ -632,6 +660,7 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
             <span data-field="self" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-md bg-primary/10 text-primary">Your Account</span>
         </div>
 
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
         <!-- 6 Study & Account Telemetry Cards -->
         <div>
             <h3 class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mb-2.5">Account &amp; Study Telemetry</h3>
@@ -655,7 +684,8 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
         <!-- Per-User Admin Audit History -->
         <div>
             <h3 class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mb-2.5">Recent Admin Audit Trail</h3>
-            <div id="drawer-audit-list" class="flex flex-col gap-2"></div>
+            <div id="drawer-audit-list" class="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1"></div>
+        </div>
         </div>
 
         <div class="flex items-start gap-2 p-3 rounded-xl bg-surface-container-low border border-outline-variant/30 text-[11px] text-on-surface-variant leading-snug">
@@ -668,22 +698,22 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
     <div class="p-5 border-t border-outline-variant/30 flex flex-col gap-3 bg-surface-container-lowest">
         <p data-field="locked" class="hidden text-xs text-on-surface-variant leading-snug"></p>
         <div id="drawer-actions" class="flex flex-wrap items-center gap-2">
-            <button type="button" data-action="approve" class="hidden inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary text-on-primary text-xs font-bold hover:opacity-90 disabled:opacity-50 transition-opacity">
+            <button type="button" data-action="approve" title="Approve this account" class="hidden inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary text-on-primary text-xs font-bold hover:opacity-90 disabled:opacity-50 transition-opacity">
                 <span class="material-symbols-outlined text-[16px]">check</span>Approve
             </button>
-            <button type="button" data-action="reject" class="hidden inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-outline-variant text-on-surface text-xs font-bold hover:bg-surface-container-low disabled:opacity-50 transition-colors">
+            <button type="button" data-action="reject" title="Suspend this account" class="hidden inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-outline-variant text-on-surface text-xs font-bold hover:bg-surface-container-low disabled:opacity-50 transition-colors">
                 <span class="material-symbols-outlined text-[16px]">block</span>Suspend
             </button>
-            <button type="button" data-action="restore" class="hidden inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-50 border border-teal-200 text-teal-700 text-xs font-bold hover:bg-teal-100 disabled:opacity-50 transition-colors">
+            <button type="button" data-action="restore" title="Restore this account" class="hidden inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-teal-50 border border-teal-200 text-teal-700 text-xs font-bold hover:bg-teal-100 disabled:opacity-50 transition-colors">
                 <span class="material-symbols-outlined text-[16px]">restore_from_trash</span>Restore Account
             </button>
-            <button type="button" data-action="make_admin" class="hidden inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-primary/30 bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 disabled:opacity-50 transition-colors">
+            <button type="button" data-action="make_admin" title="Give this user administrator access" class="hidden inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-primary/30 bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 disabled:opacity-50 transition-colors">
                 <span class="material-symbols-outlined text-[16px]">shield_person</span>Make Admin
             </button>
-            <button type="button" data-action="make_user" class="hidden inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-outline-variant text-on-surface text-xs font-bold hover:bg-surface-container-low disabled:opacity-50 transition-colors">
+            <button type="button" data-action="make_user" title="Remove administrator access" class="hidden inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-outline-variant text-on-surface text-xs font-bold hover:bg-surface-container-low disabled:opacity-50 transition-colors">
                 <span class="material-symbols-outlined text-[16px]">person</span>Demote to User
             </button>
-            <button type="button" data-action="delete" class="hidden inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-error text-xs font-bold hover:bg-error-container/40 disabled:opacity-50 transition-colors sm:ml-auto">
+            <button type="button" data-action="delete" title="Archive this account" class="hidden inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-error text-xs font-bold hover:bg-error-container/40 disabled:opacity-50 transition-colors sm:ml-auto">
                 <span class="material-symbols-outlined text-[16px]">delete</span>Archive
             </button>
         </div>
@@ -695,7 +725,7 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
     <form id="create-user-form" class="p-6 flex flex-col gap-4" novalidate>
         <div class="flex items-center justify-between">
             <h3 id="create-user-title" class="font-headline-sm text-lg font-bold text-on-surface">Create New User</h3>
-            <button type="button" id="create-user-close" class="p-1 rounded-lg text-on-surface-variant hover:bg-surface-container-low">
+            <button type="button" id="create-user-close" aria-label="Close" class="p-1 rounded-lg text-on-surface-variant hover:bg-surface-container-low">
                 <span class="material-symbols-outlined text-[20px]">close</span>
             </button>
         </div>
@@ -741,15 +771,23 @@ $lastShown  = min($list['pages'], $list['page'] + 2);
     </form>
 </dialog>
 
-<!-- CONFIRM ACTION DIALOG -->
-<dialog id="user-action-dialog" aria-labelledby="user-action-title" class="rounded-2xl p-0 w-full max-w-sm bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-2xl backdrop:bg-black/50 backdrop:backdrop-blur-xs transition-all">
+<!-- CONFIRM ACTION DIALOG (every single and bulk action goes through this) -->
+<dialog id="user-action-dialog" aria-labelledby="user-action-title" aria-describedby="user-action-message" class="rounded-2xl p-0 w-full max-w-md bg-surface-container-lowest text-on-surface border border-outline-variant/30 shadow-2xl backdrop:bg-black/50 backdrop:backdrop-blur-xs">
     <div class="p-6 flex flex-col gap-4">
-        <h3 id="user-action-title" class="font-headline-sm text-lg font-bold text-on-surface tracking-tight"></h3>
-        <p id="user-action-message" class="text-sm text-on-surface-variant font-medium leading-relaxed"></p>
+        <div class="flex items-start gap-3.5">
+            <div id="user-action-icon-wrap" class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-primary/10 text-primary">
+                <span id="user-action-icon" class="material-symbols-outlined text-[22px]" aria-hidden="true">help</span>
+            </div>
+            <div class="flex flex-col gap-1 min-w-0">
+                <h3 id="user-action-title" class="font-headline-sm text-lg font-bold text-on-surface tracking-tight"></h3>
+                <p id="user-action-message" class="text-sm text-on-surface-variant font-medium leading-relaxed"></p>
+            </div>
+        </div>
+        <ul id="user-action-list" class="hidden max-h-40 overflow-y-auto flex-col gap-1 rounded-xl border border-outline-variant/30 bg-surface-container-low p-2.5 text-xs text-on-surface"></ul>
         <p id="user-action-error" role="alert" class="hidden text-xs font-semibold text-error"></p>
         <div class="flex items-center justify-end gap-3 pt-4 border-t border-outline-variant/20">
             <button type="button" id="user-action-cancel" class="px-4 py-2 rounded-xl bg-surface-container-low hover:bg-surface-container-high text-on-surface font-semibold text-sm transition-colors">Cancel</button>
-            <button type="button" id="user-action-confirm" class="inline-flex items-center px-4 py-2 rounded-xl bg-error hover:opacity-90 disabled:opacity-50 text-on-error font-semibold text-sm shadow-sm transition-colors"></button>
+            <button type="button" id="user-action-confirm" class="inline-flex items-center px-4 py-2 rounded-xl bg-primary hover:opacity-90 disabled:opacity-50 text-on-primary font-semibold text-sm shadow-sm transition-colors"></button>
         </div>
     </div>
 </dialog>
