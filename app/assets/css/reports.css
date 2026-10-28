@@ -37,7 +37,7 @@
 
 #rp-filters-tip {
     opacity: 1;
-    background: white;
+    background: var(--primary);
 }
 
 

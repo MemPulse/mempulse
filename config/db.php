@@ -1,9 +1,8 @@
 <?php
-//Connection credentials
-$host = "localhost";
-$user = "root";
-$password = "";
-$database = "mempulse_db";
+$host = getenv('MEMPULSE_DB_HOST') ?: 'localhost';
+$user = getenv('MEMPULSE_DB_USER') ?: 'root';
+$password = getenv('MEMPULSE_DB_PASSWORD') ?: '';
+$database = getenv('MEMPULSE_DB_NAME') ?: 'mempulse_db';
 
 //Connection object
 $conn = mysqli_connect($host, $user, $password, $database);
@@ -15,6 +14,6 @@ if (!$conn) {
 
 //Defining base url
 if (!defined('BASE_URL')) {
-    define('BASE_URL', '/mempulse/app/');
+    define('BASE_URL', getenv('MEMPULSE_APP_BASE_URL') ?: '/mempulse/app/');
 }
 ?>
