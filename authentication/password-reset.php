@@ -165,6 +165,8 @@ mysqli_close($conn);
         label { display: block; margin: 1rem 0 .4rem; font-weight: 600; }
         input { display: block; width: 100%; padding: .8rem .9rem; border: 1px solid #aeb4c9; border-radius: .6rem; font: inherit; }
         input:focus { outline: 3px solid #3525cd30; border-color: #3525cd; }
+        .show-password { display: flex; align-items: center; gap: .5rem; margin-top: .75rem; font-weight: 500; cursor: pointer; }
+        .show-password input { display: inline; width: auto; margin: 0; padding: 0; }
         button { width: 100%; margin-top: 1.25rem; padding: .85rem 1rem; border: 0; border-radius: 999px; background: #3525cd; color: white; font: 700 1rem "Plus Jakarta Sans", sans-serif; cursor: pointer; }
         .notice { padding: .8rem; border-radius: .6rem; background: #fce8e6; color: #a32018; }
         .success { background: #e6f4ea; color: #137333; }
@@ -194,10 +196,24 @@ mysqli_close($conn);
             <input id="password" name="password" type="password" minlength="8" autocomplete="new-password" required>
             <label for="confirm-password">Confirm new password</label>
             <input id="confirm-password" name="confirm_password" type="password" minlength="8" autocomplete="new-password" required>
+            <label class="show-password">
+                <input id="show-passwords" type="checkbox" aria-controls="password confirm-password">
+                Show passwords
+            </label>
             <button type="submit">Update password</button>
         </form>
         <a class="back" href="login.php">Back to login</a>
     <?php endif; ?>
 </main>
+<script>
+    const showPasswords = document.getElementById("show-passwords");
+    if (showPasswords) {
+        showPasswords.addEventListener("change", () => {
+            const type = showPasswords.checked ? "text" : "password";
+            document.getElementById("password").type = type;
+            document.getElementById("confirm-password").type = type;
+        });
+    }
+</script>
 </body>
 </html>
